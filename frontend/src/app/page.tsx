@@ -6,7 +6,7 @@ import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/nextjs'
 export default function Home() {
   // This checks connection silently
   useEffect(() => {
-    fetch("http://localhost:8000/api/hello")
+    fetch("http://localhost:8000/api/status")
       .then((res) => res.json())
       .then((data) => {
         console.log("✅ Backend connected:", data.message)
