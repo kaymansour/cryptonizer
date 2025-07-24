@@ -53,6 +53,8 @@ async def get_crypto_data(symbol: str):
             "last_updated": market_data['last_updated'],
             "image": market_data['image']['large']
         }
+
+
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

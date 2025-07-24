@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
 import Header from "@/components/Header";
 import TopBanner from "@/components/TopBanner";
+import Chatbot from "@/components/chatbot";
 
 interface CryptoData {
   name: string;
@@ -221,6 +222,8 @@ export default function Home() {
           </div>
         </SignedIn>
       </main>
+
+      <Chatbot />
     </div>
   );
 }
