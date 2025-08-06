@@ -1,6 +1,5 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-
 import requests
 
 app = FastAPI()
@@ -13,6 +12,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+from models.crypto_predictor import predict_crypto as predict_future_prices
 
 @app.get("/api/status")
 def read_root():
@@ -54,9 +54,21 @@ async def get_crypto_data(symbol: str):
             "image": market_data['image']['large']
         }
 
+    
+
 
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@app.get("/predict/{symbol}")
+def predict(symbol: str):
+    try:
+        result = predict_future_prices(symbol.upper())
+        return result
+    except ValueError as ve:
+        raise HTTPException(status_code=404, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
