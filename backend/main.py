@@ -13,7 +13,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 from models.crypto_predictor import predict_crypto as predict_future_prices
-
 @app.get("/api/status")
 def read_root():
     return {"message": "Hello from FastAPI"}
