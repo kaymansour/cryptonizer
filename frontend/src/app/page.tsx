@@ -25,6 +25,7 @@ import Header from "@/components/Header";
 import TopBanner from "@/components/TopBanner";
 import Chatbot from "@/components/chatbot";
 import Loading from "@/components/loading";
+import Backtomain from "@/components/backtomain";
 
 interface CryptoData {
   name: string;
@@ -128,8 +129,8 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-indigo-900 text-white">
-      <Header />
-      <TopBanner onSearch={handleSearch} />
+  
+     
 
       <main className="container mx-auto p-4">
         {backendStatus === "loading" && (
@@ -158,56 +159,66 @@ export default function Home() {
         </SignedOut>
 
         <SignedIn>
-          <div className="flex flex-col items-center space-y-6 w-full">
+          <div className="flex flex-col items-center space-y-4 w-full">
+        
 
             {cryptoData && (
-              <div className="mt-8 bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 max-w-2xl w-full border border-indigo-500/30">
-                <div className="flex items-center mb-6">
-                  <img src={cryptoData.image} alt={cryptoData.name} className="h-16 w-16 mr-4" />
-                  <div>
-                    <h2 className="text-2xl font-bold">
-                      {cryptoData.name} ({cryptoData.symbol.toUpperCase()})
-                    </h2>
-                    <p className="text-gray-400 text-sm">
-                      Last updated: {new Date(cryptoData.last_updated).toLocaleString()}
-                    </p>
-                  </div>
+              <>
+                <div className="flex items-center justify-center mt-8 mb-4 space-x-4">
+              <Backtomain />
+                  <h2 className="text-3xl font-bold text-center m-0">
+                    coingecko prediction for {cryptoData.name} ({cryptoData.symbol.toUpperCase()})
+                  </h2>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-gray-700/50 p-4 rounded-lg">
-                    <h3 className="text-gray-300 text-sm mb-1">Current Price</h3>
-                    <p className="text-2xl font-bold">{formatNumber(cryptoData.current_price)}</p>
+                <div className="mt-8 bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 max-w-2xl w-full border border-indigo-500/30">
+                  <div className="flex items-center mb-6">
+                    <img src={cryptoData.image} alt={cryptoData.name} className="h-16 w-16 mr-4" />
+                    <div>
+                      <h2 className="text-2xl font-bold">
+                        {cryptoData.name} ({cryptoData.symbol.toUpperCase()})
+                      </h2>
+                      <p className="text-gray-400 text-sm">
+                        Last updated: {new Date(cryptoData.last_updated).toLocaleString()}
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="bg-gray-700/50 p-4 rounded-lg">
-                    <h3 className="text-gray-300 text-sm mb-1">24h Change</h3>
-                    <p className={`text-2xl font-bold ${
-                      cryptoData.price_change_percentage_24h >= 0 ? 'text-green-500' : 'text-red-500'
-                    }`}>
-                      {formatPercentage(cryptoData.price_change_percentage_24h)}
-                    </p>
-                    <p className="text-sm mt-1">
-                      {cryptoData.price_change_24h >= 0 ? '+' : ''}
-                      {formatNumber(cryptoData.price_change_24h)}
-                    </p>
-                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-gray-700/50 p-4 rounded-lg">
+                      <h3 className="text-gray-300 text-sm mb-1">Current Price</h3>
+                      <p className="text-2xl font-bold">{formatNumber(cryptoData.current_price)}</p>
+                    </div>
 
-                  <div className="bg-gray-700/50 p-4 rounded-lg">
-                    <h3 className="text-gray-300 text-sm mb-1">Market Cap</h3>
-                    <p className="text-xl">{formatNumber(cryptoData.market_cap)}</p>
-                    <p className="text-sm mt-1 text-gray-400">Rank: #1</p>
-                  </div>
+                    <div className="bg-gray-700/50 p-4 rounded-lg">
+                      <h3 className="text-gray-300 text-sm mb-1">24h Change</h3>
+                      <p className={`text-2xl font-bold ${
+                        cryptoData.price_change_percentage_24h >= 0 ? 'text-green-500' : 'text-red-500'
+                      }`}>
+                        {formatPercentage(cryptoData.price_change_percentage_24h)}
+                      </p>
+                      <p className="text-sm mt-1">
+                        {cryptoData.price_change_24h >= 0 ? '+' : ''}
+                        {formatNumber(cryptoData.price_change_24h)}
+                      </p>
+                    </div>
 
-                  <div className="bg-gray-700/50 p-4 rounded-lg">
-                    <h3 className="text-gray-300 text-sm mb-1">24h Volume</h3>
-                    <p className="text-xl">{formatNumber(cryptoData.total_volume)}</p>
-                    <p className="text-sm mt-1 text-gray-400">
-                      Volume/Market Cap: {((cryptoData.total_volume / cryptoData.market_cap) * 100).toFixed(2)}%
-                    </p>
+                    <div className="bg-gray-700/50 p-4 rounded-lg">
+                      <h3 className="text-gray-300 text-sm mb-1">Market Cap</h3>
+                      <p className="text-xl">{formatNumber(cryptoData.market_cap)}</p>
+                      <p className="text-sm mt-1 text-gray-400">Rank: #1</p>
+                    </div>
+
+                    <div className="bg-gray-700/50 p-4 rounded-lg">
+                      <h3 className="text-gray-300 text-sm mb-1">24h Volume</h3>
+                      <p className="text-xl">{formatNumber(cryptoData.total_volume)}</p>
+                      <p className="text-sm mt-1 text-gray-400">
+                        Volume/Market Cap: {((cryptoData.total_volume / cryptoData.market_cap) * 100).toFixed(2)}%
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </>
             )}
 
             {loading && (<Loading />)}
@@ -320,62 +331,9 @@ export default function Home() {
               </div>
             )}
 
-            {/* ✅ Base64 Image Plots */}
-            {prediction && (
-              <div className="mt-10 space-y-8">
-                <h4 className="text-xl font-bold text-cyan-300">Model Visualizations</h4>
-
-                <div className="bg-gray-900 p-4 rounded-lg shadow-lg">
-                  <h5 className="text-white mb-2 font-semibold">Raw Close Price</h5>
-                  <img
-                    src={`data:image/png;base64,${prediction.plots.close_price}`}
-                    alt="Close Price"
-                    className="w-full rounded"
-                  />
-                </div>
-
-                <div className="bg-gray-900 p-4 rounded-lg shadow-lg">
-                  <h5 className="text-white mb-2 font-semibold">Moving Averages</h5>
-                  <img
-                    src={`data:image/png;base64,${prediction.plots.moving_average}`}
-                    alt="Moving Averages"
-                    className="w-full rounded"
-                  />
-                </div>
-
-                <div className="bg-gray-900 p-4 rounded-lg shadow-lg">
-                  <h5 className="text-white mb-2 font-semibold">Prediction vs Actual</h5>
-                  <img
-                    src={`data:image/png;base64,${prediction.plots.prediction}`}
-                    alt="Prediction"
-                    className="w-full rounded"
-                  />
-                </div>
-
-                <div className="bg-gray-900 p-4 rounded-lg shadow-lg">
-                  <h5 className="text-white mb-2 font-semibold">Future Forecast (10 days)</h5>
-                  <img
-                    src={`data:image/png;base64,${prediction.plots.future}`}
-                    alt="Future Forecast"
-                    className="w-full rounded"
-                  />
-                </div>
-              </div>
-            )}
-
+        
             {!cryptoData && !loading && backendStatus === "success" && (
-              <div className="mt-12 text-center max-w-2xl">
-                <div className="bg-gradient-to-r from-cyan-700/20 to-blue-800/20 rounded-xl p-8 border border-cyan-500/30">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-cyan-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  <h3 className="text-xl font-bold text-cyan-400 mb-2">Search for Cryptocurrency</h3>
-                  <p className="text-gray-400">
-                    Enter a cryptocurrency symbol (e.g., bitcoin, ethereum) in the search bar above 
-                    to get real-time market data.
-                  </p>
-                </div>
-              </div>
+               <TopBanner onSearch={handleSearch} />
             )}
           </div>
         </SignedIn>
