@@ -24,6 +24,7 @@ import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 import Header from "@/components/Header";
 import TopBanner from "@/components/TopBanner";
 import Chatbot from "@/components/chatbot";
+import Loading from "@/components/loading";
 
 interface CryptoData {
   name: string;
@@ -158,18 +159,6 @@ export default function Home() {
 
         <SignedIn>
           <div className="flex flex-col items-center space-y-6 w-full">
-            {loading && (
-              <div className="mt-8 text-center">
-                <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-cyan-500"></div>
-                <p className="mt-2 text-cyan-300">Fetching crypto data...</p>
-              </div>
-            )}
-
-            {error && (
-              <div className="mt-8 p-4 bg-red-900/50 rounded-xl max-w-2xl mx-auto text-center">
-                <p className="text-red-300">{error}</p>
-              </div>
-            )}
 
             {cryptoData && (
               <div className="mt-8 bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 max-w-2xl w-full border border-indigo-500/30">
@@ -220,6 +209,15 @@ export default function Home() {
                 </div>
               </div>
             )}
+
+            {loading && (<Loading />)}
+
+            {error && (
+              <div className="mt-8 p-4 bg-red-900/50 rounded-xl max-w-2xl mx-auto text-center">
+                <p className="text-red-300">{error}</p>
+              </div>
+            )}
+
 
             {/* ✅ PREDICTION DISPLAY */}
             {prediction && (
