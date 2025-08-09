@@ -26,6 +26,8 @@ async def get_crypto_data(symbol: str):
     try:
         # Get coin ID from symbol
         search_url = f"https://api.coingecko.com/api/v3/search?query={symbol}"
+        print(f"Searching for cryptocurrency: {symbol}")
+        print(f"Search URL: {search_url}")
         search_response = requests.get(search_url)
         search_data = search_response.json()
         
