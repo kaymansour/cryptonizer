@@ -73,3 +73,33 @@ def predict(symbol: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/coins")
+def get_coins():
+    try:
+        url = "https://api.coingecko.com/api/v3/coins/markets"
+        response = requests.get(url, params={
+            "vs_currency": "usd",
+            "order": "market_cap_desc",
+            "per_page": 50,  # show top 50 coins
+            "page": 1,
+            "sparkline": False
+        })
+        data = response.json()
+
+        # Simplify response
+        coins = [
+            {
+                "id": coin["id"],
+                "symbol": coin["symbol"],
+                "name": coin["name"],
+                "image": coin["image"],
+                "current_price": coin["current_price"],
+                "market_cap": coin["market_cap"],
+                "price_change_percentage_24h": coin["price_change_percentage_24h"],
+            }
+            for coin in data
+        ]
+        return coins
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

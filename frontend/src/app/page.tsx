@@ -1,345 +1,175 @@
 "use client";
-import {
-  Chart as ChartJS,
-  LineElement,
-  PointElement,
-  CategoryScale,
-  LinearScale,
-  Tooltip,
-  Legend,
-} from "chart.js";
-import { Line } from "react-chartjs-2";
 
-ChartJS.register(
-  LineElement,
-  PointElement,
-  CategoryScale,
-  LinearScale,
-  Tooltip,
-  Legend
-);
+import { useEffect, useState, useRef } from "react";
+import { useRouter } from "next/navigation"; // Next.js 13+ App Router
+import { Sparklines, SparklinesLine } from "react-sparklines";
 
-import { useEffect, useState } from "react";
-import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
-import Header from "@/components/Header";
-import TopBanner from "@/components/TopBanner";
-import Chatbot from "@/components/chatbot";
-import Loading from "@/components/loading";
-import Backtomain from "@/components/backtomain";
-
-interface CryptoData {
-  name: string;
+interface Coin {
+  id: string;
   symbol: string;
-  current_price: number;
-  market_cap: number;
-  total_volume: number;
-  price_change_24h: number;
-  price_change_percentage_24h: number;
-  last_updated: string;
+  name: string;
   image: string;
+  current_price: number;
+  price_change_percentage_24h: number;
+  sparkline_in_24h?: number[];
 }
 
-interface PredictionData {
-  history: {
-    dates: string[];
-    actual: number[];
-    predicted: number[];
-  };
-  future: {
-    days: number[];
-    prices: number[];
-    trend: string;
-  };
-  plots: {
-    close_price: string;
-    moving_average: string;
-    prediction: string;
-    future: string;
-  };
-}
+export default function HomePage() {
+  const [coins, setCoins] = useState<Coin[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const router = useRouter();
+  const prevPrices = useRef<Map<string, number>>(new Map());
 
-export default function Home() {
-  const [backendStatus, setBackendStatus] = useState<"loading" | "success" | "error">("loading");
-  const [cryptoData, setCryptoData] = useState<CryptoData | null>(null);
-  const [prediction, setPrediction] = useState<PredictionData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch("http://localhost:8000/api/status")
-      .then((res) => {
-        if (!res.ok) throw new Error("Backend not responding");
-        return res.json();
-      })
-      .then((data) => {
-        console.log("✅ Backend connected:", data.message);
-        setBackendStatus("success");
-      })
-      .catch((err) => {
-        console.error("❌ Backend connection failed", err);
-        setBackendStatus("error");
-      });
-  }, []);
-
-  const handleSearch = async (symbol: string) => {
-    setLoading(true);
-    setError(null);
-    setPrediction(null);
-
+  const fetchCoins = async () => {
     try {
-      const response = await fetch(`http://localhost:8000/crypto/${symbol}`);
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch cryptocurrency data');
-      }
-      const data: CryptoData = await response.json();
-      setCryptoData(data);
+      const res = await fetch("http://localhost:8000/coins");
+      const data: Coin[] = await res.json();
 
-      const predictionRes = await fetch(`http://localhost:8000/predict/${symbol}`);
-      if (!predictionRes.ok) {
-        const errorData = await predictionRes.json();
-        throw new Error(errorData.error || 'Failed to fetch prediction');
-      }
-      const predictionData: PredictionData = await predictionRes.json();
-      setPrediction(predictionData);
+      let changed = false;
+      data.forEach((coin) => {
+        if (prevPrices.current.has(coin.id) && prevPrices.current.get(coin.id) !== coin.current_price) {
+          changed = true;
+        }
+        prevPrices.current.set(coin.id, coin.current_price);
+      });
 
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch data');
-      setCryptoData(null);
-      setPrediction(null);
+      setCoins(data);
+
+      if (changed) {
+        setTimeout(() => window.location.reload(), 1000);
+      }
+    } catch (err) {
+      console.error("Error fetching coins:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  const formatNumber = (num: number) =>
-    new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      maximumFractionDigits: num < 1 ? 6 : 2,
-    }).format(num);
+  useEffect(() => {
+    fetchCoins();
+    const interval = setInterval(fetchCoins, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
-  const formatPercentage = (num: number) =>
-    new Intl.NumberFormat('en-US', {
-      style: 'percent',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-      signDisplay: 'exceptZero',
-    }).format(num / 100);
+  const filteredCoins = coins.filter(
+    (coin) =>
+      coin.name.toLowerCase().includes(search.toLowerCase()) ||
+      coin.symbol.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const goToPrediction = (symbol: string) => router.push(`/predict/${symbol.toLowerCase()}`);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-indigo-900 text-white">
-  
-     
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-indigo-900 to-purple-900 text-white py-8">
+      <main className="container mx-auto px-6">
+        {/* Search */}
+        <div className="mb-8 flex justify-center">
+          <input
+            type="text"
+            placeholder="Search by name or symbol..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="p-3 rounded-xl w-full max-w-md bg-gray-800/40 text-white placeholder-gray-400 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-cyan-400 transition"
+          />
+        </div>
 
-      <main className="container mx-auto p-4">
-        {backendStatus === "loading" && (
-          <p className="text-center text-gray-400">Checking backend connection...</p>
-        )}
-        {backendStatus === "error" && (
-          <p className="text-center text-red-500 font-semibold">
-            Error: Could not connect to backend. Make sure FastAPI is running on port 8000.
-          </p>
+        {loading && (
+          <p className="text-gray-300 text-center animate-pulse">Loading coins...</p>
         )}
 
-        <SignedOut>
-          <div className="mt-20 flex flex-col items-center space-y-6">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-              Crypto Dashboard
-            </h1>
-            <p className="text-gray-300 max-w-md text-center">
-              Sign in to access real-time cryptocurrency data and track market movements.
-            </p>
-            <SignInButton>
-              <button className="mt-4 px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-700 text-white rounded-xl hover:from-cyan-700 hover:to-blue-800 transition font-semibold">
-                Sign In
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {filteredCoins.map((coin) => (
+            <div
+              key={coin.id}
+              className={`relative bg-white/10 backdrop-blur-xl p-6 rounded-3xl shadow-xl border-l-4 transition-transform transform hover:scale-105 hover:shadow-2xl hover:border-cyan-400 duration-300 ${
+                coin.price_change_percentage_24h >= 0 ? "border-green-400" : "border-red-400"
+              }`}
+            >
+              <div className="flex justify-center mb-4">
+                <img
+                  src={coin.image}
+                  alt={coin.name}
+                  className="h-16 w-16 rounded-full border-2 border-gray-600 p-1 shadow-md"
+                />
+              </div>
+
+              <h2 className="text-xl font-bold text-center mb-2">
+                {coin.name} ({coin.symbol.toUpperCase()})
+              </h2>
+
+              {/* Sparkline */}
+              <div className="mb-4">
+                {coin.sparkline_in_24h && (
+                  <Sparklines data={coin.sparkline_in_24h} width={120} height={40} margin={5}>
+                    <SparklinesLine
+                      color={coin.price_change_percentage_24h >= 0 ? "#34d399" : "#f87171"}
+                      style={{ strokeWidth: 3, fill: "rgba(255,255,255,0.05)" }}
+                    />
+                  </Sparklines>
+                )}
+              </div>
+
+              {/* Price */}
+              <p
+                className={`text-center font-extrabold text-2xl mb-1 ${
+                  prevPrices.current.get(coin.id) !== coin.current_price ? "animate-pulse text-yellow-400" : ""
+                }`}
+              >
+                ${coin.current_price.toLocaleString()}
+              </p>
+
+              {/* 24h Change */}
+              <p
+                className={`text-center font-semibold mb-2 flex justify-center items-center gap-2 ${
+                  coin.price_change_percentage_24h >= 0 ? "text-green-400" : "text-red-400"
+                }`}
+              >
+                {coin.price_change_percentage_24h >= 0 ? "⬆️" : "⬇️"}{" "}
+                {coin.price_change_percentage_24h.toFixed(2)}% (24h)
+              </p>
+
+              {/* Progress Bar */}
+              <div className="h-2 w-full rounded-full bg-gray-700/30 overflow-hidden mb-4">
+                <div
+                  className={`h-2 rounded-full ${
+                    coin.price_change_percentage_24h >= 0 ? "bg-green-400" : "bg-red-400"
+                  }`}
+                  style={{
+                    width: `${Math.min(Math.abs(coin.price_change_percentage_24h), 100)}%`,
+                    transition: "width 0.5s ease",
+                  }}
+                />
+              </div>
+
+              {/* Prediction Button */}
+              <button
+                onClick={() => goToPrediction(coin.symbol)}
+                className="w-full py-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-semibold rounded-2xl shadow-lg transition"
+              >
+                View Prediction
               </button>
-            </SignInButton>
-          </div>
-        </SignedOut>
-
-        <SignedIn>
-          <div className="flex flex-col items-center space-y-4 w-full">
-        
-
-            {cryptoData && (
-              <>
-                <div className="flex items-center justify-center mt-8 mb-4 space-x-4">
-              <Backtomain />
-                  <h2 className="text-3xl font-bold text-center m-0">
-                    coingecko prediction for {cryptoData.name} ({cryptoData.symbol.toUpperCase()})
-                  </h2>
-                </div>
-
-                <div className="mt-8 bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 max-w-2xl w-full border border-indigo-500/30">
-                  <div className="flex items-center mb-6">
-                    <img src={cryptoData.image} alt={cryptoData.name} className="h-16 w-16 mr-4" />
-                    <div>
-                      <h2 className="text-2xl font-bold">
-                        {cryptoData.name} ({cryptoData.symbol.toUpperCase()})
-                      </h2>
-                      <p className="text-gray-400 text-sm">
-                        Last updated: {new Date(cryptoData.last_updated).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-gray-700/50 p-4 rounded-lg">
-                      <h3 className="text-gray-300 text-sm mb-1">Current Price</h3>
-                      <p className="text-2xl font-bold">{formatNumber(cryptoData.current_price)}</p>
-                    </div>
-
-                    <div className="bg-gray-700/50 p-4 rounded-lg">
-                      <h3 className="text-gray-300 text-sm mb-1">24h Change</h3>
-                      <p className={`text-2xl font-bold ${
-                        cryptoData.price_change_percentage_24h >= 0 ? 'text-green-500' : 'text-red-500'
-                      }`}>
-                        {formatPercentage(cryptoData.price_change_percentage_24h)}
-                      </p>
-                      <p className="text-sm mt-1">
-                        {cryptoData.price_change_24h >= 0 ? '+' : ''}
-                        {formatNumber(cryptoData.price_change_24h)}
-                      </p>
-                    </div>
-
-                    <div className="bg-gray-700/50 p-4 rounded-lg">
-                      <h3 className="text-gray-300 text-sm mb-1">Market Cap</h3>
-                      <p className="text-xl">{formatNumber(cryptoData.market_cap)}</p>
-                      <p className="text-sm mt-1 text-gray-400">Rank: #1</p>
-                    </div>
-
-                    <div className="bg-gray-700/50 p-4 rounded-lg">
-                      <h3 className="text-gray-300 text-sm mb-1">24h Volume</h3>
-                      <p className="text-xl">{formatNumber(cryptoData.total_volume)}</p>
-                      <p className="text-sm mt-1 text-gray-400">
-                        Volume/Market Cap: {((cryptoData.total_volume / cryptoData.market_cap) * 100).toFixed(2)}%
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {loading && (<Loading />)}
-
-            {error && (
-              <div className="mt-8 p-4 bg-red-900/50 rounded-xl max-w-2xl mx-auto text-center">
-                <p className="text-red-300">{error}</p>
-              </div>
-            )}
-
-
-            {/* ✅ PREDICTION DISPLAY */}
-            {prediction && (
-              <div className="mt-8 bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 max-w-4xl w-full border border-indigo-500/30">
-                <h3 className="text-2xl font-bold mb-6 text-cyan-300">Price Predictions</h3>
-
-                {/* Actual vs Predicted */}
-                <div className="mb-10">
-                  <h4 className="text-lg font-semibold text-white mb-2">Actual vs Predicted Price</h4>
-                  <Line
-                    data={{
-                      labels: prediction.history.dates,
-                      datasets: [
-                        {
-                          label: "Actual Price",
-                          data: prediction.history.actual,
-                          borderColor: "green",
-                          fill: false,
-                          tension: 0.4,
-                        },
-                        {
-                          label: "Predicted Price",
-                          data: prediction.history.predicted,
-                          borderColor: "red",
-                          fill: false,
-                          tension: 0.4,
-                        },
-                      ],
-                    }}
-                    options={{
-                      responsive: true,
-                      plugins: {
-                        legend: { labels: { color: "white" } },
-                      },
-                      scales: {
-                        x: { ticks: { color: "white" } },
-                        y: { ticks: { color: "white" } },
-                      },
-                    }}
-                  />
-                </div>
-
-                {/* Future Forecast */}
-                <div className="mb-6">
-                  <h4 className="text-lg font-semibold text-white mb-2">10-Day Forecast</h4>
-                  <Line
-                    data={{
-                      labels: prediction.future.days.map((day) => `Day ${day}`),
-                      datasets: [
-                        {
-                          label: "Future Price",
-                          data: prediction.future.prices,
-                          borderColor: "purple",
-                          fill: false,
-                          tension: 0.4,
-                        },
-                      ],
-                    }}
-                    options={{
-                      responsive: true,
-                      plugins: {
-                        legend: { labels: { color: "white" } },
-                      },
-                      scales: {
-                        x: { ticks: { color: "white" } },
-                        y: { ticks: { color: "white" } },
-                      },
-                    }}
-                  />
-                </div>
-
-                {/* Table */}
-                <div className="mt-6">
-                  <h4 className="text-lg font-semibold text-white mb-2">Future Prices Table</h4>
-                  <table className="w-full table-auto text-left text-white border border-indigo-700">
-                    <thead className="bg-indigo-700/50">
-                      <tr>
-                        <th className="px-4 py-2">Day</th>
-                        <th className="px-4 py-2">Predicted Price (USD)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {prediction.future.days.map((day, i) => (
-                        <tr key={day} className="border-t border-indigo-700/30">
-                          <td className="px-4 py-2">Day {day}</td>
-                          <td className="px-4 py-2 font-semibold">${prediction.future.prices[i].toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Trend */}
-                <div className="mt-4 text-lg">
-                  <strong className="text-cyan-400">Trend:</strong>{" "}
-                  <span className={prediction.future.trend === "increase" ? "text-green-400" : "text-red-400"}>
-                    {prediction.future.trend === "increase" ? "⬆️ Increase" : "⬇️ Decrease"}
-                  </span>
-                </div>
-              </div>
-            )}
-
-        
-            {!cryptoData && !loading && backendStatus === "success" && (
-               <TopBanner onSearch={handleSearch} />
-            )}
-          </div>
-        </SignedIn>
+            </div>
+          ))}
+        </div>
       </main>
 
-      <Chatbot />
+      {/* Animations */}
+      <style jsx>{`
+        .animate-fade-in {
+          animation: fadeIn 0.8s ease forwards;
+        }
+        @keyframes fadeIn {
+          0% {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
     </div>
   );
 }
