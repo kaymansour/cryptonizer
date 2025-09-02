@@ -17,6 +17,12 @@ export default function Header() {
             Home
           </a>
           <a
+            href="/predicts"
+            className="px-4 py-2 rounded-lg text-gray-200 font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-400 hover:text-lg"
+          >
+            Predict
+          </a>
+          <a
             href="/about"
             className="px-4 py-2 rounded-lg text-gray-200 font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-400 hover:text-lg"
           >
@@ -24,9 +30,9 @@ export default function Header() {
           </a>
           <a
             href="/chatbot"
-            className="px-4 py-2 rounded-lg text-gray-200  font-semibold transition-colors duration-200  focus:outline-none focus:ring-2 focus:ring-cyan-400 hover:text-lg"
+            className="px-4 py-2 rounded-lg text-gray-200 font-semibold transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-400 hover:text-lg"
           >
-          Ai agent
+            AI Agent
           </a>
         </nav>
         <div className="ml-6">
