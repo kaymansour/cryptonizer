@@ -2,7 +2,7 @@ import React from 'react'
 
 export default function Backtomain() {
   return (
-             <a
+            <a
                     href="/"
                     className="flex items-center text-cyan-400 hover:text-cyan-300 transition mr-4 group"
                   >
