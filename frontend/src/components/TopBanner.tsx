@@ -1,5 +1,3 @@
-// src/components/TopBanner.tsx
-
 interface TopBannerProps {
   onSearch: (symbol: string) => void;
 }
