@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { UserButton } from "@clerk/nextjs";
 import Link from "next/dist/client/link";
 
