@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { UserButton } from "@clerk/nextjs";
+import Link from "next/dist/client/link";
 
 export default function Header() {
   return (
