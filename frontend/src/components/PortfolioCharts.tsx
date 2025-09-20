@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PieChart, TrendingUp, BarChart3 } from 'lucide-react';
 
 interface OptimizationResult {
-  optimization: {
+  portfolio: {
     weights: Record<string, number>;
     expected_return: number;
     volatility: number;
@@ -177,12 +177,12 @@ const LineChartComponent = ({ data }: { data: Array<{ x: number; y: number }> })
 
 export default function PortfolioCharts({ result }: PortfolioChartsProps) {
   // Prepare pie chart data
-  const pieData = Object.entries(result.optimization.weights)
-    .filter(([, weight]) => weight > 0.001)
+  const pieData = Object.entries(result.portfolio.weights)
+    .filter(([, weight]) => (weight as number) > 0.001)
     .map(([symbol, weight], index) => ({
       name: symbol,
-      value: weight * 100,
-      color: `hsl(${index * 360 / Object.keys(result.optimization.weights).length}, 70%, 50%)`
+      value: (weight as number) * 100,
+      color: `hsl(${index * 360 / Object.keys(result.portfolio.weights).length}, 70%, 50%)`
     }));
 
   // Prepare efficient frontier data
@@ -249,7 +249,7 @@ export default function PortfolioCharts({ result }: PortfolioChartsProps) {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="text-center p-4 bg-green-50 rounded-lg border">
               <div className="text-2xl font-bold text-green-600">
-                {(result.optimization.expected_return * 100).toFixed(1)}%
+                {(result.portfolio.expected_return * 100).toFixed(1)}%
               </div>
               <div className="text-sm font-medium text-green-800">Expected Return</div>
               <div className="text-xs text-green-600 mt-1">Annual</div>
@@ -257,7 +257,7 @@ export default function PortfolioCharts({ result }: PortfolioChartsProps) {
             
             <div className="text-center p-4 bg-blue-50 rounded-lg border">
               <div className="text-2xl font-bold text-blue-600">
-                {(result.optimization.volatility * 100).toFixed(1)}%
+                {(result.portfolio.volatility * 100).toFixed(1)}%
               </div>
               <div className="text-sm font-medium text-blue-800">Volatility</div>
               <div className="text-xs text-blue-600 mt-1">Risk Measure</div>
@@ -265,7 +265,7 @@ export default function PortfolioCharts({ result }: PortfolioChartsProps) {
             
             <div className="text-center p-4 bg-purple-50 rounded-lg border">
               <div className="text-2xl font-bold text-purple-600">
-                {result.optimization.sharpe_ratio.toFixed(2)}
+                {result.portfolio.sharpe_ratio.toFixed(2)}
               </div>
               <div className="text-sm font-medium text-purple-800">Sharpe Ratio</div>
               <div className="text-xs text-purple-600 mt-1">Risk-Adjusted</div>
