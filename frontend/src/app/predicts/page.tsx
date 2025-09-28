@@ -22,7 +22,6 @@ ChartJS.register(
 import { useEffect, useState } from "react";
 import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 import TopBanner from "@/components/TopBanner";
-import Chatbot from "@/components/chatbot";
 import Loading from "@/components/loading";
 import Backtomain from "@/components/backtomain";
 

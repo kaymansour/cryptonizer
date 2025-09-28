@@ -1,15 +1,17 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useCoin } from "@/hooks/useCoin";
+import { useCoin } from "@/hooks/useCoinDetails";
 import CoinDetail from "@/components/CoinDetail";
 
 export default function CoinPage() {
   const searchParams = useSearchParams();
-  const id = searchParams.get("id");
-  const currency = searchParams.get("currency") as "usd" | "bhd" || "usd";
-  
-  const { coin, loading, error } = useCoin(id);
+  const id = searchParams.get("id");        // coin id
+  const symbol = searchParams.get("symbol"); // optional coin symbol
+  const currency = (searchParams.get("currency") as "usd" | "bhd") || "usd";
+
+  // Pass either id or symbol to your hook
+  const { coin, loading, error } = useCoin(id || symbol);
 
   if (loading) return <p className="text-white p-8">Loading...</p>;
   if (error) return <p className="text-white p-8">Error: {error}</p>;
