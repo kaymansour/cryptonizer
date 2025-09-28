@@ -36,9 +36,11 @@ export default function HomePage() {
     });
 
   // -------------------- Navigation --------------------
-  // Use query params to navigate to the CoinDetail component page
-  const goToDetails = (id: string) => {
-    router.push(`/coin?id=${id}&currency=${currency}`);
+  const goToDetails = (coin: Coin) => {
+    // Pass both id and symbol in query parameters
+    router.push(
+      `/coin?id=${coin.id}&symbol=${coin.symbol}&currency=${currency}`
+    );
   };
 
   // -------------------- Render --------------------
@@ -65,7 +67,7 @@ export default function HomePage() {
               key={coin.id}
               coin={coin}
               currency={currency}
-              onViewDetails={() => goToDetails(coin.id)}
+              onViewDetails={() => goToDetails(coin)}
               isTopGainer={index === 0}
             />
           ))}
