@@ -34,39 +34,6 @@ CACHE_TTL_COIN_DETAIL = 300    # Cache individual coin details for 5 minutes
 coins_cache = {"data": [], "timestamp": 0}  # Stores the top coins list with timestamp
 coin_detail_cache = {}          # Dictionary cache for individual coin details: key=coin_id, value={"data": ..., "timestamp": ...}
 
-# Fallback data in case CoinGecko API fails
-FALLBACK_COINS = [
-    {
-        "id": "bitcoin",
-        "symbol": "btc",
-        "name": "Bitcoin",
-        "image": "https://assets.coingecko.com/coins/images/1/large/bitcoin.png",
-        "current_price": 45000,
-        "market_cap": 850000000000,
-        "price_change_percentage_24h": 2.5,
-        "market_cap_rank": 1
-    },
-    {
-        "id": "ethereum", 
-        "symbol": "eth",
-        "name": "Ethereum",
-        "image": "https://assets.coingecko.com/coins/images/279/large/ethereum.png",
-        "current_price": 3200,
-        "market_cap": 385000000000,
-        "price_change_percentage_24h": -1.2,
-        "market_cap_rank": 2
-    },
-    {
-        "id": "cardano",
-        "symbol": "ada", 
-        "name": "Cardano",
-        "image": "https://assets.coingecko.com/coins/images/975/large/cardano.png",
-        "current_price": 0.45,
-        "market_cap": 16000000000,
-        "price_change_percentage_24h": 1.5,
-        "market_cap_rank": 8
-    }
-]
 
 print("🚀 Starting Cryptocurrency API Backend...")
 print("📊 Cache configuration:")
