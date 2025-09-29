@@ -110,10 +110,7 @@ def get_coins():
             if coins_cache["data"]:
                 print("🔄 Falling back to expired cache due to API error")
                 return coins_cache["data"]
-            else:
-                print("🔄 Falling back to static fallback data")
-                return FALLBACK_COINS
-
+            
         # Parse JSON response from CoinGecko
         data = response.json()
         print(f"📦 Received data from CoinGecko:")
@@ -181,9 +178,7 @@ def get_coins():
             if coins_cache["data"]:
                 print("🔄 Returning cached data as fallback")
                 return coins_cache["data"]
-            else:
-                print("🔄 Returning static fallback data")
-                return FALLBACK_COINS
+            
 
         # Update cache with new data and current timestamp
         coins_cache["data"] = coins
@@ -200,9 +195,7 @@ def get_coins():
         if coins_cache["data"]:
             print("🔄 Returning cached data due to timeout")
             return coins_cache["data"]
-        else:
-            print("🔄 Returning static fallback data due to timeout")
-            return FALLBACK_COINS
+        
             
     except requests.exceptions.ConnectionError:
         error_detail = "Failed to connect to CoinGecko API - network issue"
@@ -210,10 +203,7 @@ def get_coins():
         if coins_cache["data"]:
             print("🔄 Returning cached data due to connection error")
             return coins_cache["data"]
-        else:
-            print("🔄 Returning static fallback data due to connection error")
-            return FALLBACK_COINS
-            
+        
     except Exception as e:
         error_detail = f"Unexpected error in /coins endpoint: {str(e)}"
         print(f"❌ {error_detail}")
@@ -222,10 +212,7 @@ def get_coins():
         if coins_cache["data"]:
             print("🔄 Returning cached data due to unexpected error")
             return coins_cache["data"]
-        else:
-            print("🔄 Returning static fallback data due to unexpected error")
-            return FALLBACK_COINS
-
+        
 
 # =============================================================================
 # INDIVIDUAL COIN DETAILS ENDPOINT
