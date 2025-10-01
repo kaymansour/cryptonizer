@@ -17,3 +17,6 @@ yarn-error.log*
 
 # OS files
 .DS_Store
+
+# Ignore backend virtual environment
+/backend/.venv/
