@@ -1,6 +1,5 @@
 "use client";
 import { UserButton } from "@clerk/nextjs";
-import Link from "next/dist/client/link";
 
 /**
  * Header component for the app
@@ -17,44 +16,35 @@ export default function Header() {
 
         {/* Logo */}
         <h1 className="text-3xl font-extrabold text-cyan-400 tracking-wide drop-shadow-lg">
-          Cryptonizer
+          Crypto
         </h1>
-        <nav className="flex-1 flex justify-center space-x-6">
-          <Link
-
 
         {/* Navigation links */}
-        
-
+        <nav className="flex-1 flex justify-center space-x-6 flex-wrap">
+          <a
             href="/"
             className="px-4 py-2 rounded-lg text-gray-200 font-semibold hover:text-lg"
           >
             Home
-          </Link>
-          <Link
-            href="/portfolio"
-            className="px-4 py-2 rounded-lg text-gray-200 font-semibold transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-cyan-400 hover:text-lg"
-          >
-            Portfolio
-          </Link>
-          <Link
+          </a>
+          <a
             href="/predicts"
             className="px-4 py-2 rounded-lg text-gray-200 font-semibold hover:text-lg"
           >
             Predict
-          </Link>
-          <Link
+          </a>
+          <a
             href="/about"
             className="px-4 py-2 rounded-lg text-gray-200 font-semibold hover:text-lg"
           >
             About
-          </Link>
-          <Link
+          </a>
+          <a
             href="/chatbot"
             className="px-4 py-2 rounded-lg text-gray-200 font-semibold hover:text-lg"
           >
             AI Agent
-          </Link>
+          </a>
         </nav>
 
         {/* User button from Clerk (login/logout) */}
