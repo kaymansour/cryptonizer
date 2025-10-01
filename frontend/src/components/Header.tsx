@@ -1,6 +1,6 @@
 "use client";
 import { UserButton } from "@clerk/nextjs";
-import Link from "next/dist/client/link";
+import Link from "next/link";
 
 /**
  * Header component for the app
@@ -19,13 +19,10 @@ export default function Header() {
         <h1 className="text-3xl font-extrabold text-cyan-400 tracking-wide drop-shadow-lg">
           Cryptonizer
         </h1>
-        <nav className="flex-1 flex justify-center space-x-6">
-          <Link
-
 
         {/* Navigation links */}
-        
-
+        <nav className="flex-1 flex justify-center space-x-6">
+          <Link
             href="/"
             className="px-4 py-2 rounded-lg text-gray-200 font-semibold hover:text-lg"
           >
