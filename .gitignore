@@ -18,4 +18,4 @@ yarn-error.log*
 # OS files
 .DS_Store
 
-backend/.venv
+/backend/.venv/
