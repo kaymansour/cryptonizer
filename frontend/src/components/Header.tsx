@@ -40,12 +40,7 @@ export default function Header() {
           >
             Predict
           </Link>
-          <Link
-            href="/about"
-            className="px-4 py-2 rounded-lg text-gray-200 font-semibold hover:text-lg"
-          >
-            About
-          </Link>
+          
           <Link
             href="/chatbot"
             className="px-4 py-2 rounded-lg text-gray-200 font-semibold hover:text-lg"
