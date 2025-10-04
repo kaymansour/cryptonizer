@@ -270,22 +270,25 @@ export default function CoinDetail({ coin, currency, onPredict }: CoinDetailProp
               Displaying in {currency.toUpperCase()}
             </div>
 
-            <button
-              onClick={onPredict}
-              className="mt-3 px-6 py-2.5 
-                bg-slate-800/40 
-                backdrop-blur-md 
-                border border-emerald-400/30 
-                text-emerald-300 font-semibold 
-                rounded-2xl 
-                hover:bg-emerald-500/20 
-                hover:text-white 
-                hover:scale-105 
-                transition-all duration-300 
-                shadow-lg shadow-emerald-500/10"
-            >
-              Predict Price
-            </button>
+    <button
+  onClick={onPredict}
+  className="mt-3 px-6 py-3 
+    bg-slate-800/40 
+    backdrop-blur-xl 
+    border border-slate-600/30 
+    text-slate-200 font-semibold 
+    rounded-2xl 
+    hover:bg-slate-700/40 
+    hover:border-emerald-400/40 
+    hover:text-emerald-300 
+    hover:translate-y-[-2px] 
+    transform 
+    transition-all duration-300 
+    shadow-lg shadow-slate-900/50 
+    hover:shadow-xl hover:shadow-emerald-500/10"
+>
+  Predict Price
+</button>
           </div>
         </div>
 
