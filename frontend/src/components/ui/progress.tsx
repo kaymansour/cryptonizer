@@ -1,12 +1,12 @@
-import * as React from "react"
+import * as React from "react";
 
 function cn(...classes: (string | undefined)[]) {
-  return classes.filter(Boolean).join(' ')
+  return classes.filter(Boolean).join(' ');
 }
 
 export interface ProgressProps extends React.HTMLAttributes<HTMLDivElement> {
-  value?: number
-  max?: number
+  value?: number;
+  max?: number;
 }
 
 const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
@@ -14,18 +14,19 @@ const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
     <div
       ref={ref}
       className={cn(
-        "relative h-4 w-full overflow-hidden rounded-full bg-gray-200",
+        "relative h-4 w-full overflow-hidden rounded-full bg-gray-300/50 shadow-inner",
         className
       )}
       {...props}
     >
       <div
-        className="h-full w-full flex-1 bg-blue-600 transition-all"
-        style={{ transform: `translateX(-${100 - (value / max) * 100}%)` }}
+        className="h-full bg-gradient-to-r from-blue-400 to-blue-600 shadow-md transition-all duration-500 ease-out"
+        style={{ width: `${(value / max) * 100}%` }}
       />
     </div>
   )
-)
-Progress.displayName = "Progress"
+);
 
-export { Progress }
+Progress.displayName = "Progress";
+
+export { Progress };

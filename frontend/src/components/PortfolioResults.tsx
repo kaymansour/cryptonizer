@@ -228,42 +228,44 @@ export default function PortfolioResults({ result }: PortfolioResultsProps) {
       </div>
 
       {/* Risk Metrics */}
+            {/* Risk Metrics */}
+            {/* Risk Metrics */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-orange-600" />
+            <AlertTriangle className="h-5 w-5 text-yellow-400" />
             Risk Analysis
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
-              <div className="text-2xl font-bold text-red-600">
+            {/* Value at Risk */}
+            <div className="flex flex-col items-center justify-center p-6 rounded-xl bg-white/5 backdrop-blur-md border border-red-400/30">
+              <div className="text-2xl font-bold text-red-400">
                 {formatPercentage(Math.abs(result.metrics?.var_95 || 0))}
               </div>
-              <div className="text-sm font-medium">Value at Risk (95%)</div>
-              <div className="text-xs text-muted-foreground mt-1">
-                Potential daily loss
+              <div className="mt-1 text-sm font-medium text-gray-200">
+                Value at Risk (95%)
               </div>
             </div>
-            
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
-              <div className="text-2xl font-bold text-orange-600">
+
+            {/* Maximum Drawdown */}
+            <div className="flex flex-col items-center justify-center p-6 rounded-xl bg-white/5 backdrop-blur-md border border-orange-400/30">
+              <div className="text-2xl font-bold text-orange-400">
                 {formatPercentage(Math.abs(result.metrics?.max_drawdown || 0))}
               </div>
-              <div className="text-sm font-medium">Maximum Drawdown</div>
-              <div className="text-xs text-muted-foreground mt-1">
-                Worst historical loss
+              <div className="mt-1 text-sm font-medium text-gray-200">
+                Maximum Drawdown
               </div>
             </div>
-            
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
-              <div className="text-2xl font-bold text-blue-600">
+
+            {/* Annual Volatility */}
+            <div className="flex flex-col items-center justify-center p-6 rounded-xl bg-white/5 backdrop-blur-md border border-blue-400/30">
+              <div className="text-2xl font-bold text-blue-400">
                 {formatPercentage(result.portfolio?.volatility || 0)}
               </div>
-              <div className="text-sm font-medium">Annual Volatility</div>
-              <div className="text-xs text-muted-foreground mt-1">
-                Price fluctuation measure
+              <div className="mt-1 text-sm font-medium text-gray-200">
+                Annual Volatility
               </div>
             </div>
           </div>
@@ -271,34 +273,44 @@ export default function PortfolioResults({ result }: PortfolioResultsProps) {
       </Card>
 
       {/* Strategy Information */}
-      <Card className="border-blue-200 bg-blue-50">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-blue-800">
-            <CheckCircle className="h-5 w-5" />
-            Optimization Strategy
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-blue-700">
-            <p className="mb-2">
-              <strong>Strategy:</strong> {result.portfolio?.objective === 'max_sharpe' ? 'Maximum Sharpe Ratio (Risk-Adjusted Returns)' : 'Minimum Volatility (Conservative)'}
-            </p>
-            <p className="mb-2">
-              <strong>Data Period:</strong> {result.period === '1y' ? '1 Year' : result.period === '6mo' ? '6 Months' : result.period}
-            </p>
-            <p className="mb-2">
-              <strong>Cryptocurrencies:</strong> {(result.symbols || []).join(', ')}
-            </p>
-            <p className="text-sm">
-              This portfolio is optimized using Modern Portfolio Theory to {
-                result.portfolio?.objective === 'max_sharpe' 
-                  ? 'maximize your risk-adjusted returns (Sharpe ratio)'
-                  : 'minimize portfolio volatility and risk'
-              }.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <Card className="border border-blue-400/30 bg-blue-900/40 backdrop-blur-md shadow-lg">
+  <CardHeader>
+    <CardTitle className="flex items-center gap-2 text-white">
+      <CheckCircle className="h-5 w-5 text-blue-300" />
+      Optimization Strategy
+    </CardTitle>
+  </CardHeader>
+  <CardContent>
+    <div className="text-white">
+      <p className="mb-2">
+        <strong>Strategy:</strong>{" "}
+        {result.portfolio?.objective === "max_sharpe"
+          ? "Maximum Sharpe Ratio (Risk-Adjusted Returns)"
+          : "Minimum Volatility (Conservative)"}
+      </p>
+      <p className="mb-2">
+        <strong>Data Period:</strong>{" "}
+        {result.period === "1y"
+          ? "1 Year"
+          : result.period === "6mo"
+          ? "6 Months"
+          : result.period}
+      </p>
+      <p className="mb-2">
+        <strong>Cryptocurrencies:</strong>{" "}
+        {(result.symbols || []).join(", ")}
+      </p>
+      <p className="text-sm text-blue-200">
+        This portfolio is optimized using Modern Portfolio Theory to{" "}
+        {result.portfolio?.objective === "max_sharpe"
+          ? "maximize your risk-adjusted returns (Sharpe ratio)"
+          : "minimize portfolio volatility and risk"}
+        .
+      </p>
+    </div>
+  </CardContent>
+</Card>
+
 
       {/* Charts */}
       {/* Portfolio Charts - commented out until efficient frontier data is available */}
