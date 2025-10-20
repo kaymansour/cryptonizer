@@ -24,9 +24,7 @@ const Select = ({ value, onValueChange, children }: SelectProps) => {
 
   return (
     <SelectContext.Provider value={{ value, onValueChange, open, onOpenChange: setOpen }}>
-      <div className="relative">
-        {children}
-      </div>
+      <div className="relative">{children}</div>
     </SelectContext.Provider>
   )
 }
@@ -35,21 +33,29 @@ interface SelectTriggerProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 
 const SelectTrigger = React.forwardRef<HTMLButtonElement, SelectTriggerProps>(
   ({ className, children, ...props }, ref) => {
-    const { value, open, onOpenChange } = React.useContext(SelectContext)
+    const { open, onOpenChange } = React.useContext(SelectContext)
 
     return (
       <button
         ref={ref}
         type="button"
         className={cn(
-          "flex h-10 w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+          "flex h-12 w-full items-center justify-between rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 shadow-sm transition-all hover:shadow-md hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50",
           className
         )}
         onClick={() => onOpenChange?.(!open)}
         {...props}
       >
         {children}
-        <svg className="h-4 w-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg
+          className={cn(
+            "h-5 w-5 transition-transform duration-200",
+            open ? "rotate-180" : undefined
+          )}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
@@ -64,7 +70,7 @@ interface SelectValueProps {
 
 const SelectValue = ({ placeholder }: SelectValueProps) => {
   const { value } = React.useContext(SelectContext)
-  return <span>{value || placeholder}</span>
+  return <span className="text-gray-700">{value || placeholder}</span>
 }
 
 interface SelectContentProps {
@@ -77,10 +83,8 @@ const SelectContent = ({ children }: SelectContentProps) => {
   if (!open) return null
 
   return (
-    <div className="absolute top-full left-0 z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg">
-      <div className="p-1">
-        {children}
-      </div>
+    <div className="absolute top-full left-0 z-50 w-full mt-2 rounded-xl border border-gray-300 bg-white shadow-lg ring-1 ring-black ring-opacity-5">
+      <div className="p-1">{children}</div>
     </div>
   )
 }
@@ -95,7 +99,7 @@ const SelectItem = ({ value, children }: SelectItemProps) => {
 
   return (
     <div
-      className="relative flex w-full cursor-pointer select-none items-center rounded-sm py-2 px-3 text-sm outline-none hover:bg-gray-100 focus:bg-gray-100"
+      className="flex w-full cursor-pointer select-none items-center rounded-lg px-4 py-2 text-sm text-gray-800 transition-colors hover:bg-blue-100 focus:bg-blue-200"
       onClick={() => {
         onValueChange?.(value)
         onOpenChange?.(false)

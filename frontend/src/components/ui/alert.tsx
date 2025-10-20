@@ -1,7 +1,7 @@
 import * as React from "react"
 
 function cn(...classes: (string | undefined)[]) {
-  return classes.filter(Boolean).join(' ')
+  return classes.filter(Boolean).join(" ")
 }
 
 interface AlertProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -11,8 +11,10 @@ interface AlertProps extends React.HTMLAttributes<HTMLDivElement> {
 const Alert = React.forwardRef<HTMLDivElement, AlertProps>(
   ({ className, variant = "default", ...props }, ref) => {
     const variantClasses = {
-      default: "border-gray-200 text-gray-900",
-      destructive: "border-red-200 text-red-900 bg-red-50"
+      default:
+        "bg-slate-800/30 backdrop-blur-xl border border-slate-700/50 text-slate-200 shadow-lg shadow-slate-900/50",
+      destructive:
+        "bg-red-600/20 backdrop-blur-xl border border-red-500/40 text-red-300 shadow-lg shadow-red-900/40",
     }
 
     return (
@@ -21,7 +23,7 @@ const Alert = React.forwardRef<HTMLDivElement, AlertProps>(
         role="alert"
         className={cn(
           "relative w-full rounded-lg border p-4",
-          variantClasses[variant],
+          variantClasses[variant] ?? variantClasses.default,
           className
         )}
         {...props}
@@ -31,9 +33,9 @@ const Alert = React.forwardRef<HTMLDivElement, AlertProps>(
 )
 Alert.displayName = "Alert"
 
-interface AlertDescriptionProps extends React.HTMLAttributes<HTMLParagraphElement> {}
+interface AlertDescriptionProps extends React.HTMLAttributes<HTMLDivElement> {}
 
-const AlertDescription = React.forwardRef<HTMLParagraphElement, AlertDescriptionProps>(
+const AlertDescription = React.forwardRef<HTMLDivElement, AlertDescriptionProps>(
   ({ className, ...props }, ref) => (
     <div
       ref={ref}

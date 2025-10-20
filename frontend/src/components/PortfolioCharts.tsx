@@ -193,94 +193,93 @@ export default function PortfolioCharts({ result }: PortfolioChartsProps) {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Portfolio Allocation Pie Chart */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <PieChart className="h-5 w-5" />
-            Portfolio Allocation
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <PieChartComponent data={pieData} />
-          <div className="mt-4 space-y-2">
-            {pieData.map((item) => (
-              <div key={item.name} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div 
-                    className="w-4 h-4 rounded-full" 
-                    style={{ backgroundColor: item.color }}
-                  />
-                  <span className="font-medium">{item.name}</span>
-                </div>
-                <span className="text-sm text-gray-600">{item.value.toFixed(1)}%</span>
-              </div>
-            ))}
+  {/* Portfolio Allocation Pie Chart */}
+  <Card className="bg-slate-800/50 backdrop-blur-md border border-slate-700/50 shadow-lg shadow-black/30">
+    <CardHeader>
+      <CardTitle className="flex items-center gap-2 text-white">
+        <PieChart className="h-5 w-5" />
+        Portfolio Allocation
+      </CardTitle>
+    </CardHeader>
+    <CardContent>
+      <PieChartComponent data={pieData} />
+      <div className="mt-4 space-y-2">
+        {pieData.map((item) => (
+          <div key={item.name} className="flex items-center justify-between text-white">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded-full" style={{ backgroundColor: item.color }} />
+              <span className="font-medium">{item.name}</span>
+            </div>
+            <span className="text-sm">{item.value.toFixed(1)}%</span>
           </div>
-        </CardContent>
-      </Card>
+        ))}
+      </div>
+    </CardContent>
+  </Card>
 
-      {/* Efficient Frontier */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            Efficient Frontier
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <LineChartComponent data={frontierData} />
-          <div className="mt-4 text-sm text-gray-600">
-            <p>This chart shows the optimal risk-return combinations available.</p>
-            <p className="mt-1">Your portfolio is represented by the optimal point on this curve.</p>
-          </div>
-        </CardContent>
-      </Card>
+  {/* Efficient Frontier */}
+  <Card className="bg-slate-800/50 backdrop-blur-md border border-slate-700/50 shadow-lg shadow-black/30">
+    <CardHeader>
+      <CardTitle className="flex items-center gap-2 text-white">
+        <TrendingUp className="h-5 w-5" />
+        Efficient Frontier
+      </CardTitle>
+    </CardHeader>
+    <CardContent>
+      <LineChartComponent data={frontierData} />
+      <div className="mt-4 text-sm text-gray-300">
+        <p>This chart shows the optimal risk-return combinations available.</p>
+        <p className="mt-1">Your portfolio is represented by the optimal point on this curve.</p>
+      </div>
+    </CardContent>
+  </Card>
 
-      {/* Performance Metrics Bar Chart */}
-      <Card className="lg:col-span-2">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5" />
-            Portfolio Performance Metrics
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="text-center p-4 bg-green-50 rounded-lg border">
-              <div className="text-2xl font-bold text-green-600">
-                {(result.portfolio.expected_return * 100).toFixed(1)}%
-              </div>
-              <div className="text-sm font-medium text-green-800">Expected Return</div>
-              <div className="text-xs text-green-600 mt-1">Annual</div>
-            </div>
-            
-            <div className="text-center p-4 bg-blue-50 rounded-lg border">
-              <div className="text-2xl font-bold text-blue-600">
-                {(result.portfolio.volatility * 100).toFixed(1)}%
-              </div>
-              <div className="text-sm font-medium text-blue-800">Volatility</div>
-              <div className="text-xs text-blue-600 mt-1">Risk Measure</div>
-            </div>
-            
-            <div className="text-center p-4 bg-purple-50 rounded-lg border">
-              <div className="text-2xl font-bold text-purple-600">
-                {result.portfolio.sharpe_ratio.toFixed(2)}
-              </div>
-              <div className="text-sm font-medium text-purple-800">Sharpe Ratio</div>
-              <div className="text-xs text-purple-600 mt-1">Risk-Adjusted</div>
-            </div>
-            
-            <div className="text-center p-4 bg-orange-50 rounded-lg border">
-              <div className="text-2xl font-bold text-orange-600">
-                {(Math.abs(result.metrics.max_drawdown) * 100).toFixed(1)}%
-              </div>
-              <div className="text-sm font-medium text-orange-800">Max Drawdown</div>
-              <div className="text-xs text-orange-600 mt-1">Worst Loss</div>
-            </div>
+  {/* Performance Metrics Bar Chart */}
+  <Card className="lg:col-span-2 bg-slate-800/50 backdrop-blur-md border border-slate-700/50 shadow-lg shadow-black/30">
+    <CardHeader>
+      <CardTitle className="flex items-center gap-2 text-white">
+        <BarChart3 className="h-5 w-5" />
+        Portfolio Performance Metrics
+      </CardTitle>
+    </CardHeader>
+    <CardContent>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Example: Metrics Cards */}
+        <div className="text-center p-4 bg-slate-900/40 rounded-lg border border-slate-700/50 shadow-inner">
+          <div className="text-2xl font-bold text-green-400">
+            {(result.portfolio.expected_return * 100).toFixed(1)}%
           </div>
-        </CardContent>
-      </Card>
-    </div>
+          <div className="text-sm font-medium text-green-300">Expected Return</div>
+          <div className="text-xs text-green-400 mt-1">Annual</div>
+        </div>
+
+        <div className="text-center p-4 bg-slate-900/40 rounded-lg border border-slate-700/50 shadow-inner">
+          <div className="text-2xl font-bold text-blue-400">
+            {(result.portfolio.volatility * 100).toFixed(1)}%
+          </div>
+          <div className="text-sm font-medium text-blue-300">Volatility</div>
+          <div className="text-xs text-blue-400 mt-1">Risk Measure</div>
+        </div>
+
+        <div className="text-center p-4 bg-slate-900/40 rounded-lg border border-slate-700/50 shadow-inner">
+          <div className="text-2xl font-bold text-purple-400">
+            {result.portfolio.sharpe_ratio.toFixed(2)}
+          </div>
+          <div className="text-sm font-medium text-purple-300">Sharpe Ratio</div>
+          <div className="text-xs text-purple-400 mt-1">Risk-Adjusted</div>
+        </div>
+
+        <div className="text-center p-4 bg-slate-900/40 rounded-lg border border-slate-700/50 shadow-inner">
+          <div className="text-2xl font-bold text-orange-400">
+            {(Math.abs(result.metrics.max_drawdown) * 100).toFixed(1)}%
+          </div>
+          <div className="text-sm font-medium text-orange-300">Max Drawdown</div>
+          <div className="text-xs text-orange-400 mt-1">Worst Loss</div>
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+</div>
+
   );
 }
