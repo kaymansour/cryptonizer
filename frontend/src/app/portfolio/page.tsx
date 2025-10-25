@@ -252,7 +252,7 @@ export default function PortfolioOptimizer() {
               <h2 className="text-xl font-bold text-white">Investment Goal</h2>
             </div>
             <p className="text-gray-300 mb-4">
-              What's your primary goal for this investment?
+              What&apos;s your primary goal for this investment?
             </p>
             <div className="grid gap-3">
               {[
