@@ -10,10 +10,10 @@ from typing import List, Optional
 import requests
 import time
 import traceback
-from models.crypto_predictor import predict_crypto as predict_future_prices
+
+from prediction.model_predictor import predict_future
+
 from portfolio_optimizer import optimize_crypto_portfolio, CryptoPortfolioOptimizer
-
-
 
 app = FastAPI()
 
@@ -27,8 +27,6 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
-
-
 # Pydantic models for request validation
 class PortfolioOptimizationRequest(BaseModel):
     symbols: List[str]
@@ -41,8 +39,6 @@ class EfficientFrontierRequest(BaseModel):
     period: str = "1y"
     num_portfolios: int = 50
 
-
-
 # =============================================================================
 # CACHING CONFIGURATION
 # =============================================================================
@@ -54,7 +50,6 @@ CACHE_TTL_COIN_DETAIL = 300    # Cache individual coin details for 5 minutes
 coins_cache = {"data": [], "timestamp": 0}  # Stores the top coins list with timestamp
 coin_detail_cache = {}          # Dictionary cache for individual coin details: key=coin_id, value={"data": ..., "timestamp": ...}
 
-
 print("🚀 Starting Cryptocurrency API Backend...")
 print("📊 Cache configuration:")
 print(f"   - Coins cache TTL: {CACHE_TTL_COINS}s")
@@ -63,13 +58,12 @@ print("🔧 Backend initialized and ready!")
 
 # =============================================================================
 # HEALTH CHECK ENDPOINT
-# ===========================================================================
+# =============================================================================
 @app.get("/api/status")
 def read_root():
     """Health check endpoint to verify the API is running"""
     print("🏥 Health check endpoint called")
     return {"message": "Hello from FastAPI", "status": "healthy", "timestamp": time.time()}
-
 
 # =============================================================================
 # TOP CRYPTOCURRENCIES ENDPOINT
@@ -199,7 +193,6 @@ def get_coins():
                 print("🔄 Returning cached data as fallback")
                 return coins_cache["data"]
             
-
         # Update cache with new data and current timestamp
         coins_cache["data"] = coins
         coins_cache["timestamp"] = current_time
@@ -216,7 +209,6 @@ def get_coins():
             print("🔄 Returning cached data due to timeout")
             return coins_cache["data"]
         
-            
     except requests.exceptions.ConnectionError:
         error_detail = "Failed to connect to CoinGecko API - network issue"
         print(f"❌ {error_detail}")
@@ -232,7 +224,6 @@ def get_coins():
         if coins_cache["data"]:
             print("🔄 Returning cached data due to unexpected error")
             return coins_cache["data"]
-        
 
 # =============================================================================
 # INDIVIDUAL COIN DETAILS ENDPOINT
@@ -241,12 +232,6 @@ def get_coins():
 def get_crypto_data(coin_id: str, currency: str = "usd", days: int = 7):
     """
     Fetches detailed information and price history for a specific cryptocurrency
-    Args:
-        coin_id: Unique identifier for the cryptocurrency (e.g., "bitcoin")
-        currency: Currency to display prices in ("usd" or "bhd")
-        days: Number of days of historical data to fetch (default: 7)
-    
-    Returns: Detailed coin information including price history and market data
     """
     print(f"\n🎯 /crypto/{coin_id} endpoint called")
     print(f"   Parameters: currency={currency}, days={days}")
@@ -255,18 +240,14 @@ def get_crypto_data(coin_id: str, currency: str = "usd", days: int = 7):
     currency = currency.lower()    # Normalize currency to lowercase
     current_time = time.time()
 
-    # Check if this coin's data is already cached and still valid
+    # Check cache
     cache_age = 0
     if coin_id in coin_detail_cache:
         cached = coin_detail_cache[coin_id]
         cache_age = current_time - cached["timestamp"]
         is_cache_valid = cache_age < CACHE_TTL_COIN_DETAIL
         
-        print(f"📦 Cache check for {coin_id}:")
-        print(f"   Found in cache: Yes")
-        print(f"   Cache age: {cache_age:.1f}s")
-        print(f"   Valid: {is_cache_valid}")
-        
+        print(f"📦 Cache check for {coin_id}: Found={True}, Age={cache_age:.1f}s, Valid={is_cache_valid}")
         if is_cache_valid:
             print(f"✅ Returning cached data for {coin_id}")
             return cached["data"]
@@ -278,7 +259,6 @@ def get_crypto_data(coin_id: str, currency: str = "usd", days: int = 7):
     try:
         print(f"🔄 Fetching data for {coin_id} from CoinGecko...")
         
-        # CoinGecko API endpoint for specific coin details
         market_url = f"https://api.coingecko.com/api/v3/coins/{coin_id}?tickers=false&market_data=true"
         print(f"📡 Market data URL: {market_url}")
         
@@ -286,29 +266,15 @@ def get_crypto_data(coin_id: str, currency: str = "usd", days: int = 7):
         market_response = requests.get(market_url, timeout=10)
         market_time = time.time() - start_time
         
-        print(f"📊 Market data response:")
-        print(f"   Status: {market_response.status_code}")
-        print(f"   Time: {market_time:.2f}s")
+        print(f"📊 Market data response: Status={market_response.status_code}, Time={market_time:.2f}s")
         
-        # Handle case where coin is not found
         if market_response.status_code == 404:
-            error_msg = f"Cryptocurrency '{coin_id}' not found"
-            print(f"❌ {error_msg}")
-            raise HTTPException(status_code=404, detail=error_msg)
+            raise HTTPException(status_code=404, detail=f"Cryptocurrency '{coin_id}' not found")
         elif market_response.status_code != 200:
-            error_msg = f"CoinGecko API error for {coin_id}: {market_response.status_code}"
-            print(f"❌ {error_msg}")
-            raise HTTPException(status_code=500, detail=error_msg)
+            raise HTTPException(status_code=500, detail=f"CoinGecko API error for {coin_id}: {market_response.status_code}")
             
-        # Parse the coin details from CoinGecko
         market_data = market_response.json()
-        print(f"✅ Successfully fetched market data for {coin_id}")
-        print(f"   Coin name: {market_data.get('name', 'Unknown')}")
-        print(f"   Symbol: {market_data.get('symbol', 'Unknown')}")
-
-        # Extract market data in the requested currency
         market_data_currency = market_data.get("market_data", {})
-        print(f"💰 Extracting prices for currency: {currency}")
         
         current_price = market_data_currency.get("current_price", {}).get(currency, 0)
         market_cap = market_data_currency.get("market_cap", {}).get(currency, 0)
@@ -317,37 +283,21 @@ def get_crypto_data(coin_id: str, currency: str = "usd", days: int = 7):
         price_change_percentage_24h = market_data_currency.get("price_change_percentage_24h", 0)
         market_cap_rank = market_data.get("market_cap_rank", 0)
 
-        print(f"📈 Market data extracted:")
-        print(f"   Current price: ${current_price}")
-        print(f"   Market cap: ${market_cap}")
-        print(f"   24h change: {price_change_percentage_24h}%")
-        print(f"   Rank: #{market_cap_rank}")
-
-        # Fetch historical price data for charting
+        # Historical price data
         history_url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart"
-        history_params = {
-            "vs_currency": currency,
-            "days": days
-        }
-        
-        print(f"📊 Fetching historical data...")
-        print(f"   URL: {history_url}")
-        print(f"   Params: {history_params}")
+        history_params = {"vs_currency": currency, "days": days}
+        print(f"📊 Fetching historical data: {history_url} {history_params}")
         
         start_time = time.time()
         history_response = requests.get(history_url, params=history_params, timeout=10)
         history_time = time.time() - start_time
-        
         print(f"   History response: {history_response.status_code}, Time: {history_time:.2f}s")
         
         if history_response.status_code != 200:
-            print(f"⚠️ Historical data fetch failed: {history_response.status_code}")
             history_data = {"prices": []}
         else:
             history_data = history_response.json()
-            print(f"   History data points: {len(history_data.get('prices', []))}")
 
-        # Structure the response data
         result = {
             "id": market_data.get("id"),
             "name": market_data.get("name"),
@@ -364,95 +314,64 @@ def get_crypto_data(coin_id: str, currency: str = "usd", days: int = 7):
             "market_cap_rank": market_cap_rank,
         }
 
-        # Update cache with this coin's data and current timestamp
         coin_detail_cache[coin_id] = {"data": result, "timestamp": current_time}
-        
         print(f"💾 Cached data for {coin_id}")
-        print(f"✅ Successfully returning data for {coin_id}")
-        
         return result
 
     except requests.exceptions.Timeout:
-        error_detail = f"CoinGecko API timeout for {coin_id}"
-        print(f"❌ {error_detail}")
-        
-        # Return cached data even if expired
         if coin_id in coin_detail_cache:
             print(f"🔄 Returning expired cached data for {coin_id} due to timeout")
             return coin_detail_cache[coin_id]["data"]
         else:
-            raise HTTPException(status_code=500, detail=error_detail)
+            raise HTTPException(status_code=500, detail=f"CoinGecko API timeout for {coin_id}")
             
     except requests.exceptions.ConnectionError:
-        error_detail = f"Network connection error for {coin_id}"
-        print(f"❌ {error_detail}")
-        
-        # Return cached data even if expired
         if coin_id in coin_detail_cache:
             print(f"🔄 Returning expired cached data for {coin_id} due to connection error")
             return coin_detail_cache[coin_id]["data"]
         else:
-            raise HTTPException(status_code=500, detail=error_detail)
+            raise HTTPException(status_code=500, detail=f"Network connection error for {coin_id}")
             
     except HTTPException:
-        # Re-raise HTTP exceptions (like 404)
         raise
-        
     except Exception as e:
-        error_detail = f"Unexpected error fetching {coin_id}: {str(e)}"
-        print(f"❌ {error_detail}")
+        print(f"❌ Unexpected error fetching {coin_id}: {str(e)}")
         print(f"🔍 Stack trace: {traceback.format_exc()}")
-        
-        # Return cached data even if expired
         if coin_id in coin_detail_cache:
             print(f"🔄 Returning expired cached data for {coin_id} due to unexpected error")
             return coin_detail_cache[coin_id]["data"]
         else:
-            raise HTTPException(status_code=500, detail=error_detail)
+            raise HTTPException(status_code=500, detail=f"Unexpected error fetching {coin_id}: {str(e)}")
 
 
 # =============================================================================
-# MACHINE LEARNING PREDICTION ENDPOINT
+# 🧠 PREDICTION ENDPOINT (Integrated with model_predictor.py)
 # =============================================================================
 @app.get("/predict/{symbol}")
-def predict(symbol: str):
+def predict_symbol(symbol: str, days: int = 7):
     """
-    Uses machine learning model to predict future cryptocurrency prices
-    Args:
-        symbol: Cryptocurrency symbol (e.g., "BTC" for Bitcoin)
-    
-    Returns: Prediction results from the ML model
+    Predict future prices for a given cryptocurrency symbol (e.g. BTC-USD)
     """
-    print(f"\n🎯 /predict/{symbol} endpoint called")
-    print(f"   Symbol: {symbol}")
-    
     try:
-        print(f"🤖 Calling ML prediction model for {symbol.upper()}...")
+        print(f"\n🔮 /predict/{symbol} endpoint called (days={days})")
+        data = predict_future(symbol.upper(), days_ahead=days)
         
-        # Call the ML prediction function with uppercase symbol
-        start_time = time.time()
-        result = predict_future_prices(symbol.upper())
-        prediction_time = time.time() - start_time
-        
-        print(f"✅ ML prediction completed:")
-        print(f"   Time: {prediction_time:.2f}s")
-        print(f"   Result type: {type(result)}")
-        print(f"   Result keys: {list(result.keys()) if isinstance(result, dict) else 'N/A'}")
-        
-        return result
-        
-    except ValueError as ve:
-        error_msg = f"Prediction error for {symbol}: {str(ve)}"
-        print(f"❌ {error_msg}")
-        raise HTTPException(status_code=404, detail=str(ve))
+        # Check if there was an error in prediction
+        if "error" in data:
+            return {
+                "success": False, 
+                "symbol": symbol.upper(), 
+                "error": data["error"],
+                "message": "Prediction failed, but here's some basic info",
+                "fallback_data": data
+            }
+            
+        return {"success": True, "symbol": symbol.upper(), "prediction": data}
         
     except Exception as e:
-        error_msg = f"ML model error for {symbol}: {str(e)}"
-        print(f"❌ {error_msg}")
-        print(f"🔍 Stack trace: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
+        print(f"❌ Prediction failed for {symbol}: {str(e)}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
 # =============================================================================
 # ADDITIONAL DEBUGGING ENDPOINTS
 # =============================================================================
@@ -483,10 +402,6 @@ def debug_cache():
     print(f"   Coin detail cache: {cache_info['coin_detail_cache']}")
     
     return cache_info
-
-
-    
-
 
 @app.post("/api/optimize-portfolio")
 async def optimize_portfolio(request: PortfolioOptimizationRequest):
@@ -536,7 +451,6 @@ async def optimize_portfolio(request: PortfolioOptimizationRequest):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Portfolio optimization failed: {str(e)}")
-
 
 @app.post("/api/efficient-frontier")
 async def get_efficient_frontier(request: EfficientFrontierRequest):
@@ -589,7 +503,6 @@ async def get_efficient_frontier(request: EfficientFrontierRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Efficient frontier calculation failed: {str(e)}")
 
-
 @app.get("/api/portfolio/objectives")
 async def get_optimization_objectives():
     """
@@ -620,7 +533,6 @@ async def get_optimization_objectives():
         ]
     }
 
-
 @app.get("/debug/clear-cache")
 def clear_cache():
     """Debug endpoint to clear all caches"""
@@ -634,16 +546,15 @@ def clear_cache():
     
     return {"message": "All caches cleared", "timestamp": time.time()}
 
-
 print("\n" + "="*50)
 print("✅ BACKEND STARTUP COMPLETE")
 print("="*50)
 print("🌐 Available endpoints:")
-print("   GET /api/status          - Health check")
-print("   GET /coins               - Top 50 cryptocurrencies") 
-print("   GET /crypto/{coin_id}    - Coin details")
-print("   GET /predict/{symbol}    - ML predictions")
-print("   GET /debug/cache         - Cache status")
-print("   GET /debug/clear-cache   - Clear caches")
+print("   GET  /api/status          - Health check")
+print("   GET  /coins               - Top 50 cryptocurrencies")
+print("   GET  /crypto/{coin_id}    - Coin details")
+print("   POST /train/{symbol}      - Train ML models for a coin")  # ⬅️ NEW
+print("   GET  /predict/{symbol}    - ML predictions (model=auto|blend|rf|elastic|gbr|svr|xgb)")
+print("   GET  /debug/cache         - Cache status")
+print("   GET  /debug/clear-cache   - Clear caches")
 print("="*50)
-
