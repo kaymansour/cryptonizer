@@ -11,6 +11,24 @@ Transform the backtester from simple monthly rebalancing to **ML-driven trading*
 
 ---
 
+## GPU Setup (Ubuntu 24.04)
+
+Install CUDA Toolkit 12.3:
+   ```bash
+   wget https://developer.download.nvidia.com/compute/cuda/12.3.2/local_installers/cuda-repo-wsl-ubuntu-12-3-local_12.3.2-1_amd64.deb
+   sudo dpkg -i cuda-repo-wsl-ubuntu-12-3-local_12.3.2-1_amd64.deb
+   sudo cp /var/cuda-repo-wsl-ubuntu-12-3-local/cuda-*-keyring.gpg /usr/share/keyrings/
+   sudo apt-get update
+   sudo apt-get -y install cuda-toolkit-12-3
+
+## install libtinfo5 
+wget http://ftp.debian.org/debian/pool/main/n/ncurses/libtinfo5_6.4-4_amd64.deb
+sudo dpkg -i libtinfo5_6.4-4_amd64.deb
+
+## verify
+nvcc --version
+nvidia-smi
+```
 ## 🚨 Critical Limitations & Requirements
 
 ### 1. **Data Availability (MAJOR CONSTRAINT)**
