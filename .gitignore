@@ -19,3 +19,5 @@ yarn-error.log*
 .DS_Store
 
 /backend/.venv/
+backend/cuda-repo-wsl-ubuntu-12-3-local_12.3.2-1_amd64.deb
+backend/libtinfo5_6.4-4_amd64.deb
