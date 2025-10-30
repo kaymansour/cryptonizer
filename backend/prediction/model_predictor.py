@@ -1,13 +1,3 @@
-"""
-Non-LSTM price prediction with feature engineering and tree/linear models.
-
-Key changes for better accuracy and robustness:
-- Forecast next-day log returns (stationary) instead of raw prices.
-- Feature engineering: return lags, moving-average gaps, volatility, RSI.
-- Models: Linear Regression (scaled), RandomForest, XGBoost, plus RF+XGB ensemble.
-- Time-aware split, reproducibility, and robust multi-step inference.
-- Cached results and plot-as-base64 preserved to match API outputs.
-"""
 
 # type: ignore
 import io
