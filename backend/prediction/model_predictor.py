@@ -1,276 +1,369 @@
+"""
+Non-LSTM price prediction with feature engineering and tree/linear models.
+
+Key changes for better accuracy and robustness:
+- Forecast next-day log returns (stationary) instead of raw prices.
+- Feature engineering: return lags, moving-average gaps, volatility, RSI.
+- Models: Linear Regression (scaled), RandomForest, XGBoost, plus RF+XGB ensemble.
+- Time-aware split, reproducibility, and robust multi-step inference.
+- Cached results and plot-as-base64 preserved to match API outputs.
+"""
+
 # type: ignore
+import io
+import base64
+import time
+import datetime
+from typing import Dict, Any, Tuple
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import io, base64, datetime, time
+
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
-from xgboost import XGBRegressor
-
-# TensorFlow imports with comprehensive error handling
-LSTM_AVAILABLE = False
-Sequential = None
-LSTM = None
-Dense = None
-TimeseriesGenerator = None
+from sklearn.preprocessing import StandardScaler
 
 try:
-    from tensorflow.keras.models import Sequential
-    from tensorflow.keras.layers import LSTM, Dense
-    from tensorflow.keras.preprocessing.sequence import TimeseriesGenerator
-    LSTM_AVAILABLE = True
-    print("✅ TensorFlow/Keras imports successful")
-except ImportError as e:
-    print(f"⚠️ TensorFlow not available: {e}")
-    print("⚠️ LSTM model will be skipped. Using traditional ML models only.")
+    from xgboost import XGBRegressor  # type: ignore
+    XGB_AVAILABLE = True
+except Exception:
+    XGB_AVAILABLE = False
 
 import yfinance as yf
 
-# ------------------------------
-# 🔹 In-memory cache (coin → result)
-# ------------------------------
-cache = {}
+# ----------------------------------------------------------------------------
+# Cache and randomness
+# ----------------------------------------------------------------------------
+cache: Dict[str, Dict[str, Any]] = {}
 CACHE_DURATION = 60 * 60 * 24  # 24 hours
+RANDOM_STATE = 42
+np.random.seed(RANDOM_STATE)
 
-def fetch_data(symbol: str, period: str = "6mo"):
-    """Fetch stock/crypto data from Yahoo Finance"""
+
+# ----------------------------------------------------------------------------
+# Data fetching
+# ----------------------------------------------------------------------------
+def fetch_data(symbol: str, period: str = "6mo") -> pd.DataFrame:
+    """Fetch OHLCV from Yahoo! Finance and return a DataFrame with a 'Close' column.
+    Returns an empty DataFrame on failure.
+    """
     try:
-        print(f"📊 Fetching data for {symbol} with period {period}")
         df = yf.download(symbol, period=period, progress=False)
-        
         if df.empty:
-            print(f"❌ No data found for {symbol}")
+            print(f"No data found for {symbol}")
             return pd.DataFrame()
-            
-        print(f"✅ Data fetched: {len(df)} rows, columns: {list(df.columns)}")
-        
-        # Handle multi-index columns from yfinance
+
+        # Handle MultiIndex columns (can happen for some tickers)
         if isinstance(df.columns, pd.MultiIndex):
-            print("🔧 Multi-index columns detected, flattening...")
-            # Flatten the multi-index columns
-            df.columns = ['_'.join(col).strip() if isinstance(col, tuple) else col for col in df.columns]
-            print(f"🔧 Flattened columns: {list(df.columns)}")
-        
-        # Extract Close price column (handle different column naming)
+            df.columns = ["_".join([c for c in col if c]) for col in df.columns]
+
+        # Find a close-like column
         close_col = None
         for col in df.columns:
-            if 'Close' in str(col):
+            if "Close" in str(col):
                 close_col = col
                 break
-        
         if close_col is None:
-            print(f"❌ No Close column found in: {list(df.columns)}")
+            print(f"No Close column found for {symbol} in columns: {list(df.columns)}")
             return pd.DataFrame()
-            
-        print(f"🔧 Using column for Close prices: {close_col}")
-        df = df[[close_col]].copy()
-        df.columns = ['Close']  # Rename to standard 'Close'
-        
-        df.dropna(inplace=True)
-        
-        if df.empty:
-            print(f"❌ No data after processing for {symbol}")
-            return pd.DataFrame()
-            
-        print(f"✅ Final data shape: {df.shape}, first few prices: {df['Close'].head(3).values.tolist()}")
-        return df
-        
+
+        out = df[[close_col]].copy()
+        out.columns = ["Close"]
+        out.dropna(inplace=True)
+        return out
     except Exception as e:
-        print(f"❌ Error fetching data for {symbol}: {e}")
-        import traceback
-        print(f"🔍 Full traceback: {traceback.format_exc()}")
+        print(f"Error fetching data for {symbol}: {e}")
         return pd.DataFrame()
 
-def evaluate_model(model_name, y_true, y_pred):
-    """Evaluate model performance using RMSE"""
-    rmse = np.sqrt(mean_squared_error(y_true, y_pred))
-    return {"model": model_name, "rmse": rmse}
 
+# ----------------------------------------------------------------------------
+# Feature engineering
+# ----------------------------------------------------------------------------
+def _compute_rsi(series: pd.Series, window: int = 14) -> pd.Series:
+    delta = series.diff()
+    up = delta.clip(lower=0)
+    down = -delta.clip(upper=0)
+    roll_up = up.ewm(alpha=1 / window, adjust=False).mean()
+    roll_down = down.ewm(alpha=1 / window, adjust=False).mean()
+    rs = roll_up / (roll_down + 1e-12)
+    rsi = 100 - (100 / (1 + rs))
+    return rsi
+
+
+def _build_features(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series, list[str]]:
+    data = df.copy()
+    data["log_close"] = np.log(data["Close"].astype(float))
+    data["log_return"] = data["log_close"].diff()
+
+    # Return lags
+    for lag in range(1, 6):
+        data[f"r_lag{lag}"] = data["log_return"].shift(lag)
+
+    # Moving averages and price gaps
+    for w in [5, 10, 20]:
+        data[f"sma_{w}"] = data["Close"].rolling(w).mean()
+        data[f"gap_sma_{w}"] = data["Close"] / (data[f"sma_{w}"] + 1e-12) - 1.0
+
+    # Volatility features (rolling std of returns)
+    for w in [5, 10, 20]:
+        data[f"vol_{w}"] = data["log_return"].rolling(w).std()
+
+    # RSI (normalized around 0)
+    data["rsi_14"] = _compute_rsi(data["Close"], 14)
+    data["rsi_14_norm"] = (data["rsi_14"] - 50.0) / 50.0
+
+    # Target: next-day log return
+    data["target"] = data["log_return"].shift(-1)
+
+    feature_cols = [
+        "r_lag1",
+        "r_lag2",
+        "r_lag3",
+        "r_lag4",
+        "r_lag5",
+        "gap_sma_5",
+        "gap_sma_10",
+        "gap_sma_20",
+        "vol_5",
+        "vol_10",
+        "vol_20",
+        "rsi_14_norm",
+    ]
+
+    data = data.dropna(subset=feature_cols + ["target"]).copy()
+    X = data[feature_cols]
+    y = data["target"]
+    return X, y, feature_cols
+
+
+def _rmse(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    return float(np.sqrt(mean_squared_error(y_true, y_pred)))
+
+
+# ----------------------------------------------------------------------------
+# Training
+# ----------------------------------------------------------------------------
 def train_models(symbol: str):
-    """Train multiple models and select the best one"""
-    print(f"🧠 Starting model training for {symbol}")
-    
+    """Train models on engineered features to predict next-day log returns.
+    Returns (df, model_bundle, best_name, best_rmse).
+    """
+    print(f"Training models for {symbol} (non-LSTM)")
     df = fetch_data(symbol)
     if df.empty:
-        raise ValueError(f"Could not fetch data for {symbol}. Symbol might be invalid.")
-    
-    if len(df) < 20:
-        raise ValueError(f"Not enough data for {symbol}. Only {len(df)} data points available.")
-    
-    print(f"📈 Data prepared: {len(df)} rows, price range: ${df['Close'].min():.2f} - ${df['Close'].max():.2f}")
-    
-    # Prepare data for traditional models
-    df['Target'] = df['Close'].shift(-1)
-    df.dropna(inplace=True)
+        raise ValueError(f"Could not fetch data for {symbol}.")
+    if len(df) < 60:
+        raise ValueError(f"Not enough data for {symbol}. Need >=60 rows, got {len(df)}.")
 
-    X = df[['Close']].values
-    y = df['Target'].values
-    
-    if len(X) < 10:
-        raise ValueError(f"Not enough data after processing for {symbol}. Only {len(X)} samples.")
-    
-    # Use smaller test size for small datasets
-    test_size = min(0.2, 0.1 if len(X) < 50 else 0.2)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, shuffle=False)
+    X, y, feature_cols = _build_features(df)
+    if len(X) < 50:
+        raise ValueError(
+            f"Not enough samples after feature engineering for {symbol}. Got {len(X)}."
+        )
 
-    print(f"📊 Train/test split: {len(X_train)} train, {len(X_test)} test")
-    
-    results = []
+    # Time-aware split (no shuffle)
+    test_size = 0.2 if len(X) >= 100 else max(0.15, min(0.2, 20 / len(X)))
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, shuffle=False
+    )
+    print(f"Train/Test sizes: {len(X_train)}/{len(X_test)}")
 
-    # --- Model 1: Linear Regression ---
+    # Scaler for linear model
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+
+    results: list[tuple[Dict[str, Any], Tuple[str, Any]]] = []
+
+    # Linear Regression (baseline on scaled features)
     try:
-        print("🔹 Training Linear Regression...")
-        lr = LinearRegression().fit(X_train, y_train)
-        pred_lr = lr.predict(X_test)
-        lr_rmse = evaluate_model("Linear Regression", y_test, pred_lr)['rmse']
-        print(f"✅ Linear Regression RMSE: {lr_rmse:.4f}")
-        results.append((evaluate_model("Linear Regression", y_test, pred_lr), lr))
+        lr = LinearRegression()
+        lr.fit(X_train_scaled, y_train)
+        pred_lr = lr.predict(X_test_scaled)
+        rmse_lr = _rmse(y_test.values, pred_lr)
+        print(f"Linear Regression RMSE (returns): {rmse_lr:.6f}")
+        results.append(({"model": "Linear Regression", "rmse": rmse_lr}, ("lr", lr)))
     except Exception as e:
-        print(f"❌ Linear Regression failed: {e}")
+        print(f"Linear Regression failed: {e}")
 
-    # --- Model 2: Random Forest ---
+    # Random Forest
     try:
-        print("🔹 Training Random Forest...")
-        rf = RandomForestRegressor(n_estimators=50, random_state=42, max_depth=10)
+        rf = RandomForestRegressor(
+            n_estimators=300,
+            random_state=RANDOM_STATE,
+            max_depth=None,
+            min_samples_leaf=1,
+            n_jobs=-1,
+        )
         rf.fit(X_train, y_train)
         pred_rf = rf.predict(X_test)
-        rf_rmse = evaluate_model("Random Forest", y_test, pred_rf)['rmse']
-        print(f"✅ Random Forest RMSE: {rf_rmse:.4f}")
-        results.append((evaluate_model("Random Forest", y_test, pred_rf), rf))
+        rmse_rf = _rmse(y_test.values, pred_rf)
+        print(f"Random Forest RMSE (returns): {rmse_rf:.6f}")
+        results.append(({"model": "Random Forest", "rmse": rmse_rf}, ("rf", rf)))
     except Exception as e:
-        print(f"❌ Random Forest failed: {e}")
+        print(f"Random Forest failed: {e}")
 
-    # --- Model 3: XGBoost ---
+    # XGBoost
+    if XGB_AVAILABLE:
+        try:
+            xgb = XGBRegressor(
+                n_estimators=400,
+                learning_rate=0.05,
+                max_depth=4,
+                subsample=0.8,
+                colsample_bytree=0.8,
+                reg_lambda=1.0,
+                random_state=RANDOM_STATE,
+                n_jobs=-1,
+                objective="reg:squarederror",
+            )
+            xgb.fit(
+                X_train,
+                y_train,
+                eval_set=[(X_test, y_test)],
+                eval_metric="rmse",
+                verbose=False,
+                early_stopping_rounds=25,
+            )
+            pred_xgb = xgb.predict(X_test)
+            rmse_xgb = _rmse(y_test.values, pred_xgb)
+            print(f"XGBoost RMSE (returns): {rmse_xgb:.6f}")
+            results.append(({"model": "XGBoost", "rmse": rmse_xgb}, ("xgb", xgb)))
+        except Exception as e:
+            print(f"XGBoost failed: {e}")
+    else:
+        print("XGBoost not available; skipping.")
+
+    # Simple ensemble of RF and XGB if both trained
     try:
-        print("🔹 Training XGBoost...")
-        xgb = XGBRegressor(n_estimators=50, learning_rate=0.1, random_state=42, max_depth=6)
-        xgb.fit(X_train, y_train)
-        pred_xgb = xgb.predict(X_test)
-        xgb_rmse = evaluate_model("XGBoost", y_test, pred_xgb)['rmse']
-        print(f"✅ XGBoost RMSE: {xgb_rmse:.4f}")
-        results.append((evaluate_model("XGBoost", y_test, pred_xgb), xgb))
+        rf_model = next((m for (res, (nm, m)) in results if nm == "rf"), None)
+        xgb_model = next((m for (res, (nm, m)) in results if nm == "xgb"), None)
+        if rf_model is not None and xgb_model is not None:
+            pred_ens = (rf_model.predict(X_test) + xgb_model.predict(X_test)) / 2.0
+            rmse_ens = _rmse(y_test.values, pred_ens)
+            print(f"Ensemble (RF+XGB) RMSE (returns): {rmse_ens:.6f}")
+            results.append(
+                (
+                    {"model": "Ensemble(RF+XGB)", "rmse": rmse_ens},
+                    ("ensemble", ("rf_xgb", rf_model, xgb_model)),
+                )
+            )
     except Exception as e:
-        print(f"❌ XGBoost failed: {e}")
-
-    # Skip LSTM for now to simplify
-    print("🔹 Skipping LSTM for faster predictions...")
+        print(f"Ensemble failed: {e}")
 
     if not results:
         raise ValueError("No models were successfully trained")
 
-    # Choose best model
-    best_model, best_rmse, best_name = None, float('inf'), ''
-    for result, model in results:
-        if result['rmse'] < best_rmse:
-            best_rmse = result['rmse']
-            best_model = model
-            best_name = result['model']
+    best_result, best_payload = min(results, key=lambda x: x[0]["rmse"])  # type: ignore
+    best_name = best_result["model"]
+    best_rmse = float(best_result["rmse"])
+    print(f"Best: {best_name} (RMSE: {best_rmse:.6f} returns)")
 
-    print(f"✅ Best model selected: {best_name} (RMSE: {best_rmse:.4f})")
-    return df, best_model, best_name, best_rmse
+    model_bundle = {
+        "kind": best_payload[0],
+        "model": best_payload[1],
+        "features": feature_cols,
+        "scaler": scaler,
+    }
+    return df, model_bundle, best_name, best_rmse
 
-def predict_future(symbol: str, days_ahead: int = 7):
-    """Generate predictions for future prices"""
-    # Check cache first
+
+# ----------------------------------------------------------------------------
+# Inference
+# ----------------------------------------------------------------------------
+def predict_future(symbol: str, days_ahead: int = 7) -> Dict[str, Any]:
+    """Predict future prices for the given symbol for N days ahead.
+    Keeps the previous response schema (model, rmse, last_price, plot_base64, future_predictions).
+    """
     now = time.time()
-    if symbol in cache and now - cache[symbol]['timestamp'] < CACHE_DURATION:
-        print(f"✅ Cache hit for {symbol}")
-        return cache[symbol]['data']
+    if symbol in cache and now - cache[symbol]["timestamp"] < CACHE_DURATION:
+        return cache[symbol]["data"]
 
-    print(f"🧠 Training new models for {symbol}...")
-    
     try:
-        df, best_model, best_name, best_rmse = train_models(symbol)
-        last_price = df['Close'].values[-1]
-        print(f"💰 Last price for {symbol}: ${last_price:.2f}")
+        df, bundle, best_name, best_rmse = train_models(symbol)
+        last_price = float(df["Close"].iloc[-1])
 
-        # Generate future predictions
-        future_prices = []
-        current_price = last_price
-        
-        print(f"🔮 Generating {days_ahead} day predictions...")
-        for i in range(days_ahead):
+        # Iterative multi-step forecasts using log-return predictions
+        work_df = df.copy()
+        future_prices: list[float] = []
+
+        def _predict_next_log_return(bndl: Dict[str, Any], hist_df: pd.DataFrame) -> float:
+            X_all, _, _ = _build_features(hist_df)
+            if X_all.empty:
+                return 0.0
+            last_X = X_all.iloc[[-1]]
+            kind = bndl["kind"]
+            model = bndl["model"]
+            if kind == "lr":
+                X_last_scaled = bndl["scaler"].transform(last_X)
+                return float(model.predict(X_last_scaled)[0])
+            if kind == "rf":
+                return float(model.predict(last_X)[0])
+            if kind == "xgb":
+                return float(model.predict(last_X)[0])
+            if kind == "ensemble":
+                rf_model = bndl["model"][1]
+                xgb_model = bndl["model"][2]
+                return float((rf_model.predict(last_X) + xgb_model.predict(last_X)) / 2.0)
+            return 0.0
+
+        for _ in range(days_ahead):
             try:
-                if hasattr(best_model, 'predict'):
-                    # For scikit-learn models
-                    next_price = best_model.predict([[current_price]])[0]
-                    print(f"   Day {i+1}: ${current_price:.2f} → ${next_price:.2f}")
-                else:
-                    # Fallback
-                    next_price = current_price * (1 + np.random.normal(0, 0.01))
-            except Exception as e:
-                print(f"   ⚠️ Prediction error for day {i+1}: {e}")
-                next_price = current_price
-                
-            future_prices.append(float(next_price))
-            current_price = next_price
+                pred_log_ret = _predict_next_log_return(bundle, work_df)
+                next_price = float(work_df["Close"].iloc[-1] * np.exp(pred_log_ret))
+            except Exception:
+                next_price = float(work_df["Close"].iloc[-1])
 
-        # Create future dates
-        future_dates = [datetime.date.today() + datetime.timedelta(days=i+1) for i in range(days_ahead)]
+            future_prices.append(next_price)
+            next_idx = work_df.index[-1] + pd.Timedelta(days=1)
+            work_df.loc[next_idx, "Close"] = next_price
+
+        # Future date labels (as dates, for frontend rendering)
+        future_dates = [datetime.date.today() + datetime.timedelta(days=i + 1) for i in range(days_ahead)]
         pred_df = pd.DataFrame({
-            "Date": future_dates, 
-            "Predicted_Price": [round(float(price), 2) for price in future_prices]
+            "Date": future_dates,
+            "Predicted_Price": [round(float(p), 2) for p in future_prices],
         })
 
-        print(f"📅 Prediction dates: {[str(d) for d in future_dates]}")
-
-        # Create plot
+        # Plot: last 30 historical vs future
         plt.figure(figsize=(10, 6))
-        
-        # Historical data (last 30 days or all if less)
         historical_points = min(30, len(df))
         historical_dates = df.index[-historical_points:]
-        historical_prices = df['Close'].tail(historical_points)
-        
-        plt.plot(historical_dates, historical_prices, label='Historical Prices', linewidth=2, color='#10b981')
-        
-        # Future predictions
-        plt.plot(pred_df['Date'], pred_df['Predicted_Price'], 
-                 label=f'Predicted ({best_name})', 
-                 linestyle='--', marker='o', linewidth=2, color='#3b82f6')
-        
-        plt.title(f'{symbol} Price Prediction\nBest Model: {best_name} (RMSE: {best_rmse:.4f})', fontsize=14)
+        historical_prices = df["Close"].tail(historical_points)
+
+        plt.plot(historical_dates, historical_prices, label="Historical Prices", linewidth=2, color="#10b981")
+        plt.plot(pred_df["Date"], pred_df["Predicted_Price"], label=f"Predicted ({best_name})", linestyle="--", marker="o", linewidth=2, color="#3b82f6")
+        plt.title(f"{symbol} Price Prediction\nBest Model: {best_name} (RMSE: {best_rmse:.6f} returns)", fontsize=14)
         plt.xlabel("Date", fontsize=12)
         plt.ylabel("Price (USD)", fontsize=12)
         plt.legend()
         plt.grid(True, alpha=0.3)
         plt.tight_layout()
 
-        # Convert plot to base64
         buf = io.BytesIO()
-        plt.savefig(buf, format='png', dpi=100, bbox_inches='tight')
+        plt.savefig(buf, format="png", dpi=100, bbox_inches="tight")
         plt.close()
         buf.seek(0)
-        plot_base64 = base64.b64encode(buf.read()).decode('utf-8')
+        plot_base64 = base64.b64encode(buf.read()).decode("utf-8")
 
-        # Prepare response data
         data = {
             "symbol": symbol,
             "model": best_name,
-            "rmse": round(float(best_rmse), 4),
+            "rmse": round(float(best_rmse), 6),
             "last_price": round(float(last_price), 2),
             "plot_base64": plot_base64,
-            "future_predictions": pred_df.to_dict(orient='records'),
-            "timestamp": datetime.datetime.now().isoformat()
+            "future_predictions": pred_df.to_dict(orient="records"),
+            "timestamp": datetime.datetime.now().isoformat(),
         }
 
-        # Store in cache
-        cache[symbol] = {
-            "timestamp": now,
-            "data": data
-        }
-
-        print(f"✅ Prediction completed and cached for {symbol}")
+        cache[symbol] = {"timestamp": now, "data": data}
         return data
-        
+
     except Exception as e:
-        print(f"❌ Prediction failed for {symbol}: {str(e)}")
-        import traceback
-        print(f"🔍 Full traceback: {traceback.format_exc()}")
-        # Return a fallback response instead of crashing
-        fallback_data = {
+        # Fallback response
+        return {
             "symbol": symbol,
             "model": "Fallback",
             "rmse": 0.0,
@@ -278,35 +371,20 @@ def predict_future(symbol: str, days_ahead: int = 7):
             "plot_base64": "",
             "future_predictions": [],
             "timestamp": datetime.datetime.now().isoformat(),
-            "error": str(e)
+            "error": str(e),
         }
-        return fallback_data
 
-# Test function with better error handling
-def test_prediction():
-    """Test the prediction function with Bitcoin"""
+
+def test_prediction() -> bool:
+    """Quick local test using BTC-USD."""
     try:
-        print("🚀 Testing prediction with BTC-USD...")
         result = predict_future("BTC-USD", days_ahead=7)
-        
-        if "error" in result:
-            print(f"❌ Test failed with error: {result['error']}")
-            return False
-            
-        print(f"✅ Test successful!")
-        print(f"   Symbol: {result['symbol']}")
-        print(f"   Best Model: {result['model']}")
-        print(f"   RMSE: {result['rmse']}")
-        print(f"   Last Price: ${result['last_price']}")
-        print(f"   Predictions: {len(result['future_predictions'])} days")
-        return True
-        
-    except Exception as e:
-        print(f"❌ Test failed: {e}")
-        import traceback
-        print(f"🔍 Full traceback: {traceback.format_exc()}")
+        return "error" not in result
+    except Exception:
         return False
 
+
 if __name__ == "__main__":
-    print("🚀 Starting model predictor test...")
-    test_prediction()
+    ok = test_prediction()
+    print("Prediction test:", "OK" if ok else "FAILED")
+
