@@ -1,8 +1,32 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Trophy, Target, TrendingDown, BarChart3 } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart as RechartsPieChart, Pie, Cell } from "recharts";
+
+// Lightweight hook to measure container size for charts
+function useElementSize<T extends HTMLElement>() {
+  const ref = useRef<T | null>(null);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const update = () => {
+      const rect = el.getBoundingClientRect();
+      setSize({ width: rect.width, height: rect.height });
+    };
+
+    update();
+
+    const ro = new ResizeObserver(() => update());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  return [ref, size] as const;
+}
 
 interface PortfolioData {
   symbols: string[];
@@ -53,6 +77,9 @@ export default function StrategyComparison({ portfolioData }: StrategyComparison
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
   const [timeperiod, setTimeperiod] = useState("1y");
+  const [mounted, setMounted] = useState(false);
+  const [barRef, barSize] = useElementSize<HTMLDivElement>();
+  const [pieRef, pieSize] = useElementSize<HTMLDivElement>();
   const [selectedStrategies, setSelectedStrategies] = useState<string[]>([
     "equal_weight", "btc_only", "eth_only", "btc_eth_60_40"
   ]);
@@ -102,7 +129,43 @@ export default function StrategyComparison({ portfolioData }: StrategyComparison
       }
 
       const data = await response.json();
-      setComparisonResult(data);
+
+      // Normalize backend response shape to frontend expectations
+      const cr = data.comparison_results || data; // backend wraps under comparison_results
+      const comparison = cr.comparison || cr.comparison_summary || {};
+      const rankings = cr.rankings || {
+        total_return: [],
+        sharpe_ratio: [],
+        max_drawdown: [],
+        volatility: [],
+      };
+
+      const summary = {
+        best_overall:
+          (rankings.sharpe_ratio && rankings.sharpe_ratio[0]?.strategy) ||
+          Object.entries(comparison)
+            .sort((a: any, b: any) => (b[1]?.sharpe_ratio || 0) - (a[1]?.sharpe_ratio || 0))[0]?.[0] ||
+          undefined,
+        most_consistent:
+          (rankings.volatility && rankings.volatility[0]?.strategy) ||
+          Object.entries(comparison)
+            .sort((a: any, b: any) => (a[1]?.volatility || 0) - (b[1]?.volatility || 0))[0]?.[0] ||
+          undefined,
+        lowest_risk:
+          (rankings.max_drawdown && rankings.max_drawdown[0]?.strategy) ||
+          Object.entries(comparison)
+            .sort((a: any, b: any) => (a[1]?.max_drawdown || 0) - (b[1]?.max_drawdown || 0))[0]?.[0] ||
+          undefined,
+      } as any;
+
+      const normalized: ComparisonResult = {
+        success: true,
+        comparison: comparison as Record<string, StrategyResult>,
+        rankings,
+        summary: summary as any,
+      };
+
+      setComparisonResult(normalized);
     } catch (err) {
       console.error("Strategy comparison error:", err);
       setError("Failed to run strategy comparison. Please make sure the backend is running and try again.");
@@ -116,6 +179,10 @@ export default function StrategyComparison({ portfolioData }: StrategyComparison
       runComparison();
     }
   }, [portfolioData, runComparison]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleStrategyToggle = (strategy: string) => {
     setSelectedStrategies(prev => 
@@ -138,10 +205,11 @@ export default function StrategyComparison({ portfolioData }: StrategyComparison
     return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
   };
 
-  const getStrategyDisplayName = (strategy: string) => {
+  const getStrategyDisplayName = (strategy?: string) => {
+    if (!strategy || typeof strategy !== 'string') return 'Unknown Strategy';
     if (strategy === "optimized") return "Optimized Portfolio";
     const option = strategyOptions.find(opt => opt.value === strategy);
-    return option ? option.label : strategy.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    return option ? option.label : strategy.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
   };
 
   const getPerformanceColor = (value: number, isInverse: boolean = false) => {
@@ -152,7 +220,7 @@ export default function StrategyComparison({ portfolioData }: StrategyComparison
   };
 
   const prepareChartData = () => {
-    if (!comparisonResult) return [];
+    if (!comparisonResult || !comparisonResult.comparison) return [];
     
     return Object.entries(comparisonResult.comparison).map(([strategy, data]) => ({
       strategy: getStrategyDisplayName(strategy),
@@ -164,7 +232,7 @@ export default function StrategyComparison({ portfolioData }: StrategyComparison
   };
 
   const preparePieData = () => {
-    if (!comparisonResult) return [];
+    if (!comparisonResult || !comparisonResult.comparison) return [];
     
     return Object.entries(comparisonResult.comparison).map(([strategy, data]) => ({
       name: getStrategyDisplayName(strategy),
@@ -234,7 +302,7 @@ export default function StrategyComparison({ portfolioData }: StrategyComparison
         </div>
       )}
 
-      {comparisonResult && !loading && (
+      {mounted && comparisonResult && !loading && (
         <>
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -275,12 +343,12 @@ export default function StrategyComparison({ portfolioData }: StrategyComparison
           {/* Performance Comparison Chart */}
           <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
             <h3 className="text-xl font-semibold text-white mb-6">Performance Comparison</h3>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={prepareChartData()}>
+            <div ref={barRef} className="h-80 min-w-0 min-h-0 w-full">
+              {barSize.width > 0 ? (
+                <BarChart width={Math.max(1, Math.floor(barSize.width))} height={320} data={prepareChartData()}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis 
-                    dataKey="strategy" 
+                  <XAxis
+                    dataKey="strategy"
                     stroke="#9ca3af"
                     tick={{ fontSize: 11 }}
                     angle={-45}
@@ -288,7 +356,7 @@ export default function StrategyComparison({ portfolioData }: StrategyComparison
                     height={80}
                   />
                   <YAxis stroke="#9ca3af" tick={{ fontSize: 12 }} />
-                  <Tooltip 
+                  <Tooltip
                     contentStyle={{
                       backgroundColor: '#1f2937',
                       border: '1px solid #374151',
@@ -299,7 +367,9 @@ export default function StrategyComparison({ portfolioData }: StrategyComparison
                   <Bar dataKey="Total Return (%)" fill="#10b981" name="Total Return %" />
                   <Bar dataKey="Sharpe Ratio" fill="#3b82f6" name="Sharpe Ratio" />
                 </BarChart>
-              </ResponsiveContainer>
+              ) : (
+                <div className="h-80 w-full" />
+              )}
             </div>
           </div>
 
@@ -307,10 +377,10 @@ export default function StrategyComparison({ portfolioData }: StrategyComparison
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
               <h3 className="text-xl font-semibold text-white mb-6">Final Portfolio Values</h3>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RechartsPieChart>
-                    <Tooltip 
+              <div ref={pieRef} className="h-64 min-w-0 min-h-0 w-full">
+                {pieSize.width > 0 ? (
+                  <RechartsPieChart width={Math.max(1, Math.floor(pieSize.width))} height={256}>
+                    <Tooltip
                       contentStyle={{
                         backgroundColor: '#1f2937',
                         border: '1px solid #374151',
@@ -322,12 +392,15 @@ export default function StrategyComparison({ portfolioData }: StrategyComparison
                         name === 'value' ? 'Final Value' : name
                       ]}
                     />
-                    <Cell />
-                    {preparePieData().map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
+                    <Pie data={preparePieData()} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} innerRadius={50} paddingAngle={2}>
+                      {preparePieData().map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
                   </RechartsPieChart>
-                </ResponsiveContainer>
+                ) : (
+                  <div className="h-64 w-full" />
+                )}
               </div>
               <div className="mt-4 space-y-2">
                 {preparePieData().map((entry, index) => (
