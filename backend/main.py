@@ -11,7 +11,6 @@ import requests
 import time
 import traceback
 
-from prediction.model_predictor import predict_future
 
 from portfolio_optimizer import optimize_crypto_portfolio, CryptoPortfolioOptimizer
 
@@ -352,9 +351,10 @@ def predict_symbol(symbol: str, days: int = 7):
     """
     Predict future prices for a given cryptocurrency symbol (e.g. BTC-USD)
     """
+    return {"success": False, "symbol": symbol.upper(), "error": "Prediction endpoint removed"}
     try:
         print(f"\n🔮 /predict/{symbol} endpoint called (days={days})")
-        data = predict_future(symbol.upper(), days_ahead=days)
+        # prediction functionality removed
         
         # Check if there was an error in prediction
         if "error" in data:
@@ -554,7 +554,6 @@ print("   GET  /api/status          - Health check")
 print("   GET  /coins               - Top 50 cryptocurrencies")
 print("   GET  /crypto/{coin_id}    - Coin details")
 print("   POST /train/{symbol}      - Train ML models for a coin")  # ⬅️ NEW
-print("   GET  /predict/{symbol}    - ML predictions (model=auto|blend|rf|elastic|gbr|svr|xgb)")
 print("   GET  /debug/cache         - Cache status")
 print("   GET  /debug/clear-cache   - Clear caches")
 print("="*50)
