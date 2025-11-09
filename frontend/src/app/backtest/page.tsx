@@ -145,22 +145,20 @@ export default function BacktestPage() {
         <div className="flex gap-4 mb-8">
           <button
             onClick={() => setActiveTab("backtest")}
-            className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-all duration-300 ${
-              activeTab === "backtest"
+            className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-all duration-300 ${activeTab === "backtest"
                 ? "bg-primary text-primary-foreground"
                 : "bg-card hover:bg-accent text-muted-foreground hover:text-accent-foreground border border-border"
-            }`}
+              }`}
           >
             <BarChart3 className="h-5 w-5" />
             Historical Performance
           </button>
           <button
             onClick={() => setActiveTab("comparison")}
-            className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-all duration-300 ${
-              activeTab === "comparison"
+            className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-all duration-300 ${activeTab === "comparison"
                 ? "bg-primary text-primary-foreground"
                 : "bg-card hover:bg-accent text-muted-foreground hover:text-accent-foreground border border-border"
-            }`}
+              }`}
           >
             <PieChart className="h-5 w-5" />
             Strategy Comparison

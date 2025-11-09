@@ -153,8 +153,8 @@ export default function PortfolioOptimizer() {
               <h1 className="text-4xl font-bold text-foreground mb-2">Portfolio Optimization Results</h1>
               <p className="text-muted-foreground">Your optimized cryptocurrency portfolio</p>
             </div>
-            <Button 
-              onClick={resetForm} 
+            <Button
+              onClick={resetForm}
               variant="outline"
               className="rounded-xl"
             >
@@ -187,38 +187,36 @@ export default function PortfolioOptimizer() {
 
         {/* Bento Grid Layout */}
         <BentoGrid className="lg:grid-rows-3 mb-8">
-          {/* Investment Amount Card */}
+          {/* Cryptocurrency Selection Card - Now 2 columns */}
           <BentoCard
-            name="Investment Amount"
+            name="Select Assets"
             className="lg:col-start-1 lg:col-end-3 lg:row-start-1 lg:row-end-2 border-primary/40"
-            Icon={DollarSign}
-            description="Set your portfolio investment amount"
+            Icon={TrendingUp}
+            description="Choose your cryptocurrencies (2+ required)"
             href="#"
             cta=""
             background={
               <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
             }
           >
-            <div className="relative z-10 space-y-4 mt-4">
-              <Input
-                type="number"
-                value={investmentAmount}
-                onChange={(e) => setInvestmentAmount(e.target.value)}
-                placeholder="100000"
-                className="text-lg w-full rounded-xl h-12"
-              />
-              <div className="grid grid-cols-3 gap-2">
-                {[50000, 100000, 250000].map((amount) => (
-                  <Button
-                    key={amount}
-                    onClick={() => setInvestmentAmount(amount.toString())}
-                    size="sm"
-                    variant={parseInt(investmentAmount) === amount ? "default" : "outline"}
-                    className="rounded-xl transition-all"
+            <div className="relative z-10 flex flex-col h-full mt-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 overflow-y-auto custom-scrollbar flex-1 pr-2">
+                {availableCryptos.map((crypto) => (
+                  <div
+                    key={crypto.symbol}
+                    className={`cursor-pointer p-3 rounded-lg border transition-all h-fit ${selectedSymbols.includes(crypto.symbol)
+                      ? "border-primary bg-primary/20"
+                      : "border-border bg-card/50 hover:border-primary/40"
+                      }`}
+                    onClick={() => handleSymbolToggle(crypto.symbol)}
                   >
-                    ${(amount / 1000)}K
-                  </Button>
+                    <div className="font-semibold text-foreground text-sm">{crypto.symbol}</div>
+                    <div className="text-xs text-muted-foreground truncate">{crypto.name}</div>
+                  </div>
                 ))}
+              </div>
+              <div className="mt-3 pt-3 border-t border-border text-sm text-muted-foreground">
+                Selected: <span className="text-primary font-semibold">{selectedSymbols.length}</span> assets
               </div>
             </div>
           </BentoCard>
@@ -237,6 +235,7 @@ export default function PortfolioOptimizer() {
           >
             <div className="relative z-10 mt-4">
               <Select
+                instanceId="time-period-select"
                 className="react-select-container"
                 classNamePrefix="react-select"
                 value={timePeriodOptions.find(opt => opt.value === timePeriod)}
@@ -248,8 +247,8 @@ export default function PortfolioOptimizer() {
                 styles={{
                   control: (base) => ({
                     ...base,
-                    backgroundColor: 'hsl(var(--input))',
-                    borderColor: 'hsl(var(--border))',
+                    backgroundColor: 'hsl(var(--muted))',
+                    borderColor: 'hsl(var(--input))',
                     borderRadius: '0.75rem',
                     padding: '0.25rem',
                     cursor: 'pointer',
@@ -270,16 +269,26 @@ export default function PortfolioOptimizer() {
                     backgroundColor: 'hsl(var(--popover))',
                     border: '1px solid hsl(var(--border))',
                     borderRadius: '0.75rem',
+                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.15)',
+                  }),
+                  menuList: (base) => ({
+                    ...base,
+                    backgroundColor: 'hsl(var(--popover))',
+                    padding: '0.25rem',
+                    borderRadius: '0.75rem',
                   }),
                   option: (base, state) => ({
                     ...base,
-                    backgroundColor: state.isFocused 
-                      ? 'hsl(var(--accent))' 
-                      : 'transparent',
-                    color: state.isFocused 
-                      ? 'hsl(var(--accent-foreground))' 
+                    backgroundColor: state.isFocused
+                      ? 'hsl(var(--accent))'
+                      : state.isSelected
+                        ? 'hsl(var(--primary) / 0.15)'
+                        : 'hsl(var(--popover))',
+                    color: state.isFocused
+                      ? 'hsl(var(--accent-foreground))'
                       : 'hsl(var(--foreground))',
                     cursor: 'pointer',
+                    borderRadius: '0.5rem',
                     '&:active': {
                       backgroundColor: 'hsl(var(--accent))',
                     },
@@ -316,11 +325,10 @@ export default function PortfolioOptimizer() {
               ].map((option) => (
                 <div
                   key={option.value}
-                  className={`cursor-pointer p-3 rounded-lg border transition-all duration-300 ${
-                    riskTolerance === option.value
-                      ? "border-primary bg-primary/20"
-                      : "border-border bg-card/50 hover:border-primary/40"
-                  }`}
+                  className={`cursor-pointer p-3 rounded-lg border transition-all duration-300 ${riskTolerance === option.value
+                    ? "border-primary bg-primary/20"
+                    : "border-border bg-card/50 hover:border-primary/40"
+                    }`}
                   onClick={() => setRiskTolerance(option.value)}
                 >
                   <div className="font-semibold text-foreground text-sm">{option.label}</div>
@@ -329,10 +337,46 @@ export default function PortfolioOptimizer() {
             </div>
           </BentoCard>
 
+          {/* Investment Amount Card - Now 1 column */}
+          <BentoCard
+            name="Investment Amount"
+            className="lg:col-start-2 lg:col-end-3 lg:row-start-2 lg:row-end-3 border-primary/40"
+            Icon={DollarSign}
+            description="Set your portfolio investment amount"
+            href="#"
+            cta=""
+            background={
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
+            }
+          >
+            <div className="relative z-10 space-y-4 mt-4">
+              <Input
+                type="number"
+                value={investmentAmount}
+                onChange={(e) => setInvestmentAmount(e.target.value)}
+                placeholder="100000"
+                className="text-lg w-full rounded-xl h-12"
+              />
+              <div className="grid grid-cols-3 gap-2">
+                {[50000, 100000, 250000].map((amount) => (
+                  <Button
+                    key={amount}
+                    onClick={() => setInvestmentAmount(amount.toString())}
+                    size="sm"
+                    variant={parseInt(investmentAmount) === amount ? "default" : "outline"}
+                    className="rounded-xl transition-all"
+                  >
+                    ${(amount / 1000)}K
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </BentoCard>
+
           {/* Investment Goal Card */}
           <BentoCard
             name="Investment Goal"
-            className="lg:col-start-2 lg:col-end-3 lg:row-start-2 lg:row-end-3 border-primary/40"
+            className="lg:col-start-3 lg:col-end-4 lg:row-start-2 lg:row-end-3 border-primary/40"
             Icon={Target}
             description="What you want to achieve"
             href="#"
@@ -349,11 +393,10 @@ export default function PortfolioOptimizer() {
               ].map((option) => (
                 <div
                   key={option.value}
-                  className={`cursor-pointer p-2 rounded-lg border transition-all duration-300 ${
-                    investmentGoal === option.value
-                      ? "border-primary bg-primary/20"
-                      : "border-border bg-card/50 hover:border-primary/40"
-                  }`}
+                  className={`cursor-pointer p-2 rounded-lg border transition-all duration-300 ${investmentGoal === option.value
+                    ? "border-primary bg-primary/20"
+                    : "border-border bg-card/50 hover:border-primary/40"
+                    }`}
                   onClick={() => setInvestmentGoal(option.value)}
                 >
                   <div className="font-semibold text-foreground text-sm">{option.label}</div>
@@ -362,46 +405,11 @@ export default function PortfolioOptimizer() {
             </div>
           </BentoCard>
 
-          {/* Cryptocurrency Selection Card */}
-          <BentoCard
-            name="Select Assets"
-            className="lg:col-start-3 lg:col-end-4 lg:row-start-2 lg:row-end-4 border-primary/40"
-            Icon={TrendingUp}
-            description="Choose your cryptocurrencies (2+ required)"
-            href="#"
-            cta=""
-            background={
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
-            }
-          >
-            <div className="relative z-10 flex flex-col h-full mt-4">
-              <div className="grid grid-cols-2 gap-2 overflow-y-auto custom-scrollbar flex-1 pr-2">
-                {availableCryptos.map((crypto) => (
-                  <div
-                    key={crypto.symbol}
-                    className={`cursor-pointer p-3 rounded-lg border transition-all h-fit ${
-                      selectedSymbols.includes(crypto.symbol)
-                        ? "border-primary bg-primary/20"
-                        : "border-border bg-card/50 hover:border-primary/40"
-                    }`}
-                    onClick={() => handleSymbolToggle(crypto.symbol)}
-                  >
-                    <div className="font-semibold text-foreground text-sm">{crypto.symbol}</div>
-                    <div className="text-xs text-muted-foreground truncate">{crypto.name}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-3 pt-3 border-t border-border text-sm text-muted-foreground">
-                Selected: <span className="text-primary font-semibold">{selectedSymbols.length}</span> assets
-              </div>
-            </div>
-          </BentoCard>
-
           {/* Strategy Summary - Conditional */}
           {riskTolerance && investmentGoal && (
             <BentoCard
               name="Your Strategy"
-              className="lg:col-start-2 lg:col-end-3 lg:row-start-3 lg:row-end-4 border-primary/40 bg-primary/10"
+              className="lg:col-start-2 lg:col-end-4 lg:row-start-3 lg:row-end-4 border-primary/40 bg-primary/10"
               Icon={Sparkles}
               description={getStrategyDescription()}
               href="#"
@@ -412,95 +420,6 @@ export default function PortfolioOptimizer() {
             >
               <div className="relative z-10 mt-2">
                 <div className="inline-block px-3 py-1 rounded-full bg-primary/20 border border-primary/40 text-primary text-xs">
-                  Recommended
-                </div>
-              </div>
-            </BentoCard>
-          )}
-
-          {/* Investment Goal Card */}
-          <BentoCard
-            name="Investment Goal"
-            className="lg:col-start-2 lg:col-end-3 lg:row-start-2 lg:row-end-3 border-purple-400/40"
-            Icon={Target}
-            description="What you want to achieve"
-            href="#"
-            cta=""
-            background={
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent" />
-            }
-          >
-            <div className="relative z-10 grid gap-2 mt-4">
-              {[
-                { value: "safety", label: "Preservation", color: "emerald" },
-                { value: "balanced", label: "Balanced", color: "blue" },
-                { value: "growth", label: "Max Growth", color: "purple" },
-              ].map((option) => (
-                <div
-                  key={option.value}
-                  className={`cursor-pointer p-2 rounded-lg border transition-all duration-300 ${
-                    investmentGoal === option.value
-                      ? `border-${option.color}-400 bg-${option.color}-500/20`
-                      : "border-white/20 bg-white/5 hover:border-white/40"
-                  }`}
-                  onClick={() => setInvestmentGoal(option.value)}
-                >
-                  <div className="font-semibold text-white text-sm">{option.label}</div>
-                </div>
-              ))}
-            </div>
-          </BentoCard>
-
-          {/* Cryptocurrency Selection Card */}
-          <BentoCard
-            name="Select Assets"
-            className="lg:col-start-3 lg:col-end-4 lg:row-start-2 lg:row-end-4 border-orange-400/40"
-            Icon={TrendingUp}
-            description="Choose your cryptocurrencies (2+ required)"
-            href="#"
-            cta=""
-            background={
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-transparent" />
-            }
-          >
-            <div className="relative z-10 flex flex-col h-full mt-4">
-              <div className="grid grid-cols-2 gap-2 overflow-y-auto custom-scrollbar flex-1 pr-2">
-                {availableCryptos.map((crypto) => (
-                  <div
-                    key={crypto.symbol}
-                    className={`cursor-pointer p-3 rounded-lg border transition-all h-fit ${
-                      selectedSymbols.includes(crypto.symbol)
-                        ? "border-emerald-400/60 bg-emerald-500/20"
-                        : "border-white/20 bg-white/5 hover:border-white/40"
-                    }`}
-                    onClick={() => handleSymbolToggle(crypto.symbol)}
-                  >
-                    <div className="font-semibold text-white text-sm">{crypto.symbol}</div>
-                    <div className="text-xs text-gray-400 truncate">{crypto.name}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-3 pt-3 border-t border-white/20 text-sm text-gray-300">
-                Selected: <span className="text-emerald-400 font-semibold">{selectedSymbols.length}</span> assets
-              </div>
-            </div>
-          </BentoCard>
-
-          {/* Strategy Summary - Conditional */}
-          {riskTolerance && investmentGoal && (
-            <BentoCard
-              name="Your Strategy"
-              className="lg:col-start-2 lg:col-end-3 lg:row-start-3 lg:row-end-4 border-emerald-400/40 bg-gradient-to-br from-emerald-500/20 to-green-600/10"
-              Icon={Sparkles}
-              description={getStrategyDescription()}
-              href="#"
-              cta=""
-              background={
-                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent" />
-              }
-            >
-              <div className="relative z-10 mt-2">
-                <div className="inline-block px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-xs">
                   Recommended
                 </div>
               </div>

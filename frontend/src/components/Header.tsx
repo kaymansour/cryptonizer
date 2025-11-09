@@ -5,17 +5,15 @@ import { ModeToggle } from "@/components/mode-toggle";
 
 export default function Header() {
   return (
-    <header className="w-full shadow-lg py-4 px-6 bg-card border-b border-border">
-
-      <div className="container mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
-        
+    <header className="sticky top-0 z-50 w-full shadow-lg backdrop-blur-md bg-card/95 border-b border-border">
+      <div className="relative container mx-auto px-6 py-4 flex items-center justify-between">
         {/* Logo */}
-        <h1 className="text-3xl font-extrabold text-primary tracking-wide">
+        <h1 className="text-3xl font-extrabold text-primary tracking-wide font-serif">
           Cryptonizer
         </h1>
 
         {/* Navigation */}
-        <nav className="flex-1 flex justify-center space-x-6">
+        <nav className="absolute left-1/2 -translate-x-1/2 flex space-x-6">
           {[
             { href: "/", label: "Home" },
             { href: "/portfolio", label: "Portfolio" },
