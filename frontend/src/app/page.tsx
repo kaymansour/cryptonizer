@@ -72,7 +72,7 @@ export default function HomePage() {
             <div className="w-full sm:w-auto flex flex-col">
               <input
                 type="text"
-                placeholder="🔍 Search coins..."
+                placeholder="Search coins..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full sm:w-64 px-4 py-2 rounded-xl bg-muted border border-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring font-sans"
