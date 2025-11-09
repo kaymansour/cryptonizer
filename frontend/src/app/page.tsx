@@ -100,18 +100,18 @@ export default function HomePage() {
                 styles={{
                   control: (base) => ({
                     ...base,
-                    backgroundColor: 'hsl(var(--muted))',
-                    borderColor: 'hsl(var(--input))',
+                    backgroundColor: 'var(--muted)',
+                    borderColor: 'var(--input)',
                     borderRadius: '0.5rem',
                     minHeight: '2.5rem',
                     cursor: 'pointer',
                     '&:hover': {
-                      borderColor: 'hsl(var(--ring))',
+                      borderColor: 'var(--ring)',
                     },
                   }),
                   singleValue: (base) => ({
                     ...base,
-                    color: 'hsl(var(--foreground))',
+                    color: 'var(--foreground)',
                   }),
                   menuPortal: (base) => ({
                     ...base,
@@ -119,35 +119,36 @@ export default function HomePage() {
                   }),
                   menu: (base) => ({
                     ...base,
-                    backgroundColor: 'hsl(var(--popover))',
-                    border: '1px solid hsl(var(--border))',
+                    backgroundColor: 'var(--popover)',
+                    border: '1px solid var(--border)',
                     borderRadius: '0.5rem',
                     boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.15)',
                   }),
                   menuList: (base) => ({
                     ...base,
-                    backgroundColor: 'hsl(var(--popover))',
+                    backgroundColor: 'var(--popover)',
                     padding: '0.25rem',
                     borderRadius: '0.5rem',
                   }),
                   option: (base, state) => ({
                     ...base,
                     backgroundColor: state.isFocused
-                      ? 'hsl(var(--accent))'
+                      ? 'var(--accent)'
                       : state.isSelected
-                        ? 'hsl(var(--primary) / 0.2)'
-                        : 'hsl(var(--popover))',
+                        ? 'var(--primary)'
+                        : 'var(--popover)',
                     color: state.isFocused
-                      ? 'hsl(var(--accent-foreground))'
-                      : 'hsl(var(--foreground))',
+                      ? 'var(--accent-foreground)'
+                      : 'var(--foreground)',
                     cursor: 'pointer',
+                    opacity: 1,
                     '&:active': {
-                      backgroundColor: 'hsl(var(--accent))',
+                      backgroundColor: 'var(--accent)',
                     },
                   }),
                   dropdownIndicator: (base) => ({
                     ...base,
-                    color: 'hsl(var(--primary))',
+                    color: 'var(--primary)',
                   }),
                   indicatorSeparator: () => ({
                     display: 'none',
@@ -169,18 +170,18 @@ export default function HomePage() {
                 styles={{
                   control: (base) => ({
                     ...base,
-                    backgroundColor: 'hsl(var(--muted))',
-                    borderColor: 'hsl(var(--input))',
+                    backgroundColor: 'var(--muted)',
+                    borderColor: 'var(--input)',
                     borderRadius: '0.5rem',
                     minHeight: '2.5rem',
                     cursor: 'pointer',
                     '&:hover': {
-                      borderColor: 'hsl(var(--ring))',
+                      borderColor: 'var(--ring)',
                     },
                   }),
                   singleValue: (base) => ({
                     ...base,
-                    color: 'hsl(var(--foreground))',
+                    color: 'var(--foreground)',
                   }),
                   menuPortal: (base) => ({
                     ...base,
@@ -188,35 +189,36 @@ export default function HomePage() {
                   }),
                   menu: (base) => ({
                     ...base,
-                    backgroundColor: 'hsl(var(--popover))',
-                    border: '1px solid hsl(var(--border))',
+                    backgroundColor: 'var(--popover)',
+                    border: '1px solid var(--border)',
                     borderRadius: '0.5rem',
                     boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.15)',
                   }),
                   menuList: (base) => ({
                     ...base,
-                    backgroundColor: 'hsl(var(--popover))',
+                    backgroundColor: 'var(--popover)',
                     padding: '0.25rem',
                     borderRadius: '0.5rem',
                   }),
                   option: (base, state) => ({
                     ...base,
                     backgroundColor: state.isFocused
-                      ? 'hsl(var(--accent))'
+                      ? 'var(--accent)'
                       : state.isSelected
-                        ? 'hsl(var(--primary) / 0.2)'
-                        : 'hsl(var(--popover))',
+                        ? 'var(--primary)'
+                        : 'var(--popover)',
                     color: state.isFocused
-                      ? 'hsl(var(--accent-foreground))'
-                      : 'hsl(var(--foreground))',
+                      ? 'var(--accent-foreground)'
+                      : 'var(--foreground)',
                     cursor: 'pointer',
+                    opacity: 1,
                     '&:active': {
-                      backgroundColor: 'hsl(var(--accent))',
+                      backgroundColor: 'var(--accent)',
                     },
                   }),
                   dropdownIndicator: (base) => ({
                     ...base,
-                    color: 'hsl(var(--primary))',
+                    color: 'var(--primary)',
                   }),
                   indicatorSeparator: () => ({
                     display: 'none',
@@ -238,18 +240,18 @@ export default function HomePage() {
                 styles={{
                   control: (base) => ({
                     ...base,
-                    backgroundColor: 'hsl(var(--muted))',
-                    borderColor: 'hsl(var(--input))',
+                    backgroundColor: 'var(--muted)',
+                    borderColor: 'var(--input)',
                     borderRadius: '0.5rem',
                     minHeight: '2.5rem',
                     cursor: 'pointer',
                     '&:hover': {
-                      borderColor: 'hsl(var(--ring))',
+                      borderColor: 'var(--ring)',
                     },
                   }),
                   singleValue: (base) => ({
                     ...base,
-                    color: 'hsl(var(--foreground))',
+                    color: 'var(--foreground)',
                   }),
                   menuPortal: (base) => ({
                     ...base,
@@ -257,35 +259,36 @@ export default function HomePage() {
                   }),
                   menu: (base) => ({
                     ...base,
-                    backgroundColor: 'hsl(var(--popover))',
-                    border: '1px solid hsl(var(--border))',
+                    backgroundColor: 'var(--popover)',
+                    border: '1px solid var(--border)',
                     borderRadius: '0.5rem',
                     boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.15)',
                   }),
                   menuList: (base) => ({
                     ...base,
-                    backgroundColor: 'hsl(var(--popover))',
+                    backgroundColor: 'var(--popover)',
                     padding: '0.25rem',
                     borderRadius: '0.5rem',
                   }),
                   option: (base, state) => ({
                     ...base,
                     backgroundColor: state.isFocused
-                      ? 'hsl(var(--accent))'
+                      ? 'var(--accent)'
                       : state.isSelected
-                        ? 'hsl(var(--primary) / 0.2)'
-                        : 'hsl(var(--popover))',
+                        ? 'var(--primary)'
+                        : 'var(--popover)',
                     color: state.isFocused
-                      ? 'hsl(var(--accent-foreground))'
-                      : 'hsl(var(--foreground))',
+                      ? 'var(--accent-foreground)'
+                      : 'var(--foreground)',
                     cursor: 'pointer',
+                    opacity: 1,
                     '&:active': {
-                      backgroundColor: 'hsl(var(--accent))',
+                      backgroundColor: 'var(--accent)',
                     },
                   }),
                   dropdownIndicator: (base) => ({
                     ...base,
-                    color: 'hsl(var(--primary))',
+                    color: 'var(--primary)',
                   }),
                   indicatorSeparator: () => ({
                     display: 'none',
