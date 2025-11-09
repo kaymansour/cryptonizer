@@ -23,6 +23,12 @@ export default function CoinDetail({ coin, currency, onPredict }: CoinDetailProp
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
+  // 🔮 Prediction States
+  const [prediction, setPrediction] = useState<number | null>(null);
+  const [predictionDetails, setPredictionDetails] = useState<any | null>(null);
+  const [predictLoading, setPredictLoading] = useState(false);
+  const [predictError, setPredictError] = useState<string | null>(null);
+
   useEffect(() => {
     async function fetchData() {
       try {
@@ -68,6 +74,27 @@ export default function CoinDetail({ coin, currency, onPredict }: CoinDetailProp
     setImgError(false);
   }, [coin.id]);
 
+  // 🔮 Connect to backend /predict/{symbol}
+  async function handlePredict() {
+    setPredictLoading(true);
+    setPredictError(null);
+    try {
+      console.log(`Predicting price for ${coin.symbol}...`);
+      const res = await fetch(`http://localhost:8000/predict/${coin.symbol.toUpperCase()}-USD`);
+      if (!res.ok) throw new Error(`Prediction failed: ${res.status}`);
+      const data = await res.json();
+      console.log("Prediction response:", data);
+
+      setPrediction(data.prediction);
+      setPredictionDetails(data.details);
+    } catch (err: any) {
+      console.error("Prediction error:", err);
+      setPredictError(err.message || "Failed to fetch prediction");
+    } finally {
+      setPredictLoading(false);
+    }
+  }
+
   const currentPrice = coinDetail?.current_price ?? coin.current_price ?? 0;
   const marketCap = coinDetail?.market_cap ?? coin.market_cap ?? 0;
   const volume = coinDetail?.total_volume ?? coin.total_volume ?? 0;
@@ -108,68 +135,7 @@ export default function CoinDetail({ coin, currency, onPredict }: CoinDetailProp
         bodyColor: "#cbd5e1",
         borderColor: isPositive ? "#10b981" : "#ef4444",
         borderWidth: 1,
-        callbacks: {
-          label: function(context: any) {
-            let value = context.parsed.y;
-            // Format tooltip values based on the currency
-            if (currency === "bhd") {
-              // For BHD, show more decimal places since values are smaller
-              return `${currencySymbol}${value.toLocaleString(undefined, {
-                minimumFractionDigits: 4,
-                maximumFractionDigits: 6
-              })}`;
-            } else {
-              // For USD, use normal formatting
-              return `${currencySymbol}${value.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: value < 1 ? 6 : 2
-              })}`;
-            }
-          }
-        }
       },
-    },
-    scales: {
-      x: {
-        grid: {
-          display: false,
-          color: "rgba(255,255,255,0.1)",
-        },
-        ticks: {
-          color: "#94a3b8",
-          maxTicksLimit: 6,
-        },
-      },
-      y: {
-        grid: {
-          color: "rgba(255,255,255,0.05)",
-        },
-        ticks: {
-          color: "#94a3b8",
-          callback: function (value: any) {
-            if (typeof value === 'number') {
-              if (currency === "bhd") {
-                // For BHD, show more decimal places
-                return currencySymbol + value.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 4
-                });
-              } else {
-                // For USD, use standard formatting
-                return currencySymbol + value.toLocaleString(undefined, {
-                  minimumFractionDigits: 0,
-                  maximumFractionDigits: 0
-                });
-              }
-            }
-            return currencySymbol + value;
-          },
-        },
-      },
-    },
-    interaction: {
-      intersect: false,
-      mode: "nearest" as const,
     },
   };
 
@@ -209,7 +175,6 @@ export default function CoinDetail({ coin, currency, onPredict }: CoinDetailProp
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-6 bg-slate-800/30 backdrop-blur-xl rounded-2xl border border-slate-700/50">
           <div className="flex items-center gap-4">
             <div className="relative">
-              {/* Fixed image with error handling */}
               {coin.image && !imgError ? (
                 <img
                   src={coin.image}
@@ -270,25 +235,20 @@ export default function CoinDetail({ coin, currency, onPredict }: CoinDetailProp
               Displaying in {currency.toUpperCase()}
             </div>
 
-    <button
-  onClick={onPredict}
-  className="mt-3 px-6 py-3 
-    bg-slate-800/40 
-    backdrop-blur-xl 
-    border border-slate-600/30 
-    text-slate-200 font-semibold 
-    rounded-2xl 
-    hover:bg-slate-700/40 
-    hover:border-emerald-400/40 
-    hover:text-emerald-300 
-    hover:translate-y-[-2px] 
-    transform 
-    transition-all duration-300 
-    shadow-lg shadow-slate-900/50 
-    hover:shadow-xl hover:shadow-emerald-500/10"
->
-  Predict Price
-</button>
+            {/* 🔮 Predict Button Connected to Backend */}
+            <button
+              onClick={handlePredict}
+              disabled={predictLoading}
+              className={`mt-3 px-6 py-3 bg-slate-800/40 backdrop-blur-xl border border-slate-600/30 text-slate-200 font-semibold rounded-2xl hover:bg-slate-700/40 hover:border-emerald-400/40 hover:text-emerald-300 hover:translate-y-[-2px] transform transition-all duration-300 shadow-lg shadow-slate-900/50 hover:shadow-xl hover:shadow-emerald-500/10 ${
+                predictLoading ? "opacity-50 cursor-not-allowed" : ""
+              }`}
+            >
+              {predictLoading ? "Predicting..." : "Predict Price"}
+            </button>
+
+            {predictError && (
+              <p className="text-red-400 text-sm mt-2">{predictError}</p>
+            )}
           </div>
         </div>
 
@@ -300,9 +260,7 @@ export default function CoinDetail({ coin, currency, onPredict }: CoinDetailProp
               <h3 className="text-lg font-semibold text-slate-300">
                 Price Chart ({currency.toUpperCase()})
               </h3>
-              <span className="text-sm text-slate-400">
-                7-day history
-              </span>
+              <span className="text-sm text-slate-400">7-day history</span>
             </div>
             <div className="h-80">
               {history.length > 0 ? (
@@ -313,9 +271,34 @@ export default function CoinDetail({ coin, currency, onPredict }: CoinDetailProp
                 </div>
               )}
             </div>
+
+            {/* 🔮 Prediction Result Display */}
+            {prediction !== null && (
+              <div className="p-6 mt-6 bg-slate-800/40 rounded-2xl border border-emerald-400/30 text-center">
+                <h3 className="text-xl font-bold text-emerald-300 mb-2">
+                  Ensemble Prediction
+                </h3>
+                <p className="text-slate-200 text-lg">
+                  Next Predicted Price:{" "}
+                  <span className="text-emerald-400 font-semibold">
+                    ${prediction.toFixed(2)}
+                  </span>
+                </p>
+                {predictionDetails && (
+                  <div className="text-sm text-slate-400 mt-3 space-y-1">
+                    <p>BLSTM: ${predictionDetails.blstm.toFixed(2)}</p>
+                    <p>XGBoost: ${predictionDetails.xgb.toFixed(2)}</p>
+                    <p>
+                      Weights → BLSTM: {(predictionDetails.weights.blstm * 100).toFixed(1)}% |
+                      XGB: {(predictionDetails.weights.xgb * 100).toFixed(1)}%
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Stats Section */}
+          {/* Stats Section (unchanged) */}
           <div className="space-y-4">
             <div className="p-6 bg-slate-800/30 backdrop-blur-xl rounded-2xl border border-slate-700/50">
               <h3 className="text-lg font-semibold text-slate-300 mb-4">
@@ -350,22 +333,19 @@ export default function CoinDetail({ coin, currency, onPredict }: CoinDetailProp
               </div>
             </div>
 
-            {/* Rank & Info */}
             <div className="p-6 bg-slate-800/30 backdrop-blur-xl rounded-2xl border border-slate-700/50">
-              <h3 className="text-lg font-semibold text-slate-300 mb-2">
-                Rank & Info
-              </h3>
+              <h3 className="text-lg font-semibold text-slate-300 mb-2">Rank & Info</h3>
               <div className="flex justify-between items-center py-2">
                 <span className="text-slate-400">Market Cap Rank</span>
                 <span className="font-semibold text-slate-200">
-                  #{marketCapRank || 'N/A'}
+                  #{marketCapRank || "N/A"}
                 </span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Description Section */}
+        {/* Description Section (unchanged) */}
         <div className="p-6 bg-slate-800/30 backdrop-blur-xl rounded-2xl border border-slate-700/50">
           <button
             className="w-full flex justify-between items-center text-left group"

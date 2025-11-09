@@ -10,10 +10,10 @@ from typing import List, Optional, Dict
 import requests
 import time
 import traceback
-from models.crypto_predictor import predict_crypto as predict_future_prices
 from portfolio_optimizer import optimize_crypto_portfolio, CryptoPortfolioOptimizer
 from backtester import Backtester, backtest_portfolio
 from strategy_comparator import StrategyComparator, compare_with_benchmarks
+from models.ensemble_predictor import EnsemblePredictor
 
 
 app = FastAPI()
@@ -457,48 +457,38 @@ def get_crypto_data(coin_id: str, currency: str = "usd", days: int = 7):
         else:
             raise HTTPException(status_code=500, detail=error_detail)
 
-
 # =============================================================================
-# MACHINE LEARNING PREDICTION ENDPOINT
+# Prediction ENDPOINT
 # =============================================================================
 @app.get("/predict/{symbol}")
-def predict(symbol: str):
+def predict_symbol(symbol: str, interval: str = "4h"):
     """
-    Uses machine learning model to predict future cryptocurrency prices
-    Args:
-        symbol: Cryptocurrency symbol (e.g., "BTC" for Bitcoin)
-
-    Returns: Prediction results from the ML model
+    Predict the next cryptocurrency price using BLSTM + XGBoost ensemble
     """
-    print(f"\n🎯 /predict/{symbol} endpoint called")
-    print(f"   Symbol: {symbol}")
-
     try:
-        print(f"🤖 Calling ML prediction model for {symbol.upper()}...")
+        predictor = EnsemblePredictor(symbol.upper(), interval)
+        result = predictor.predict_next()
 
-        # Call the ML prediction function with uppercase symbol
-        start_time = time.time()
-        result = predict_future_prices(symbol.upper())
-        prediction_time = time.time() - start_time
+        details = {
+            "blstm": result["prediction_blstm"],
+            "xgb": result["prediction_xgb"],
+            "weights": result.get("weights", {}),
+            "rmse": result.get("rmse", {}),
+        }
 
-        print(f"✅ ML prediction completed:")
-        print(f"   Time: {prediction_time:.2f}s")
-        print(f"   Result type: {type(result)}")
-        print(
-            f"   Result keys: {list(result.keys()) if isinstance(result, dict) else 'N/A'}"
-        )
-
-        return result
-
-    except ValueError as ve:
-        error_msg = f"Prediction error for {symbol}: {str(ve)}"
-        print(f"❌ {error_msg}")
-        raise HTTPException(status_code=404, detail=str(ve))
-
+        return {
+            "symbol": result["symbol"],
+            "interval": result["interval"],
+            "prediction": result["prediction_ensemble"],
+            "details": details,
+        }
+    except FileNotFoundError:
+        # Kept for backward-compatibility; EnsemblePredictor now falls back
+        raise HTTPException(status_code=404, detail=f"No trained model for {symbol}")
+    except ValueError as e:
+        # Fallback predictor may raise when no market data is available
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        error_msg = f"ML model error for {symbol}: {str(e)}"
-        print(f"❌ {error_msg}")
-        print(f"🔍 Stack trace: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
