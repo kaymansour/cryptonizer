@@ -1,10 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, TrendingUp, Shield, Target, BarChart3, Sparkles } from "lucide-react";
+import { Loader2, TrendingUp, Shield, Target, Sparkles, DollarSign, Clock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import PortfolioResults from "@/components/PortfolioResults";
 import BackToMain from "@/components/backtomain";
@@ -176,172 +175,179 @@ export default function PortfolioOptimizer() {
           </p>
         </div>
 
-        {/* Cards Grid */}
-       <div className="grid gap-5 grid-cols-[repeat(auto-fit,minmax(600px,1fr))]">
-
-          {/* Investment Amount Card */}
-          <div className="bg-white/10 backdrop-blur-xl p-6 rounded-2xl shadow-lg border border-emerald-400/40 hover:scale-[1.02] hover:shadow-2xl transition-all duration-300">
-            <div className="flex items-center gap-3 mb-4">
-              <BarChart3 className="h-6 w-6 text-emerald-400" />
-              <h2 className="text-xl font-bold text-white">Investment Amount</h2>
+        {/* Bento Grid Layout */}
+        <div className="grid w-full auto-rows-[18rem] grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          {/* Investment Amount Card - Large */}
+          <div className="col-span-1 md:col-span-2 group relative flex flex-col justify-between overflow-hidden rounded-2xl bg-white/10 backdrop-blur-xl border border-emerald-400/40 p-6 hover:shadow-2xl transition-all duration-300">
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent" />
+            <div className="relative z-10 flex flex-col h-full">
+              <div className="flex items-center gap-3 mb-4">
+                <DollarSign className="h-8 w-8 text-emerald-400" />
+                <h3 className="text-xl font-bold text-white">Investment Amount</h3>
+              </div>
+              <p className="text-gray-300 text-sm mb-4">Set your portfolio investment amount</p>
+              <div className="space-y-4 mt-auto">
+                <Input
+                  type="number"
+                  value={investmentAmount}
+                  onChange={(e) => setInvestmentAmount(e.target.value)}
+                  placeholder="100000"
+                  className="text-lg w-full bg-white/5 border-white/20 text-white rounded-xl h-12"
+                />
+                <div className="grid grid-cols-3 gap-2">
+                  {[50000, 100000, 250000].map((amount) => (
+                    <Button
+                      key={amount}
+                      onClick={() => setInvestmentAmount(amount.toString())}
+                      size="sm"
+                      className={`rounded-xl transition-all ${
+                        parseInt(investmentAmount) === amount 
+                          ? 'bg-emerald-500 hover:bg-emerald-600 text-white' 
+                          : 'bg-white/10 border border-white/20 text-white hover:bg-white/20'
+                      }`}
+                    >
+                      ${(amount / 1000)}K
+                    </Button>
+                  ))}
+                </div>
+              </div>
             </div>
-            <p className="text-gray-300 mb-4">
-              How much would you like to invest in your portfolio?
-            </p>
-            <div className="space-y-4">
-              <Input
-                type="number"
-                value={investmentAmount}
-                onChange={(e) => setInvestmentAmount(e.target.value)}
-                placeholder="100000"
-                className="text-lg w-full bg-white/5 border-white/20 text-white rounded-xl"
-              />
-              <div className="grid grid-cols-3 gap-2">
-                {[50000, 100000, 250000].map((amount) => (
-                  <Button
-                    key={amount}
-                    onClick={() => setInvestmentAmount(amount.toString())}
-                    className={`rounded-xl transition-all ${
-                      parseInt(investmentAmount) === amount 
-                        ? 'bg-emerald-500 hover:bg-emerald-600 text-white' 
-                        : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
-                    }`}
-                  >
-                    ${amount.toLocaleString()}
-                  </Button>
-                ))}
+          </div>
+
+          {/* Time Period Card */}
+          <div className="col-span-1 group relative flex flex-col justify-between overflow-hidden rounded-2xl bg-white/10 backdrop-blur-xl border border-cyan-400/40 p-6 hover:shadow-2xl transition-all duration-300">
+            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-transparent" />
+            <div className="relative z-10 flex flex-col h-full">
+              <div className="flex items-center gap-3 mb-4">
+                <Clock className="h-8 w-8 text-cyan-400" />
+                <h3 className="text-xl font-bold text-white">Data Period</h3>
+              </div>
+              <p className="text-gray-300 text-sm mb-4">Historical analysis timeframe</p>
+              <div className="mt-auto">
+                <Select value={timePeriod} onValueChange={setTimePeriod}>
+                  <SelectTrigger className="bg-white/5 border-white/20 text-white rounded-xl w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="3mo">3 Months</SelectItem>
+                    <SelectItem value="6mo">6 Months</SelectItem>
+                    <SelectItem value="1y">1 Year</SelectItem>
+                    <SelectItem value="2y">2 Years</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>
 
           {/* Risk Tolerance Card */}
-          <div className="bg-white/10 backdrop-blur-xl p-6 rounded-2xl shadow-lg border border-blue-400/40 hover:scale-[1.02] hover:shadow-2xl transition-all duration-300">
-            <div className="flex items-center gap-3 mb-4">
-              <Shield className="h-6 w-6 text-blue-400" />
-              <h2 className="text-xl font-bold text-white">Risk Tolerance</h2>
-            </div>
-            <p className="text-gray-300 mb-4">
-              How comfortable are you with potential losses for higher returns?
-            </p>
-            <div className="grid gap-3">
-              {[
-                { value: "low", label: "Conservative", desc: "I prefer stable returns and minimal risk", color: "emerald" },
-                { value: "medium", label: "Moderate", desc: "I can accept some risk for better returns", color: "blue" },
-                { value: "high", label: "Aggressive", desc: "I'm comfortable with high risk for maximum returns", color: "purple" },
-              ].map((option) => (
-                <div
-                  key={option.value}
-                  className={`cursor-pointer p-4 rounded-xl border transition-all duration-300 ${
-                    riskTolerance === option.value
-                      ? `border-${option.color}-400 bg-${option.color}-500/20 shadow-lg`
-                      : "border-white/20 bg-white/5 hover:border-white/40 hover:bg-white/10"
-                  }`}
-                  onClick={() => setRiskTolerance(option.value)}
-                >
-                  <div className="font-semibold text-white">{option.label}</div>
-                  <div className="text-sm text-gray-300">{option.desc}</div>
-                </div>
-              ))}
+          <div className="col-span-1 group relative flex flex-col justify-between overflow-hidden rounded-2xl bg-white/10 backdrop-blur-xl border border-blue-400/40 p-6 hover:shadow-2xl transition-all duration-300">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent" />
+            <div className="relative z-10 flex flex-col h-full">
+              <div className="flex items-center gap-3 mb-4">
+                <Shield className="h-8 w-8 text-blue-400" />
+                <h3 className="text-xl font-bold text-white">Risk Level</h3>
+              </div>
+              <p className="text-gray-300 text-sm mb-4">Your comfort with volatility</p>
+              <div className="grid gap-2 mt-auto">
+                {[
+                  { value: "low", label: "Conservative", color: "emerald" },
+                  { value: "medium", label: "Moderate", color: "blue" },
+                  { value: "high", label: "Aggressive", color: "purple" },
+                ].map((option) => (
+                  <div
+                    key={option.value}
+                    className={`cursor-pointer p-2 rounded-lg border transition-all duration-300 ${
+                      riskTolerance === option.value
+                        ? `border-${option.color}-400 bg-${option.color}-500/20`
+                        : "border-white/20 bg-white/5 hover:border-white/40"
+                    }`}
+                    onClick={() => setRiskTolerance(option.value)}
+                  >
+                    <div className="font-semibold text-white text-sm">{option.label}</div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
           {/* Investment Goal Card */}
-          <div className="bg-white/10 backdrop-blur-xl p-6 rounded-2xl shadow-lg border border-purple-400/40 hover:scale-[1.02] hover:shadow-2xl transition-all duration-300">
-            <div className="flex items-center gap-3 mb-4">
-              <Target className="h-6 w-6 text-purple-400" />
-              <h2 className="text-xl font-bold text-white">Investment Goal</h2>
-            </div>
-            <p className="text-gray-300 mb-4">
-              What&apos;s your primary goal for this investment?
-            </p>
-            <div className="grid gap-3">
-              {[
-                { value: "safety", label: "Capital Preservation", desc: "Protect my money from major losses", color: "emerald" },
-                { value: "balanced", label: "Balanced Growth", desc: "Steady growth with reasonable risk", color: "blue" },
-                { value: "growth", label: "Maximum Growth", desc: "Highest possible returns", color: "purple" },
-              ].map((option) => (
-                <div
-                  key={option.value}
-                  className={`cursor-pointer p-4 rounded-xl border transition-all duration-300 ${
-                    investmentGoal === option.value
-                      ? `border-${option.color}-400 bg-${option.color}-500/20 shadow-lg`
-                      : "border-white/20 bg-white/5 hover:border-white/40 hover:bg-white/10"
-                  }`}
-                  onClick={() => setInvestmentGoal(option.value)}
-                >
-                  <div className="font-semibold text-white">{option.label}</div>
-                  <div className="text-sm text-gray-300">{option.desc}</div>
-                </div>
-              ))}
+          <div className="col-span-1 group relative flex flex-col justify-between overflow-hidden rounded-2xl bg-white/10 backdrop-blur-xl border border-purple-400/40 p-6 hover:shadow-2xl transition-all duration-300">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent" />
+            <div className="relative z-10 flex flex-col h-full">
+              <div className="flex items-center gap-3 mb-4">
+                <Target className="h-8 w-8 text-purple-400" />
+                <h3 className="text-xl font-bold text-white">Goal</h3>
+              </div>
+              <p className="text-gray-300 text-sm mb-4">What you want to achieve</p>
+              <div className="grid gap-2 mt-auto">
+                {[
+                  { value: "safety", label: "Preservation", color: "emerald" },
+                  { value: "balanced", label: "Balanced", color: "blue" },
+                  { value: "growth", label: "Max Growth", color: "purple" },
+                ].map((option) => (
+                  <div
+                    key={option.value}
+                    className={`cursor-pointer p-2 rounded-lg border transition-all duration-300 ${
+                      investmentGoal === option.value
+                        ? `border-${option.color}-400 bg-${option.color}-500/20`
+                        : "border-white/20 bg-white/5 hover:border-white/40"
+                    }`}
+                    onClick={() => setInvestmentGoal(option.value)}
+                  >
+                    <div className="font-semibold text-white text-sm">{option.label}</div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* Cryptocurrency Selection Card */}
-          <div className="bg-white/10 backdrop-blur-xl p-6 rounded-2xl shadow-lg border border-orange-400/40 hover:scale-[1.02] hover:shadow-2xl transition-all duration-300">
-            <div className="flex items-center gap-3 mb-4">
-              <TrendingUp className="h-6 w-6 text-orange-400" />
-              <h2 className="text-xl font-bold text-white">Select Cryptocurrencies</h2>
+          {/* Cryptocurrency Selection Card - Spans 2 columns */}
+          <div className="col-span-1 md:col-span-1 row-span-1 md:row-span-2 group relative flex flex-col justify-between overflow-hidden rounded-2xl bg-white/10 backdrop-blur-xl border border-orange-400/40 p-6 hover:shadow-2xl transition-all duration-300">
+            <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-transparent" />
+            <div className="relative z-10 flex flex-col h-full">
+              <div className="flex items-center gap-3 mb-4">
+                <TrendingUp className="h-8 w-8 text-orange-400" />
+                <h3 className="text-xl font-bold text-white">Select Assets</h3>
+              </div>
+              <p className="text-gray-300 text-sm mb-4">Choose your cryptocurrencies (2+ required)</p>
+              <div className="grid grid-cols-2 gap-2 overflow-y-auto custom-scrollbar flex-1 pr-2">
+                {availableCryptos.map((crypto) => (
+                  <div
+                    key={crypto.symbol}
+                    className={`cursor-pointer p-3 rounded-lg border transition-all h-fit ${
+                      selectedSymbols.includes(crypto.symbol)
+                        ? "border-emerald-400/60 bg-emerald-500/20"
+                        : "border-white/20 bg-white/5 hover:border-white/40"
+                    }`}
+                    onClick={() => handleSymbolToggle(crypto.symbol)}
+                  >
+                    <div className="font-semibold text-white text-sm">{crypto.symbol}</div>
+                    <div className="text-xs text-gray-400 truncate">{crypto.name}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 pt-3 border-t border-white/20 text-sm text-gray-300">
+                Selected: <span className="text-emerald-400 font-semibold">{selectedSymbols.length}</span> assets
+              </div>
             </div>
-            <p className="text-gray-300 mb-4">
-              Choose at least 2 cryptocurrencies for your portfolio (more = better diversification)
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {availableCryptos.map((crypto) => (
-                <div
-                  key={crypto.symbol}
-                  className={`cursor-pointer p-4 rounded-xl border transition-all duration-300 backdrop-blur-sm ${
-                    selectedSymbols.includes(crypto.symbol)
-                      ? "border-emerald-400/40 bg-emerald-500/20 shadow-lg"
-                      : "border-white/20 bg-white/5 hover:border-white/40 hover:bg-white/10"
-                  }`}
-                  onClick={() => handleSymbolToggle(crypto.symbol)}
-                >
-                  <div className="flex items-center space-x-3">
-                    <Checkbox
-                      checked={selectedSymbols.includes(crypto.symbol)}
-                      onChange={() => handleSymbolToggle(crypto.symbol)}
-                      className="data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500"
-                    />
-                    <div>
-                      <div className="font-semibold text-white">{crypto.symbol} - {crypto.name}</div>
-                      <div className="text-sm text-gray-300">{crypto.description}</div>
+          </div>
+
+          {/* Strategy Summary - Conditional */}
+          {riskTolerance && investmentGoal && (
+            <div className="col-span-1 md:col-span-2 group relative flex flex-col justify-between overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500/20 to-green-600/10 backdrop-blur-xl border border-emerald-400/40 p-6 hover:shadow-2xl transition-all duration-300">
+              <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent" />
+              <div className="relative z-10">
+                <div className="flex items-center gap-3 mb-3">
+                  <Sparkles className="h-8 w-8 text-emerald-400" />
+                  <div>
+                    <h3 className="text-xl font-bold text-white">Your Strategy</h3>
+                    <div className="inline-block px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-xs mt-1">
+                      Recommended
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
-            <div className="mt-4 text-sm text-gray-300">
-              Selected: <span className="text-emerald-400 font-semibold">{selectedSymbols.join(", ")}</span> ({selectedSymbols.length} cryptocurrencies)
-            </div>
-          </div>
-
-          {/* Time Period Card */}
-          <div className="bg-white/10 backdrop-blur-xl p-6 rounded-2xl shadow-lg border border-cyan-400/40 hover:scale-[1.02] hover:shadow-2xl transition-all duration-300">
-            <h2 className="text-xl font-bold text-white mb-4">Historical Data Period</h2>
-            <p className="text-gray-300 mb-4">
-              How much historical data should we use to analyze the cryptocurrencies?
-            </p>
-            <Select value={timePeriod} onValueChange={setTimePeriod}>
-              <SelectTrigger className="bg-white/5 border-white/20 text-white rounded-xl w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="3mo">3 Months (Recent trends)</SelectItem>
-                <SelectItem value="6mo">6 Months (Medium term)</SelectItem>
-                <SelectItem value="1y">1 Year (Recommended)</SelectItem>
-                <SelectItem value="2y">2 Years (Long term)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Recommended Strategy */}
-          {riskTolerance && investmentGoal && (
-            <div className="bg-gradient-to-r from-emerald-500/20 to-green-600/20 backdrop-blur-xl p-6 rounded-2xl shadow-lg border border-emerald-400/40 hover:scale-[1.02] hover:shadow-2xl transition-all duration-300">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-emerald-400" />
-                <h3 className="text-lg font-bold text-emerald-400">Recommended Strategy</h3>
+                <p className="text-emerald-200 text-lg">{getStrategyDescription()}</p>
               </div>
-              <p className="text-emerald-300 mt-2">{getStrategyDescription()}</p>
             </div>
           )}
         </div>
