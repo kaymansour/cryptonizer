@@ -2,10 +2,28 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Select from 'react-select';
 import CoinCard from "@/components/CoinCard";
-import CoinHeader from "@/components/CoinHeader";
 import { useCoins } from "@/hooks/useCoins";
 import { Coin } from "@/types/Coin";
+
+// Options for react-select dropdowns
+const sortOptions = [
+  { value: "price", label: "Price" },
+  { value: "change", label: "24h Change" },
+  { value: "name", label: "Name" },
+];
+
+const filterOptions = [
+  { value: "all", label: "All" },
+  { value: "gainers", label: "Gainers" },
+  { value: "losers", label: "Losers" },
+];
+
+const currencyOptions = [
+  { value: "usd", label: "USD ($)" },
+  { value: "bhd", label: "BHD (BD)" },
+];
 
 export default function HomePage() {
   const { coins } = useCoins();
@@ -46,18 +64,238 @@ export default function HomePage() {
   // -------------------- Render --------------------
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Header with search, sort, filter, and currency */}
-      <CoinHeader
-        search={search}
-        setSearch={setSearch}
-        sortBy={sortBy}
-        setSortBy={setSortBy}
-        filterBy={filterBy}
-        setFilterBy={setFilterBy}
-        currency={currency}
-        setCurrency={setCurrency}
-        noResults={filteredAndSortedCoins.length === 0}
-      />
+      {/* Search controls bar - appears below the header from layout */}
+      <div className="sticky top-[65px] z-40 backdrop-blur-md bg-card/95 border-b border-border">
+        <div className="container mx-auto px-6 py-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+            {/* Search input */}
+            <div className="w-full sm:w-auto flex flex-col">
+              <input
+                type="text"
+                placeholder="🔍 Search coins..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full sm:w-64 px-4 py-2 rounded-xl bg-muted border border-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring font-sans"
+              />
+              {filteredAndSortedCoins.length === 0 && search.trim() !== "" && (
+                <p className="text-destructive text-sm mt-1 font-sans">
+                  ❌ No coins found with the name &ldquo;{search}&rdquo;
+                </p>
+              )}
+            </div>
+
+            {/* Controls: Sort, Filter, Currency */}
+            <div className="flex gap-3 items-center w-full sm:w-auto justify-center sm:justify-end">
+              {/* Sort by dropdown */}
+              <Select
+                instanceId="sort-select"
+                className="react-select-container w-40"
+                classNamePrefix="react-select"
+                value={sortOptions.find(opt => opt.value === sortBy)}
+                onChange={(option) => setSortBy(option?.value as "price" | "change" | "name")}
+                options={sortOptions}
+                isSearchable={false}
+                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                menuPosition="fixed"
+                styles={{
+                  control: (base) => ({
+                    ...base,
+                    backgroundColor: 'hsl(var(--muted))',
+                    borderColor: 'hsl(var(--input))',
+                    borderRadius: '0.5rem',
+                    minHeight: '2.5rem',
+                    cursor: 'pointer',
+                    '&:hover': {
+                      borderColor: 'hsl(var(--ring))',
+                    },
+                  }),
+                  singleValue: (base) => ({
+                    ...base,
+                    color: 'hsl(var(--foreground))',
+                  }),
+                  menuPortal: (base) => ({
+                    ...base,
+                    zIndex: 9999,
+                  }),
+                  menu: (base) => ({
+                    ...base,
+                    backgroundColor: 'hsl(var(--popover))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '0.5rem',
+                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.15)',
+                  }),
+                  menuList: (base) => ({
+                    ...base,
+                    backgroundColor: 'hsl(var(--popover))',
+                    padding: '0.25rem',
+                    borderRadius: '0.5rem',
+                  }),
+                  option: (base, state) => ({
+                    ...base,
+                    backgroundColor: state.isFocused
+                      ? 'hsl(var(--accent))'
+                      : state.isSelected
+                        ? 'hsl(var(--primary) / 0.2)'
+                        : 'hsl(var(--popover))',
+                    color: state.isFocused
+                      ? 'hsl(var(--accent-foreground))'
+                      : 'hsl(var(--foreground))',
+                    cursor: 'pointer',
+                    '&:active': {
+                      backgroundColor: 'hsl(var(--accent))',
+                    },
+                  }),
+                  dropdownIndicator: (base) => ({
+                    ...base,
+                    color: 'hsl(var(--primary))',
+                  }),
+                  indicatorSeparator: () => ({
+                    display: 'none',
+                  }),
+                }}
+              />
+
+              {/* Filter dropdown */}
+              <Select
+                instanceId="filter-select"
+                className="react-select-container w-36"
+                classNamePrefix="react-select"
+                value={filterOptions.find(opt => opt.value === filterBy)}
+                onChange={(option) => setFilterBy(option?.value as "all" | "gainers" | "losers")}
+                options={filterOptions}
+                isSearchable={false}
+                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                menuPosition="fixed"
+                styles={{
+                  control: (base) => ({
+                    ...base,
+                    backgroundColor: 'hsl(var(--muted))',
+                    borderColor: 'hsl(var(--input))',
+                    borderRadius: '0.5rem',
+                    minHeight: '2.5rem',
+                    cursor: 'pointer',
+                    '&:hover': {
+                      borderColor: 'hsl(var(--ring))',
+                    },
+                  }),
+                  singleValue: (base) => ({
+                    ...base,
+                    color: 'hsl(var(--foreground))',
+                  }),
+                  menuPortal: (base) => ({
+                    ...base,
+                    zIndex: 9999,
+                  }),
+                  menu: (base) => ({
+                    ...base,
+                    backgroundColor: 'hsl(var(--popover))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '0.5rem',
+                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.15)',
+                  }),
+                  menuList: (base) => ({
+                    ...base,
+                    backgroundColor: 'hsl(var(--popover))',
+                    padding: '0.25rem',
+                    borderRadius: '0.5rem',
+                  }),
+                  option: (base, state) => ({
+                    ...base,
+                    backgroundColor: state.isFocused
+                      ? 'hsl(var(--accent))'
+                      : state.isSelected
+                        ? 'hsl(var(--primary) / 0.2)'
+                        : 'hsl(var(--popover))',
+                    color: state.isFocused
+                      ? 'hsl(var(--accent-foreground))'
+                      : 'hsl(var(--foreground))',
+                    cursor: 'pointer',
+                    '&:active': {
+                      backgroundColor: 'hsl(var(--accent))',
+                    },
+                  }),
+                  dropdownIndicator: (base) => ({
+                    ...base,
+                    color: 'hsl(var(--primary))',
+                  }),
+                  indicatorSeparator: () => ({
+                    display: 'none',
+                  }),
+                }}
+              />
+
+              {/* Currency dropdown */}
+              <Select
+                instanceId="currency-select"
+                className="react-select-container w-36"
+                classNamePrefix="react-select"
+                value={currencyOptions.find(opt => opt.value === currency)}
+                onChange={(option) => setCurrency(option?.value as "usd" | "bhd")}
+                options={currencyOptions}
+                isSearchable={false}
+                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                menuPosition="fixed"
+                styles={{
+                  control: (base) => ({
+                    ...base,
+                    backgroundColor: 'hsl(var(--muted))',
+                    borderColor: 'hsl(var(--input))',
+                    borderRadius: '0.5rem',
+                    minHeight: '2.5rem',
+                    cursor: 'pointer',
+                    '&:hover': {
+                      borderColor: 'hsl(var(--ring))',
+                    },
+                  }),
+                  singleValue: (base) => ({
+                    ...base,
+                    color: 'hsl(var(--foreground))',
+                  }),
+                  menuPortal: (base) => ({
+                    ...base,
+                    zIndex: 9999,
+                  }),
+                  menu: (base) => ({
+                    ...base,
+                    backgroundColor: 'hsl(var(--popover))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '0.5rem',
+                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.15)',
+                  }),
+                  menuList: (base) => ({
+                    ...base,
+                    backgroundColor: 'hsl(var(--popover))',
+                    padding: '0.25rem',
+                    borderRadius: '0.5rem',
+                  }),
+                  option: (base, state) => ({
+                    ...base,
+                    backgroundColor: state.isFocused
+                      ? 'hsl(var(--accent))'
+                      : state.isSelected
+                        ? 'hsl(var(--primary) / 0.2)'
+                        : 'hsl(var(--popover))',
+                    color: state.isFocused
+                      ? 'hsl(var(--accent-foreground))'
+                      : 'hsl(var(--foreground))',
+                    cursor: 'pointer',
+                    '&:active': {
+                      backgroundColor: 'hsl(var(--accent))',
+                    },
+                  }),
+                  dropdownIndicator: (base) => ({
+                    ...base,
+                    color: 'hsl(var(--primary))',
+                  }),
+                  indicatorSeparator: () => ({
+                    display: 'none',
+                  }),
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Grid of coins */}
       <main className="container mx-auto px-4 py-8">
