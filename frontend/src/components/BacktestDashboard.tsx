@@ -1,8 +1,29 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { TrendingUp, TrendingDown, DollarSign, Target, AlertTriangle } from "lucide-react";
-import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
+import { XAxis, YAxis, CartesianGrid, Tooltip, AreaChart, Area } from "recharts";
+
+// Minimal container size hook to avoid ResponsiveContainer width/height -1
+function useElementSize<T extends HTMLElement>() {
+  const ref = useRef<T | null>(null);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => {
+      const rect = el.getBoundingClientRect();
+      setSize({ width: rect.width, height: rect.height });
+    };
+    update();
+    const ro = new ResizeObserver(() => update());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  return [ref, size] as const;
+}
 
 interface PortfolioData {
   symbols: string[];
@@ -50,6 +71,7 @@ export default function BacktestDashboard({ portfolioData }: BacktestDashboardPr
   const [error, setError] = useState<string>("");
   const [timeperiod, setTimeperiod] = useState("1y");
   const [rebalanceFreq, setRebalanceFreq] = useState("monthly");
+  const [areaRef, areaSize] = useElementSize<HTMLDivElement>();
 
   const timeperiods = useMemo(() => [
     { value: "3m", label: "3 Months", days: 90 },
@@ -262,9 +284,9 @@ export default function BacktestDashboard({ portfolioData }: BacktestDashboardPr
           {/* Portfolio Value Chart */}
           <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
             <h3 className="text-xl font-semibold text-white mb-6">Portfolio Value Over Time</h3>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={backtestResult.daily_values}>
+            <div ref={areaRef} className="h-80 w-full min-w-0 min-h-0">
+              {areaSize.width > 0 ? (
+                <AreaChart width={Math.max(1, Math.floor(areaSize.width))} height={320} data={backtestResult.daily_values}>
                   <defs>
                     <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
@@ -301,7 +323,9 @@ export default function BacktestDashboard({ portfolioData }: BacktestDashboardPr
                     fill="url(#colorValue)" 
                   />
                 </AreaChart>
-              </ResponsiveContainer>
+              ) : (
+                <div className="h-80 w-full" />
+              )}
             </div>
           </div>
 
@@ -408,3 +432,4 @@ export default function BacktestDashboard({ portfolioData }: BacktestDashboardPr
     </div>
   );
 }
+
