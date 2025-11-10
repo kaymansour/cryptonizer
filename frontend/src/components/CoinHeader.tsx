@@ -36,14 +36,14 @@ export default function CoinHeader({
         <div className="w-full sm:w-auto flex flex-col">
           <input
             type="text"
-            placeholder="🔍 Search coins..."
+            placeholder="Search coins..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full sm:w-64 px-4 py-2 rounded-xl bg-slate-800/70 border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
           />
           {noResults && search.trim() !== "" && (
             <p className="text-red-400 text-sm mt-1">
-              ❌ No coins found with the name "{search}"
+              ❌ No coins found with the name &quot;{search}&quot;
             </p>
           )}
         </div>
