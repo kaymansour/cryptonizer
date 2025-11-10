@@ -6,6 +6,7 @@ import { Line } from "react-chartjs-2";
 import "chart.js/auto";
 import { useEffect, useState } from "react";
 import { FiChevronDown, FiChevronUp, FiTrendingUp, FiTrendingDown } from "react-icons/fi";
+import { useRouter } from "next/navigation";
 
 interface CoinDetailProps {
   coin: Coin;
@@ -14,6 +15,7 @@ interface CoinDetailProps {
 }
 
 export default function CoinDetail({ coin, currency, onPredict }: CoinDetailProps) {
+  const router = useRouter();
   const [coinDetail, setCoinDetail] = useState<Coin | null>(null);
   const [history, setHistory] = useState<number[]>([]);
   const [labels, setLabels] = useState<string[]>([]);
@@ -237,13 +239,11 @@ export default function CoinDetail({ coin, currency, onPredict }: CoinDetailProp
 
             {/* 🔮 Predict Button Connected to Backend */}
             <button
-              onClick={handlePredict}
-              disabled={predictLoading}
-              className={`mt-3 px-6 py-3 bg-slate-800/40 backdrop-blur-xl border border-slate-600/30 text-slate-200 font-semibold rounded-2xl hover:bg-slate-700/40 hover:border-emerald-400/40 hover:text-emerald-300 hover:translate-y-[-2px] transform transition-all duration-300 shadow-lg shadow-slate-900/50 hover:shadow-xl hover:shadow-emerald-500/10 ${
-                predictLoading ? "opacity-50 cursor-not-allowed" : ""
-              }`}
-            >
-              {predictLoading ? "Predicting..." : "Predict Price"}
+                onClick={() => router.push(`/prediction/${coin.symbol.toUpperCase()}`)}
+              
+              className="mt-3 px-6 py-3 bg-slate-800/40 backdrop-blur-xl border border-slate-600/30 text-slate-200 font-semibold rounded-2xl hover:bg-slate-700/40 hover:border-emerald-400/40 hover:text-emerald-300 hover:translate-y-[-2px] transform transition-all duration-300 shadow-lg shadow-slate-900/50 hover:shadow-xl hover:shadow-emerald-500/10"
+                >
+                View Prediction Details
             </button>
 
             {predictError && (

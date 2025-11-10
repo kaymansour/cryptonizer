@@ -464,10 +464,24 @@ def get_crypto_data(coin_id: str, currency: str = "usd", days: int = 7):
 def predict_symbol(symbol: str, interval: str = "4h"):
     """
     Predict the next cryptocurrency price using BLSTM + XGBoost ensemble
+    and include Bahrain local time (UTC+3) for the next prediction.
     """
+    import pandas as pd
+    import yfinance as yf
+
     try:
+        # Initialize ensemble predictor
         predictor = EnsemblePredictor(symbol.upper(), interval)
         result = predictor.predict_next()
+
+        # Fetch the latest real data to know last timestamp
+        data = yf.download(symbol, period="7d", interval=interval)
+        if data.empty:
+            raise ValueError("No market data available for this symbol")
+
+        last_timestamp = data.index[-1]              # last real candle (UTC)
+        bahrain_time = last_timestamp.tz_convert("Asia/Bahrain")
+        next_time_bhd = bahrain_time + pd.Timedelta(hours=4)
 
         details = {
             "blstm": result["prediction_blstm"],
@@ -476,21 +490,21 @@ def predict_symbol(symbol: str, interval: str = "4h"):
             "rmse": result.get("rmse", {}),
         }
 
+        # Return both price and Bahrain local next prediction time
         return {
             "symbol": result["symbol"],
             "interval": result["interval"],
             "prediction": result["prediction_ensemble"],
+            "predicted_for_bhd": next_time_bhd.strftime("%Y-%m-%d %H:%M:%S %Z"),
             "details": details,
         }
+
     except FileNotFoundError:
-        # Kept for backward-compatibility; EnsemblePredictor now falls back
         raise HTTPException(status_code=404, detail=f"No trained model for {symbol}")
     except ValueError as e:
-        # Fallback predictor may raise when no market data is available
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 # =============================================================================
 # ADDITIONAL DEBUGGING ENDPOINTS
