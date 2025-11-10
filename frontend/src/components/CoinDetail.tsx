@@ -7,16 +7,15 @@ import "chart.js/auto";
 import { useEffect, useState } from "react";
 import { FiChevronDown, FiChevronUp, FiTrendingUp, FiTrendingDown } from "react-icons/fi";
 import { BentoCard, BentoGrid } from "@/components/ui/bento-grid";
-import { DollarSign, BarChart3, Info, Sparkles } from "lucide-react";
+import { DollarSign, BarChart3, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface CoinDetailProps {
   coin: Coin;
   currency: "usd" | "bhd";
-  onPredict?: () => void;
 }
 
-export default function CoinDetail({ coin, currency, onPredict }: CoinDetailProps) {
+export default function CoinDetail({ coin, currency }: CoinDetailProps) {
   const [coinDetail, setCoinDetail] = useState<Coin | null>(null);
   const [history, setHistory] = useState<number[]>([]);
   const [labels, setLabels] = useState<string[]>([]);
@@ -42,7 +41,6 @@ export default function CoinDetail({ coin, currency, onPredict }: CoinDetailProp
         }
 
         const data = await res.json();
-        console.log('Received data:', data);
 
         setDescription(data.description ?? "No description available.");
         setHistory(data.history?.map((p: number[]) => p[1]) ?? []);
@@ -66,7 +64,6 @@ export default function CoinDetail({ coin, currency, onPredict }: CoinDetailProp
     fetchData();
   }, [coin.id, currency]);
 
-  // Reset image error when coin changes
   useEffect(() => {
     setImgError(false);
   }, [coin.id]);
@@ -116,20 +113,18 @@ export default function CoinDetail({ coin, currency, onPredict }: CoinDetailProp
             const value = context.parsed.y;
             // Format tooltip values based on the currency
             if (currency === "bhd") {
-              // For BHD, show more decimal places since values are smaller
               return `${currencySymbol}${value.toLocaleString(undefined, {
                 minimumFractionDigits: 4,
-                maximumFractionDigits: 6
+                maximumFractionDigits: 6,
               })}`;
             } else {
-              // For USD, use normal formatting
               return `${currencySymbol}${value.toLocaleString(undefined, {
                 minimumFractionDigits: 2,
-                maximumFractionDigits: value < 1 ? 6 : 2
+                maximumFractionDigits: value < 1 ? 6 : 2,
               })}`;
             }
-          }
-        }
+          },
+        },
       },
     },
     scales: {
@@ -152,17 +147,21 @@ export default function CoinDetail({ coin, currency, onPredict }: CoinDetailProp
           callback: function (value: string | number) {
             if (typeof value === 'number') {
               if (currency === "bhd") {
-                // For BHD, show more decimal places
-                return currencySymbol + value.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 4
-                });
+                return (
+                  currencySymbol +
+                  value.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 4,
+                  })
+                );
               } else {
-                // For USD, use standard formatting
-                return currencySymbol + value.toLocaleString(undefined, {
-                  minimumFractionDigits: 0,
-                  maximumFractionDigits: 0
-                });
+                return (
+                  currencySymbol +
+                  value.toLocaleString(undefined, {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0,
+                  })
+                );
               }
             }
             return currencySymbol + value;
@@ -266,14 +265,6 @@ export default function CoinDetail({ coin, currency, onPredict }: CoinDetailProp
             <div className="text-sm text-muted-foreground mt-1">
               Displaying in {currency.toUpperCase()}
             </div>
-
-            <Button
-              onClick={onPredict}
-              className="mt-3 px-6 py-3 rounded-xl shadow-lg transition-all transform hover:scale-105"
-            >
-              <Sparkles className="mr-2 h-4 w-4" />
-              Predict Price
-            </Button>
           </div>
         </div>
 
@@ -393,3 +384,4 @@ export default function CoinDetail({ coin, currency, onPredict }: CoinDetailProp
     </div>
   );
 }
+
