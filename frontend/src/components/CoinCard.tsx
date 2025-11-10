@@ -14,7 +14,7 @@ export default function CoinCard({ coin, currency, onViewDetails, isTopGainer }:
   return (
     <div
       className={`relative bg-card/50 backdrop-blur-xl p-6 rounded-2xl shadow-lg border transition-transform duration-300 hover:scale-[1.03] hover:shadow-2xl
-      ${coin.price_change_percentage_24h >= 0 ? "border-primary/40" : "border-destructive/40"}`}
+      ${(coin.price_change_percentage_24h ?? 0) >= 0 ? "border-primary/40" : "border-destructive/40"}`}
     >
       {/* Top Gainer Badge */}
       {isTopGainer && (
@@ -39,7 +39,7 @@ export default function CoinCard({ coin, currency, onViewDetails, isTopGainer }:
       {/* Price & 24h Change */}
       <div className="text-center mt-2">
         <p
-          className={`text-2xl font-extrabold font-serif ${coin.price_change_percentage_24h >= 0 ? "text-primary" : "text-destructive"
+          className={`text-2xl font-extrabold font-serif ${(coin.price_change_percentage_24h ?? 0) >= 0 ? "text-primary" : "text-destructive"
             }`}
         >
           {currency === "usd" ? "$" : "BD "}
@@ -49,12 +49,12 @@ export default function CoinCard({ coin, currency, onViewDetails, isTopGainer }:
           })}
         </p>
         <span
-          className={`px-3 py-1 rounded-full text-sm font-medium font-sans ${coin.price_change_percentage_24h >= 0
+          className={`px-3 py-1 rounded-full text-sm font-medium font-sans ${(coin.price_change_percentage_24h ?? 0) >= 0
             ? "bg-primary/20 text-primary"
             : "bg-destructive/20 text-destructive"
             }`}
         >
-          {coin.price_change_percentage_24h.toFixed(2)}%
+          {(coin.price_change_percentage_24h ?? 0).toFixed(2)}%
         </span>
       </div>
 
@@ -63,7 +63,7 @@ export default function CoinCard({ coin, currency, onViewDetails, isTopGainer }:
         <div className="mt-3">
           <Sparklines data={coin.sparkline_in_24h} width={160} height={50}>
             <SparklinesLine
-              color={coin.price_change_percentage_24h >= 0 ? "hsl(var(--primary))" : "hsl(var(--destructive))"}
+              color={(coin.price_change_percentage_24h ?? 0) >= 0 ? "var(--primary)" : "var(--destructive)"}
             />
           </Sparklines>
         </div>

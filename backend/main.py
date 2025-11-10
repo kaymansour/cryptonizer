@@ -10,7 +10,8 @@ from typing import List, Optional, Dict
 import requests
 import time
 import traceback
-from models.crypto_predictor import predict_crypto as predict_future_prices
+
+
 from portfolio_optimizer import optimize_crypto_portfolio, CryptoPortfolioOptimizer
 from backtester import Backtester, backtest_portfolio
 from strategy_comparator import StrategyComparator, compare_with_benchmarks
@@ -85,7 +86,7 @@ print("🔧 Backend initialized and ready!")
 
 # =============================================================================
 # HEALTH CHECK ENDPOINT
-# ===========================================================================
+# =============================================================================
 @app.get("/api/status")
 def read_root():
     """Health check endpoint to verify the API is running"""
@@ -293,7 +294,7 @@ def get_crypto_data(coin_id: str, currency: str = "usd", days: int = 7):
     currency = currency.lower()  # Normalize currency to lowercase
     current_time = time.time()
 
-    # Check if this coin's data is already cached and still valid
+    # Check cache
     cache_age = 0
     if coin_id in coin_detail_cache:
         cached = coin_detail_cache[coin_id]
@@ -330,9 +331,7 @@ def get_crypto_data(coin_id: str, currency: str = "usd", days: int = 7):
 
         # Handle case where coin is not found
         if market_response.status_code == 404:
-            error_msg = f"Cryptocurrency '{coin_id}' not found"
-            print(f"❌ {error_msg}")
-            raise HTTPException(status_code=404, detail=error_msg)
+            raise HTTPException(status_code=404, detail=f"Cryptocurrency '{coin_id}' not found")
         elif market_response.status_code != 200:
             error_msg = (
                 f"CoinGecko API error for {coin_id}: {market_response.status_code}"
@@ -342,11 +341,6 @@ def get_crypto_data(coin_id: str, currency: str = "usd", days: int = 7):
 
         # Parse the coin details from CoinGecko
         market_data = market_response.json()
-        print(f"✅ Successfully fetched market data for {coin_id}")
-        print(f"   Coin name: {market_data.get('name', 'Unknown')}")
-        print(f"   Symbol: {market_data.get('symbol', 'Unknown')}")
-
-        # Extract market data in the requested currency
         market_data_currency = market_data.get("market_data", {})
         print(f"💰 Extracting prices for currency: {currency}")
 
@@ -359,13 +353,7 @@ def get_crypto_data(coin_id: str, currency: str = "usd", days: int = 7):
         )
         market_cap_rank = market_data.get("market_cap_rank", 0)
 
-        print(f"📈 Market data extracted:")
-        print(f"   Current price: ${current_price}")
-        print(f"   Market cap: ${market_cap}")
-        print(f"   24h change: {price_change_percentage_24h}%")
-        print(f"   Rank: #{market_cap_rank}")
-
-        # Fetch historical price data for charting
+        # Historical price data
         history_url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart"
         history_params = {"vs_currency": currency, "days": days}
 
@@ -382,13 +370,10 @@ def get_crypto_data(coin_id: str, currency: str = "usd", days: int = 7):
         )
 
         if history_response.status_code != 200:
-            print(f"⚠️ Historical data fetch failed: {history_response.status_code}")
             history_data = {"prices": []}
         else:
             history_data = history_response.json()
-            print(f"   History data points: {len(history_data.get('prices', []))}")
 
-        # Structure the response data
         result = {
             "id": market_data.get("id"),
             "name": market_data.get("name"),
@@ -407,7 +392,6 @@ def get_crypto_data(coin_id: str, currency: str = "usd", days: int = 7):
             "market_cap_rank": market_cap_rank,
         }
 
-        # Update cache with this coin's data and current timestamp
         coin_detail_cache[coin_id] = {"data": result, "timestamp": current_time}
 
         print(f"💾 Cached data for {coin_id}")
@@ -440,12 +424,10 @@ def get_crypto_data(coin_id: str, currency: str = "usd", days: int = 7):
             raise HTTPException(status_code=500, detail=error_detail)
 
     except HTTPException:
-        # Re-raise HTTP exceptions (like 404)
         raise
 
     except Exception as e:
-        error_detail = f"Unexpected error fetching {coin_id}: {str(e)}"
-        print(f"❌ {error_detail}")
+        print(f"❌ Unexpected error fetching {coin_id}: {str(e)}")
         print(f"🔍 Stack trace: {traceback.format_exc()}")
 
         # Return cached data even if expired
@@ -455,14 +437,14 @@ def get_crypto_data(coin_id: str, currency: str = "usd", days: int = 7):
             )
             return coin_detail_cache[coin_id]["data"]
         else:
-            raise HTTPException(status_code=500, detail=error_detail)
+            raise HTTPException(status_code=500, detail=f"Unexpected error fetching {coin_id}: {str(e)}")
 
 
 # =============================================================================
-# MACHINE LEARNING PREDICTION ENDPOINT
+# 🧠 PREDICTION ENDPOINT (Integrated with model_predictor.py)
 # =============================================================================
 @app.get("/predict/{symbol}")
-def predict(symbol: str):
+def predict_symbol(symbol: str, days: int = 7):
     """
     Uses machine learning model to predict future cryptocurrency prices
     Args:
@@ -496,12 +478,9 @@ def predict(symbol: str):
         raise HTTPException(status_code=404, detail=str(ve))
 
     except Exception as e:
-        error_msg = f"ML model error for {symbol}: {str(e)}"
-        print(f"❌ {error_msg}")
-        print(f"🔍 Stack trace: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
+        print(f"❌ Prediction failed for {symbol}: {str(e)}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
 # =============================================================================
 # ADDITIONAL DEBUGGING ENDPOINTS
 # =============================================================================
