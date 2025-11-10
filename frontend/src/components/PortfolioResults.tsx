@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Progress } from './ui/progress';
@@ -10,7 +11,8 @@ import {
   PieChart, 
   BarChart3,
   AlertTriangle,
-  CheckCircle
+  CheckCircle,
+  History
 } from 'lucide-react';
 
 interface OptimizationResult {
@@ -66,6 +68,8 @@ const getSharpeRating = (sharpe: number) => {
 };
 
 export default function PortfolioResults({ result }: PortfolioResultsProps) {
+  const router = useRouter();
+
   // Add safety checks to prevent undefined errors
   if (!result || !result.portfolio) {
     return (
@@ -88,6 +92,26 @@ export default function PortfolioResults({ result }: PortfolioResultsProps) {
   const meaningfulWeights = Object.entries(result.portfolio?.weights || {})
     .filter(([, weight]) => (weight as number) > 0.001)
     .sort(([, a], [, b]) => (b as number) - (a as number));
+
+  const handleBacktestPortfolio = () => {
+    // Store portfolio data in localStorage for the backtest page
+    const portfolioData = {
+      symbols: result.symbols,
+      weights: result.portfolio.weights,
+      initial_investment: result.allocation?.total_value || 100000,
+    };
+    
+    localStorage.setItem('portfolioData', JSON.stringify(portfolioData));
+    
+    // Navigate to backtest page with URL params as backup
+    const params = new URLSearchParams({
+      symbols: encodeURIComponent(JSON.stringify(result.symbols)),
+      weights: encodeURIComponent(JSON.stringify(result.portfolio.weights)),
+      investment: (result.allocation?.total_value || 100000).toString(),
+    });
+    
+    router.push(`/backtest?${params.toString()}`);
+  };
 
   return (
     <div className="space-y-6">
@@ -157,6 +181,36 @@ export default function PortfolioResults({ result }: PortfolioResultsProps) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Backtest Action Card */}
+      <Card className="border border-emerald-400/30 bg-emerald-900/20 backdrop-blur-md shadow-lg">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-white">
+            <History className="h-5 w-5 text-emerald-300" />
+            Historical Performance Analysis
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="text-white">
+              <p className="mb-2">
+                <strong>Want to see how this portfolio would have performed historically?</strong>
+              </p>
+              <p className="text-sm text-emerald-200">
+                Run a comprehensive backtest to analyze historical performance, compare against benchmarks,
+                and validate your investment strategy with real market data.
+              </p>
+            </div>
+            <button
+              onClick={handleBacktestPortfolio}
+              className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-all duration-300 hover:scale-105 shadow-lg whitespace-nowrap"
+            >
+              <History className="h-5 w-5" />
+              Backtest This Portfolio
+            </button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Portfolio Allocation */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
