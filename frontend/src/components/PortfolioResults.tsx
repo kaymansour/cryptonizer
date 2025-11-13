@@ -1,9 +1,10 @@
 "use client";
 
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { BentoCard, BentoGrid } from './ui/bento-grid';
 import { Badge } from './ui/badge';
 import { Progress } from './ui/progress';
+import { Button } from './ui/button';
 import { 
   TrendingUp, 
   Shield, 
@@ -74,7 +75,7 @@ export default function PortfolioResults({ result }: PortfolioResultsProps) {
   if (!result || !result.portfolio) {
     return (
       <div className="text-center p-8">
-        <p className="text-red-600">Error: Invalid portfolio optimization result</p>
+        <p className="text-destructive">Error: Invalid portfolio optimization result</p>
       </div>
     );
   }
@@ -114,261 +115,271 @@ export default function PortfolioResults({ result }: PortfolioResultsProps) {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="space-y-8">
+      {/* Performance Metrics - Bento Grid */}
+      <BentoGrid className="lg:grid-rows-1">
         {/* Expected Return */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Expected Annual Return</CardTitle>
-            <TrendingUp className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+        <BentoCard
+          name="Expected Annual Return"
+          className="lg:col-start-1 lg:col-end-2 lg:row-start-1 lg:row-end-2 border-green-500/40"
+          Icon={TrendingUp}
+          description="Based on historical data"
+          href="#"
+          cta=""
+          background={
+            <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 to-transparent" />
+          }
+        >
+          <div className="relative z-10 mt-4">
+            <div className="text-3xl font-bold text-green-600 dark:text-green-400">
               {formatPercentage(result.portfolio?.expected_return || 0)}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Based on historical data
-            </p>
-          </CardContent>
-        </Card>
+          </div>
+        </BentoCard>
 
         {/* Risk Level */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Risk Level</CardTitle>
-            <Shield className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${riskInfo.color}`}>
+        <BentoCard
+          name="Risk Level"
+          className="lg:col-start-2 lg:col-end-3 lg:row-start-1 lg:row-end-2 border-blue-500/40"
+          Icon={Shield}
+          description={`${formatPercentage(result.portfolio?.volatility || 0)} volatility`}
+          href="#"
+          cta=""
+          background={
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent" />
+          }
+        >
+          <div className="relative z-10 mt-4">
+            <div className={`text-3xl font-bold ${riskInfo.color}`}>
               {riskInfo.level}
             </div>
-            <p className="text-xs text-muted-foreground">
-              {formatPercentage(result.portfolio?.volatility || 0)} volatility
-            </p>
-          </CardContent>
-        </Card>
+          </div>
+        </BentoCard>
 
         {/* Sharpe Ratio */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Risk-Adjusted Return</CardTitle>
-            <BarChart3 className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${sharpeInfo.color}`}>
+        <BentoCard
+          name="Risk-Adjusted Return"
+          className="lg:col-start-3 lg:col-end-4 lg:row-start-1 lg:row-end-2 border-purple-500/40"
+          Icon={BarChart3}
+          description={`Sharpe Ratio - ${sharpeInfo.rating}`}
+          href="#"
+          cta=""
+          background={
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent" />
+          }
+        >
+          <div className="relative z-10 mt-4">
+            <div className={`text-3xl font-bold ${sharpeInfo.color}`}>
               {result.portfolio?.sharpe_ratio?.toFixed(2) || '0.00'}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Sharpe Ratio - {sharpeInfo.rating}
-            </p>
-          </CardContent>
-        </Card>
+          </div>
+        </BentoCard>
+      </BentoGrid>
 
+      {/* Portfolio Value & Backtest Action */}
+      <BentoGrid className="lg:grid-rows-1">
         {/* Portfolio Value */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Portfolio Value</CardTitle>
-            <DollarSign className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+        <BentoCard
+          name="Portfolio Value"
+          className="lg:col-start-1 lg:col-end-2 lg:row-start-1 lg:row-end-2 border-primary/40"
+          Icon={DollarSign}
+          description={`${formatCurrency(result.allocation?.leftover || 0)} cash remaining`}
+          href="#"
+          cta=""
+          background={
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
+          }
+        >
+          <div className="relative z-10 mt-4">
+            <div className="text-3xl font-bold text-foreground">
               {formatCurrency(result.allocation?.total_value || 0)}
             </div>
-            <p className="text-xs text-muted-foreground">
-              {formatCurrency(result.allocation?.leftover || 0)} cash remaining
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Backtest Action Card */}
-      <Card className="border border-emerald-400/30 bg-emerald-900/20 backdrop-blur-md shadow-lg">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-white">
-            <History className="h-5 w-5 text-emerald-300" />
-            Historical Performance Analysis
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="text-white">
-              <p className="mb-2">
-                <strong>Want to see how this portfolio would have performed historically?</strong>
-              </p>
-              <p className="text-sm text-emerald-200">
-                Run a comprehensive backtest to analyze historical performance, compare against benchmarks,
-                and validate your investment strategy with real market data.
-              </p>
-            </div>
-            <button
-              onClick={handleBacktestPortfolio}
-              className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-all duration-300 hover:scale-105 shadow-lg whitespace-nowrap"
-            >
-              <History className="h-5 w-5" />
-              Backtest This Portfolio
-            </button>
           </div>
-        </CardContent>
-      </Card>
+        </BentoCard>
+
+        {/* Backtest Action */}
+        <BentoCard
+          name="Historical Performance Analysis"
+          className="lg:col-start-2 lg:col-end-4 lg:row-start-1 lg:row-end-2 border-emerald-500/40"
+          Icon={History}
+          description="Run a comprehensive backtest to analyze historical performance"
+          href="#"
+          cta=""
+          background={
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent" />
+          }
+        >
+          <div className="relative z-10 mt-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              See how this portfolio would have performed historically. Compare against benchmarks
+              and validate your investment strategy with real market data.
+            </p>
+            <Button
+              onClick={handleBacktestPortfolio}
+              className="rounded-xl shadow-lg transition-all transform hover:scale-105"
+            >
+              <History className="mr-2 h-4 w-4" />
+              Backtest This Portfolio
+            </Button>
+          </div>
+        </BentoCard>
+      </BentoGrid>
 
       {/* Portfolio Allocation */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <BentoGrid className="lg:grid-rows-1">
         {/* Weights Distribution */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <PieChart className="h-5 w-5" />
-              Portfolio Allocation
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {meaningfulWeights.map(([symbol, weight]) => (
-                <div key={symbol} className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium">{symbol}</span>
-                    <Badge variant="secondary">{formatPercentage(weight)}</Badge>
-                  </div>
-                  <Progress value={weight * 100} className="h-2" />
+        <BentoCard
+          name="Portfolio Allocation"
+          className="lg:col-start-1 lg:col-end-2 lg:row-start-1 lg:row-end-2 border-primary/40"
+          Icon={PieChart}
+          description="Optimized weight distribution"
+          href="#"
+          cta=""
+          background={
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
+          }
+        >
+          <div className="relative z-10 mt-4 space-y-4">
+            {meaningfulWeights.map(([symbol, weight]) => (
+              <div key={symbol} className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="font-medium text-foreground">{symbol}</span>
+                  <Badge variant="secondary">{formatPercentage(weight)}</Badge>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                <Progress value={weight * 100} className="h-2" />
+              </div>
+            ))}
+          </div>
+        </BentoCard>
 
         {/* Actual Shares */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
-              Share Allocation
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {Object.entries(result.allocation?.allocation || {}).map(([symbol, shares]) => {
-                const price = result.allocation?.latest_prices?.[symbol] || 0;
-                const value = shares * price;
-                const percentage = totalAllocated > 0 ? (value / totalAllocated) * 100 : 0;
-                
-                return (
-                  <div key={symbol} className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium">{symbol}</span>
-                      <div className="text-right">
-                        <div className="font-semibold">{shares} shares</div>
-                        <div className="text-sm text-muted-foreground">
-                          {formatCurrency(value)}
-                        </div>
+        <BentoCard
+          name="Share Allocation"
+          className="lg:col-start-2 lg:col-end-3 lg:row-start-1 lg:row-end-2 border-primary/40"
+          Icon={BarChart3}
+          description="Actual shares to purchase"
+          href="#"
+          cta=""
+          background={
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
+          }
+        >
+          <div className="relative z-10 mt-4 space-y-4">
+            {Object.entries(result.allocation?.allocation || {}).map(([symbol, shares]) => {
+              const price = result.allocation?.latest_prices?.[symbol] || 0;
+              const value = shares * price;
+              const percentage = totalAllocated > 0 ? (value / totalAllocated) * 100 : 0;
+              
+              return (
+                <div key={symbol} className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium text-foreground">{symbol}</span>
+                    <div className="text-right">
+                      <div className="font-semibold text-foreground">{shares} shares</div>
+                      <div className="text-sm text-muted-foreground">
+                        {formatCurrency(value)}
                       </div>
                     </div>
-                    <Progress value={percentage} className="h-2" />
                   </div>
-                );
-              })}
-              
-              {(result.allocation?.leftover || 0) > 0 && (
-                <div className="pt-2 border-t">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground">Cash Remaining</span>
-                    <span className="font-medium">{formatCurrency(result.allocation?.leftover || 0)}</span>
-                  </div>
+                  <Progress value={percentage} className="h-2" />
                 </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+              );
+            })}
+            
+            {(result.allocation?.leftover || 0) > 0 && (
+              <div className="pt-2 border-t border-border">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">Cash Remaining</span>
+                  <span className="font-medium text-foreground">{formatCurrency(result.allocation?.leftover || 0)}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </BentoCard>
 
-      {/* Risk Metrics */}
-            {/* Risk Metrics */}
-            {/* Risk Metrics */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-yellow-400" />
-            Risk Analysis
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Value at Risk */}
-            <div className="flex flex-col items-center justify-center p-6 rounded-xl bg-white/5 backdrop-blur-md border border-red-400/30">
-              <div className="text-2xl font-bold text-red-400">
+        {/* Risk Analysis */}
+        <BentoCard
+          name="Risk Analysis"
+          className="lg:col-start-3 lg:col-end-4 lg:row-start-1 lg:row-end-2 border-yellow-500/40"
+          Icon={AlertTriangle}
+          description="Portfolio risk metrics"
+          href="#"
+          cta=""
+          background={
+            <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/10 to-transparent" />
+          }
+        >
+          <div className="relative z-10 mt-4 space-y-4">
+            <div className="flex flex-col p-4 rounded-xl bg-card/50 border border-border">
+              <div className="text-sm text-muted-foreground mb-1">Value at Risk (95%)</div>
+              <div className="text-2xl font-bold text-red-600 dark:text-red-400">
                 {formatPercentage(Math.abs(result.metrics?.var_95 || 0))}
               </div>
-              <div className="mt-1 text-sm font-medium text-gray-200">
-                Value at Risk (95%)
-              </div>
             </div>
 
-            {/* Maximum Drawdown */}
-            <div className="flex flex-col items-center justify-center p-6 rounded-xl bg-white/5 backdrop-blur-md border border-orange-400/30">
-              <div className="text-2xl font-bold text-orange-400">
+            <div className="flex flex-col p-4 rounded-xl bg-card/50 border border-border">
+              <div className="text-sm text-muted-foreground mb-1">Maximum Drawdown</div>
+              <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
                 {formatPercentage(Math.abs(result.metrics?.max_drawdown || 0))}
               </div>
-              <div className="mt-1 text-sm font-medium text-gray-200">
-                Maximum Drawdown
-              </div>
             </div>
 
-            {/* Annual Volatility */}
-            <div className="flex flex-col items-center justify-center p-6 rounded-xl bg-white/5 backdrop-blur-md border border-blue-400/30">
-              <div className="text-2xl font-bold text-blue-400">
+            <div className="flex flex-col p-4 rounded-xl bg-card/50 border border-border">
+              <div className="text-sm text-muted-foreground mb-1">Annual Volatility</div>
+              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                 {formatPercentage(result.portfolio?.volatility || 0)}
-              </div>
-              <div className="mt-1 text-sm font-medium text-gray-200">
-                Annual Volatility
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </BentoCard>
+      </BentoGrid>
 
       {/* Strategy Information */}
-      <Card className="border border-blue-400/30 bg-blue-900/40 backdrop-blur-md shadow-lg">
-  <CardHeader>
-    <CardTitle className="flex items-center gap-2 text-white">
-      <CheckCircle className="h-5 w-5 text-blue-300" />
-      Optimization Strategy
-    </CardTitle>
-  </CardHeader>
-  <CardContent>
-    <div className="text-white">
-      <p className="mb-2">
-        <strong>Strategy:</strong>{" "}
-        {result.portfolio?.objective === "max_sharpe"
-          ? "Maximum Sharpe Ratio (Risk-Adjusted Returns)"
-          : "Minimum Volatility (Conservative)"}
-      </p>
-      <p className="mb-2">
-        <strong>Data Period:</strong>{" "}
-        {result.period === "1y"
-          ? "1 Year"
-          : result.period === "6mo"
-          ? "6 Months"
-          : result.period}
-      </p>
-      <p className="mb-2">
-        <strong>Cryptocurrencies:</strong>{" "}
-        {(result.symbols || []).join(", ")}
-      </p>
-      <p className="text-sm text-blue-200">
-        This portfolio is optimized using Modern Portfolio Theory to{" "}
-        {result.portfolio?.objective === "max_sharpe"
-          ? "maximize your risk-adjusted returns (Sharpe ratio)"
-          : "minimize portfolio volatility and risk"}
-        .
-      </p>
-    </div>
-  </CardContent>
-</Card>
-
-
-      {/* Charts */}
-      {/* Portfolio Charts - commented out until efficient frontier data is available */}
-      {/* <PortfolioCharts result={result} /> */}
+      <BentoCard
+        name="Optimization Strategy"
+        className="border-primary/40"
+        Icon={CheckCircle}
+        description="Portfolio optimization details"
+        href="#"
+        cta=""
+        background={
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
+        }
+      >
+        <div className="relative z-10 mt-4 space-y-3 text-foreground">
+          <p>
+            <strong className="text-primary">Strategy:</strong>{" "}
+            <span className="text-muted-foreground">
+              {result.portfolio?.objective === "max_sharpe"
+                ? "Maximum Sharpe Ratio (Risk-Adjusted Returns)"
+                : "Minimum Volatility (Conservative)"}
+            </span>
+          </p>
+          <p>
+            <strong className="text-primary">Data Period:</strong>{" "}
+            <span className="text-muted-foreground">
+              {result.period === "1y"
+                ? "1 Year"
+                : result.period === "6mo"
+                ? "6 Months"
+                : result.period}
+            </span>
+          </p>
+          <p>
+            <strong className="text-primary">Cryptocurrencies:</strong>{" "}
+            <span className="text-muted-foreground">
+              {(result.symbols || []).join(", ")}
+            </span>
+          </p>
+          <p className="text-sm text-muted-foreground pt-2 border-t border-border">
+            This portfolio is optimized using Modern Portfolio Theory to{" "}
+            {result.portfolio?.objective === "max_sharpe"
+              ? "maximize your risk-adjusted returns (Sharpe ratio)"
+              : "minimize portfolio volatility and risk"}
+            .
+          </p>
+        </div>
+      </BentoCard>
     </div>
   );
 }
