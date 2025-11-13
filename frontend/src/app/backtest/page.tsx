@@ -2,7 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { ArrowLeft, TrendingUp, BarChart3, PieChart } from "lucide-react";
+import { ArrowLeft, TrendingUp, BarChart3, PieChart, DollarSign } from "lucide-react";
+import { BentoCard, BentoGrid } from "@/components/ui/bento-grid";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import BacktestDashboard from "../../components/BacktestDashboard";
 import StrategyComparison from "@/components/StrategyComparison";
 import BackToMain from "../../components/backtomain";
@@ -62,9 +65,9 @@ export default function BacktestPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-xl text-muted-foreground">Loading backtesting data...</p>
         </div>
       </div>
@@ -73,7 +76,7 @@ export default function BacktestPage() {
 
   if (!portfolioData) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="text-center max-w-md mx-auto p-8">
           <div className="bg-destructive/20 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
             <TrendingUp className="h-8 w-8 text-destructive" />
@@ -82,12 +85,12 @@ export default function BacktestPage() {
           <p className="text-muted-foreground mb-6">
             Please go back to the portfolio optimization page and create a portfolio first.
           </p>
-          <button
+          <Button
             onClick={() => router.push("/portfolio")}
-            className="px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors"
+            className="rounded-xl"
           >
             Go to Portfolio Optimizer
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -97,72 +100,116 @@ export default function BacktestPage() {
     <div className="min-h-screen bg-background py-8">
       <div className="container mx-auto px-4 max-w-7xl">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
           <div className="flex items-center gap-4">
-            <button
+            <Button
               onClick={handleGoBack}
-              className="flex items-center gap-2 px-4 py-2 bg-card hover:bg-accent backdrop-blur-xl rounded-lg border border-border text-foreground transition-all duration-300"
+              variant="outline"
+              className="rounded-xl"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="mr-2 h-4 w-4" />
               Back
-            </button>
+            </Button>
             <div>
-              <h1 className="text-3xl font-bold text-foreground">Portfolio Backtesting</h1>
+              <h1 className="text-3xl md:text-4xl font-bold text-foreground">Portfolio Backtesting</h1>
               <p className="text-muted-foreground">Historical performance analysis and strategy comparison</p>
             </div>
           </div>
         </div>
 
-        {/* Portfolio Summary */}
-        <div className="bg-card backdrop-blur-xl rounded-2xl border border-border p-6 mb-8">
-          <h3 className="text-xl font-semibold text-foreground mb-4">Portfolio Summary</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <p className="text-muted-foreground text-sm">Assets</p>
-              <p className="text-foreground font-medium">{portfolioData.symbols.join(", ")}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground text-sm">Initial Investment</p>
-              <p className="text-foreground font-medium">${portfolioData.initial_investment.toLocaleString()}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground text-sm">Allocation</p>
+        {/* Portfolio Summary - Bento Grid */}
+        <BentoGrid className="lg:grid-rows-1 mb-8">
+          {/* Assets */}
+          <BentoCard
+            name="Portfolio Assets"
+            className="lg:col-start-1 lg:col-end-2 lg:row-start-1 lg:row-end-2 border-primary/40"
+            Icon={PieChart}
+            description={`${portfolioData.symbols.length} cryptocurrencies`}
+            href="#"
+            cta=""
+            background={
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
+            }
+          >
+            <div className="relative z-10 mt-4">
               <div className="flex flex-wrap gap-2">
-                {Object.entries(portfolioData.weights).map(([symbol, weight]) => (
-                  <span
+                {portfolioData.symbols.map((symbol) => (
+                  <Badge
                     key={symbol}
-                    className="px-2 py-1 bg-primary/20 text-primary rounded text-sm"
+                    variant="secondary"
+                    className="text-sm"
                   >
-                    {symbol.replace("-USD", "")}: {((weight as number) * 100).toFixed(1)}%
-                  </span>
+                    {symbol.replace("-USD", "")}
+                  </Badge>
                 ))}
               </div>
             </div>
-          </div>
-        </div>
+          </BentoCard>
+
+          {/* Initial Investment */}
+          <BentoCard
+            name="Initial Investment"
+            className="lg:col-start-2 lg:col-end-3 lg:row-start-1 lg:row-end-2 border-green-500/40"
+            Icon={DollarSign}
+            description="Starting capital"
+            href="#"
+            cta=""
+            background={
+              <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 to-transparent" />
+            }
+          >
+            <div className="relative z-10 mt-4">
+              <div className="text-3xl font-bold text-green-600 dark:text-green-400">
+                ${portfolioData.initial_investment.toLocaleString()}
+              </div>
+            </div>
+          </BentoCard>
+
+          {/* Allocation */}
+          <BentoCard
+            name="Weight Allocation"
+            className="lg:col-start-3 lg:col-end-4 lg:row-start-1 lg:row-end-2 border-blue-500/40"
+            Icon={BarChart3}
+            description="Portfolio distribution"
+            href="#"
+            cta=""
+            background={
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent" />
+            }
+          >
+            <div className="relative z-10 mt-4">
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(portfolioData.weights).map(([symbol, weight]) => (
+                  <Badge
+                    key={symbol}
+                    className="bg-primary/20 text-primary hover:bg-primary/30"
+                  >
+                    {symbol.replace("-USD", "")}: {((weight as number) * 100).toFixed(1)}%
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          </BentoCard>
+        </BentoGrid>
 
         {/* Tab Navigation */}
-        <div className="flex gap-4 mb-8">
-          <button
+        <div className="flex flex-wrap gap-4 mb-8">
+          <Button
             onClick={() => setActiveTab("backtest")}
-            className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-all duration-300 ${activeTab === "backtest"
-                ? "bg-primary text-primary-foreground"
-                : "bg-card hover:bg-accent text-muted-foreground hover:text-accent-foreground border border-border"
-              }`}
+            variant={activeTab === "backtest" ? "default" : "outline"}
+            className="rounded-xl"
           >
-            <BarChart3 className="h-5 w-5" />
+            <BarChart3 className="mr-2 h-5 w-5" />
             Historical Performance
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={() => setActiveTab("comparison")}
-            className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-all duration-300 ${activeTab === "comparison"
-                ? "bg-primary text-primary-foreground"
-                : "bg-card hover:bg-accent text-muted-foreground hover:text-accent-foreground border border-border"
-              }`}
+            variant={activeTab === "comparison" ? "default" : "outline"}
+            className="rounded-xl"
           >
-            <PieChart className="h-5 w-5" />
+            <PieChart className="mr-2 h-5 w-5" />
             Strategy Comparison
-          </button>
+          </Button>
         </div>
 
         {/* Tab Content */}
