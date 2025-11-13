@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { ArrowLeft, TrendingUp, BarChart3, PieChart, DollarSign } from "lucide-react";
+import { ArrowLeft, TrendingUp, BarChart3, PieChart, DollarSign, Brain } from "lucide-react";
 import { BentoCard, BentoGrid } from "@/components/ui/bento-grid";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import BacktestDashboard from "../../components/BacktestDashboard";
 import StrategyComparison from "@/components/StrategyComparison";
+import MLTradingDashboard from "@/components/MLTradingDashboard";
 import BackToMain from "../../components/backtomain";
 
 interface PortfolioData {
@@ -20,7 +21,7 @@ export default function BacktestPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [portfolioData, setPortfolioData] = useState<PortfolioData | null>(null);
-  const [activeTab, setActiveTab] = useState<"backtest" | "comparison">("backtest");
+  const [activeTab, setActiveTab] = useState<"backtest" | "comparison" | "ml-trading">("backtest");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -203,6 +204,14 @@ export default function BacktestPage() {
             Historical Performance
           </Button>
           <Button
+            onClick={() => setActiveTab("ml-trading")}
+            variant={activeTab === "ml-trading" ? "default" : "outline"}
+            className="rounded-xl"
+          >
+            <Brain className="mr-2 h-5 w-5" />
+            ML Trading
+          </Button>
+          <Button
             onClick={() => setActiveTab("comparison")}
             variant={activeTab === "comparison" ? "default" : "outline"}
             className="rounded-xl"
@@ -214,6 +223,7 @@ export default function BacktestPage() {
 
         {/* Tab Content */}
         {activeTab === "backtest" && <BacktestDashboard portfolioData={portfolioData} />}
+        {activeTab === "ml-trading" && <MLTradingDashboard portfolioData={portfolioData} />}
         {activeTab === "comparison" && <StrategyComparison portfolioData={portfolioData} />}
 
         <BackToMain />

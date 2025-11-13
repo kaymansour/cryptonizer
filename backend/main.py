@@ -15,6 +15,7 @@ import traceback
 from portfolio_optimizer import optimize_crypto_portfolio, CryptoPortfolioOptimizer
 from backtester import Backtester, backtest_portfolio
 from strategy_comparator import StrategyComparator, compare_with_benchmarks
+from ml_backtester import MLTradingBacktester
 
 
 app = FastAPI()
@@ -61,6 +62,16 @@ class StrategyComparisonRequest(BaseModel):
     end_date: str
     rebalance_frequency: str = "monthly"
     include_benchmarks: Optional[List[str]] = None
+
+
+class MLBacktestRequest(BaseModel):
+    symbols: List[str]
+    weights: Dict[str, float]
+    initial_investment: float = 100000
+    start_date: str
+    end_date: str
+    interval: str = "4h"  # "1h" or "4h"
+    signal_threshold: float = 0.5
 
 
 # =============================================================================
@@ -331,7 +342,9 @@ def get_crypto_data(coin_id: str, currency: str = "usd", days: int = 7):
 
         # Handle case where coin is not found
         if market_response.status_code == 404:
-            raise HTTPException(status_code=404, detail=f"Cryptocurrency '{coin_id}' not found")
+            raise HTTPException(
+                status_code=404, detail=f"Cryptocurrency '{coin_id}' not found"
+            )
         elif market_response.status_code != 200:
             error_msg = (
                 f"CoinGecko API error for {coin_id}: {market_response.status_code}"
@@ -437,7 +450,9 @@ def get_crypto_data(coin_id: str, currency: str = "usd", days: int = 7):
             )
             return coin_detail_cache[coin_id]["data"]
         else:
-            raise HTTPException(status_code=500, detail=f"Unexpected error fetching {coin_id}: {str(e)}")
+            raise HTTPException(
+                status_code=500, detail=f"Unexpected error fetching {coin_id}: {str(e)}"
+            )
 
 
 # =============================================================================
@@ -481,6 +496,135 @@ def predict_symbol(symbol: str, days: int = 7):
         print(f"❌ Prediction failed for {symbol}: {str(e)}")
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
+
+
+# =============================================================================
+# ML-DRIVEN BACKTESTING ENDPOINT
+# =============================================================================
+@app.post("/api/ml-backtest")
+async def ml_backtest_endpoint(request: MLBacktestRequest):
+    """
+    Run ML-driven backtesting using LSTM predictions for trading signals
+    Returns predicted vs actual prices for visualization
+    """
+    try:
+        print(f"ML Backtesting portfolio with {len(request.symbols)} symbols")
+        print(f"Period: {request.start_date} to {request.end_date}")
+        print(f"Interval: {request.interval}")
+        print(f"Signal threshold: {request.signal_threshold}")
+
+        # Validate weights
+        total_weight = sum(request.weights.values())
+        if abs(total_weight - 1.0) > 0.01:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Portfolio weights must sum to 1.0, got {total_weight:.4f}",
+            )
+
+        # Convert symbols to Yahoo Finance format if needed
+        yf_symbols = []
+        for symbol in request.symbols:
+            if not symbol.endswith("-USD"):
+                yf_symbols.append(f"{symbol.upper()}-USD")
+            else:
+                yf_symbols.append(symbol.upper())
+
+        # Create ML backtester
+        backtester = MLTradingBacktester(
+            symbols=yf_symbols,
+            initial_capital=request.initial_investment,
+            start_date=request.start_date,
+            end_date=request.end_date,
+            interval=request.interval,
+            signal_threshold=request.signal_threshold,
+        )
+
+        # Run backtest
+        results = backtester.run_backtest()
+
+        if not results.get("success"):
+            raise HTTPException(
+                status_code=500, detail="ML backtesting failed to complete successfully"
+            )
+
+        # Format portfolio history for frontend charting
+        portfolio_history = results.get("portfolio_history", {})
+        daily_values = [
+            {
+                "date": str(timestamp) if not isinstance(timestamp, str) else timestamp,
+                "portfolio_value": value,
+            }
+            for timestamp, value in portfolio_history.items()
+        ]
+
+        # Get predictions log for comparison chart
+        predictions_log = backtester.predictions_log
+
+        # Group predictions by symbol for easier frontend processing
+        predictions_by_symbol = {}
+        for pred in predictions_log:
+            symbol = pred["symbol"]
+            if symbol not in predictions_by_symbol:
+                predictions_by_symbol[symbol] = []
+
+            # Convert timestamp to ISO format string
+            timestamp = pred["timestamp"]
+            if hasattr(timestamp, "isoformat"):
+                timestamp_str = timestamp.isoformat()
+            else:
+                timestamp_str = str(timestamp)
+
+            predictions_by_symbol[symbol].append(
+                {
+                    "timestamp": timestamp_str,
+                    "actual_price": pred.get(
+                        "actual_next_price", pred.get("current_price", 0)
+                    ),  # Use actual next price
+                    "predicted_price": pred.get("predicted_price", 0),
+                    "predicted_change": pred.get("predicted_change", 0),
+                    "confidence": pred.get("confidence", 0),
+                }
+            )
+
+        print(f"ML Backtest completed successfully")
+        print(f"Final value: ${results['summary']['final_value']:,.2f}")
+        print(f"Total return: {results['summary']['total_return']:.2f}%")
+        print(f"Total trades: {results['trading_stats']['total_trades']}")
+
+        return {
+            "success": True,
+            "backtest_results": {
+                "summary": results["summary"],
+                "trading_stats": results["trading_stats"],
+                "daily_values": daily_values,
+                "predictions_by_symbol": predictions_by_symbol,
+                "trade_history": results.get("trade_history", []),
+                "config": results.get("config", {}),
+            },
+            "summary": {
+                "initial_investment": request.initial_investment,
+                "final_value": results["summary"]["final_value"],
+                "total_return": results["summary"]["total_return"],
+                "annualized_return": results["summary"]["annualized_return"],
+                "sharpe_ratio": results["summary"]["sharpe_ratio"],
+                "max_drawdown": results["summary"]["max_drawdown"],
+                "period": f"{request.start_date} to {request.end_date}",
+                "total_trades": results["trading_stats"]["total_trades"],
+                "win_rate": results["trading_stats"]["win_rate"],
+            },
+        }
+
+    except ValueError as ve:
+        print(f"Validation error in ML backtest: {str(ve)}")
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        print(f"Error in ML backtest endpoint: {str(e)}")
+        import traceback
+
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"ML backtesting failed: {str(e)}")
+
+
 # =============================================================================
 # ADDITIONAL DEBUGGING ENDPOINTS
 # =============================================================================
@@ -838,6 +982,7 @@ print("   POST /api/optimize-portfolio   - Portfolio optimization")
 print("   POST /api/efficient-frontier   - Efficient frontier calculation")
 print("   GET /api/portfolio/objectives  - Available optimization objectives")
 print("   POST /api/backtest-portfolio   - Historical portfolio backtesting")
+print("   POST /api/ml-backtest          - ML-driven trading backtest")
 print("   POST /api/compare-strategies   - Strategy performance comparison")
 print("   POST /api/quick-backtest       - Quick backtest (convenience)")
 print("   GET /debug/cache               - Cache status")
