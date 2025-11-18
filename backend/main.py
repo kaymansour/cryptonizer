@@ -11,8 +11,11 @@ import requests
 import time
 import traceback
 
-
-from portfolio_optimizer import optimize_crypto_portfolio, CryptoPortfolioOptimizer
+from portfolio_optimizer import (
+    optimize_crypto_portfolio,
+    CryptoPortfolioOptimizer,
+    optimize_crypto_portfolio_with_lstm,
+)
 from backtester import Backtester, backtest_portfolio
 from strategy_comparator import StrategyComparator, compare_with_benchmarks
 from ml_backtester import MLTradingBacktester
@@ -88,11 +91,11 @@ coin_detail_cache = (
 )  # Dictionary cache for individual coin details: key=coin_id, value={"data": ..., "timestamp": ...}
 
 
-print("🚀 Starting Cryptocurrency API Backend...")
-print("📊 Cache configuration:")
+print("Starting Cryptocurrency API Backend...")
+print("Cache configuration:")
 print(f"   - Coins cache TTL: {CACHE_TTL_COINS}s")
 print(f"   - Coin detail cache TTL: {CACHE_TTL_COIN_DETAIL}s")
-print("🔧 Backend initialized and ready!")
+print("Backend initialized and ready!")
 
 
 # =============================================================================
@@ -709,6 +712,37 @@ async def optimize_portfolio(request: PortfolioOptimizationRequest):
         )
 
 
+@app.post("/api/optimize-portfolio-lstm")
+async def optimize_portfolio_lstm(request: PortfolioOptimizationRequest):
+    """
+    Optimize portfolio with LSTM predictions and weight constraints
+    """
+    try:
+        # Convert symbols to Yahoo Finance format
+        yf_symbols = []
+        for symbol in request.symbols:
+            if not symbol.endswith("-USD"):
+                yf_symbols.append(f"{symbol.upper()}-USD")
+            else:
+                yf_symbols.append(symbol.upper())
+
+        result = optimize_crypto_portfolio_with_lstm(
+            symbols=yf_symbols,
+            total_value=request.total_value,
+            objective=request.objective,
+            period=request.period,
+            use_lstm=True,
+            lstm_weight=0.6,  # 60% LSTM, 40% historical
+            min_weight=0.05,  # 5% minimum
+            max_weight=0.50,  # 50% maximum
+        )
+
+        return {"success": True, **result}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/efficient-frontier")
 async def get_efficient_frontier(request: EfficientFrontierRequest):
     """
@@ -970,21 +1004,22 @@ def clear_cache():
     return {"message": "All caches cleared", "timestamp": time.time()}
 
 
-print("\n" + "=" * 50)
-print("✅ BACKEND STARTUP COMPLETE")
-print("=" * 50)
-print("🌐 Available endpoints:")
-print("   GET /api/status                - Health check")
-print("   GET /coins                     - Top 50 cryptocurrencies")
-print("   GET /crypto/{coin_id}          - Coin details")
-print("   GET /predict/{symbol}          - ML predictions")
-print("   POST /api/optimize-portfolio   - Portfolio optimization")
-print("   POST /api/efficient-frontier   - Efficient frontier calculation")
-print("   GET /api/portfolio/objectives  - Available optimization objectives")
-print("   POST /api/backtest-portfolio   - Historical portfolio backtesting")
-print("   POST /api/ml-backtest          - ML-driven trading backtest")
-print("   POST /api/compare-strategies   - Strategy performance comparison")
-print("   POST /api/quick-backtest       - Quick backtest (convenience)")
-print("   GET /debug/cache               - Cache status")
-print("   GET /debug/clear-cache         - Clear caches")
-print("=" * 50)
+# print("\n" + "=" * 50)
+# print("✅ BACKEND STARTUP COMPLETE")
+# print("=" * 50)
+# print("🌐 Available endpoints:")
+# print("   GET /api/status                - Health check")
+# print("   GET /coins                     - Top 50 cryptocurrencies")
+# print("   GET /crypto/{coin_id}          - Coin details")
+# print("   GET /predict/{symbol}          - ML predictions")
+# print("   POST /api/optimize-portfolio   - Portfolio optimization")
+# print("   POST /api/optimize-portfolio-lstm - LSTM-enhanced portfolio optimization")
+# print("   POST /api/efficient-frontier   - Efficient frontier calculation")
+# print("   GET /api/portfolio/objectives  - Available optimization objectives")
+# print("   POST /api/backtest-portfolio   - Historical portfolio backtesting")
+# print("   POST /api/ml-backtest          - ML-driven trading backtest")
+# print("   POST /api/compare-strategies   - Strategy performance comparison")
+# print("   POST /api/quick-backtest       - Quick backtest (convenience)")
+# print("   GET /debug/cache               - Cache status")
+# print("   GET /debug/clear-cache         - Clear caches")
+# print("=" * 50)
