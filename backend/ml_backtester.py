@@ -117,10 +117,13 @@ class MLTradingBacktester:
         for symbol in self.symbols:
             try:
                 print(f"Fetching {symbol}...")
+                # Need extra data for feature engineering + LSTM lookback
+                # 4h interval: needs 42 lookback + 60 for features = ~30 days buffer
+                # 1h interval: needs 168 lookback + 60 for features = ~15 days buffer
+                extra_days = 30 if self.interval == "4h" else 15
                 data = yf.download(
                     symbol,
-                    start=self.start_date
-                    - timedelta(days=10),  # Extra data for indicators
+                    start=self.start_date - timedelta(days=extra_days),
                     end=self.end_date,
                     interval=self.interval,
                     progress=False,
@@ -129,10 +132,12 @@ class MLTradingBacktester:
                 if data.empty:
                     raise ValueError(f"No data for {symbol}")
 
+                print(f"  Retrieved {len(data)} raw candles")
+
                 # Add technical indicators
                 data = self._add_features(data)
                 historical_data[symbol] = data
-                print(f"  Retrieved {len(data)} candles")
+                print(f"  After feature engineering: {len(data)} periods available")
 
             except Exception as e:
                 print(f"  ❌ Error: {str(e)}")
@@ -142,6 +147,9 @@ class MLTradingBacktester:
 
     def _add_features(self, df: pd.DataFrame) -> pd.DataFrame:
         """Add technical indicators"""
+        # Work with a copy
+        df = df.copy()
+
         df["MA_20"] = df["Close"].rolling(window=20).mean()
         df["MA_50"] = df["Close"].rolling(window=50).mean()
 
@@ -155,7 +163,10 @@ class MLTradingBacktester:
         df["Price_Change"] = df["Close"].pct_change()
         df["Volatility"] = df["Close"].rolling(window=20).std()
 
-        return df.dropna()
+        # Drop NaN values but keep datetime index for backtesting
+        df = df.dropna()
+
+        return df
 
     def generate_trading_signal(
         self, symbol: str, historical_slice: pd.DataFrame
@@ -173,6 +184,10 @@ class MLTradingBacktester:
             return self._momentum_signal(symbol, historical_slice)
 
         try:
+            # Make sure we have enough data
+            if len(historical_slice) < 100:  # Need buffer for feature engineering
+                return self._momentum_signal(symbol, historical_slice)
+
             prediction = predictor.predict_next(historical_slice)
 
             # Enhance signal based on prediction confidence
@@ -196,7 +211,7 @@ class MLTradingBacktester:
             }
 
         except Exception as e:
-            print(f"  ⚠️  Prediction error for {symbol}: {str(e)}")
+            # Fallback to momentum on any prediction error
             return self._momentum_signal(symbol, historical_slice)
 
     def _momentum_signal(self, symbol: str, data: pd.DataFrame) -> Dict:
@@ -347,7 +362,7 @@ class MLTradingBacktester:
         print(f"\nBacktesting {len(timestamps)} periods...")
 
         # Minimum data needed for predictions
-        min_lookback = 168 if self.interval == "1h" else 42
+        min_lookback = 168 if self.interval == "1h" else 100
 
         for i, timestamp in enumerate(timestamps):
             if i % 100 == 0:

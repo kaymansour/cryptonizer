@@ -415,7 +415,7 @@ class CryptoPortfolioOptimizer:
                 predictions[symbol] = 0.0
 
         return predictions
-
+# 
     def calculate_expected_returns_with_lstm(
         self,
         method: str = "mean_historical_return",
