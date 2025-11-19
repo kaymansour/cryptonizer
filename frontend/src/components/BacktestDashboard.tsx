@@ -118,7 +118,7 @@ export default function BacktestDashboard({ portfolioData }: BacktestDashboardPr
 
       const data = await response.json();
       console.log("Backtest API response:", data);
-      
+
       // Extract and transform backtest_results from the response
       if (data.backtest_results) {
         // Transform daily_data arrays into daily_values array of objects
@@ -128,7 +128,7 @@ export default function BacktestDashboard({ portfolioData }: BacktestDashboardPr
           daily_return: number;
           cumulative_return: number;
         }> = [];
-        
+
         if (data.backtest_results.daily_data) {
           const dailyData = data.backtest_results.daily_data;
           daily_values = dailyData.dates.map((date: string, index: number) => ({
@@ -138,7 +138,7 @@ export default function BacktestDashboard({ portfolioData }: BacktestDashboardPr
             cumulative_return: dailyData.cumulative_returns[index],
           }));
         }
-        
+
         const result = {
           success: data.success,
           summary: data.backtest_results.summary,
@@ -265,202 +265,202 @@ export default function BacktestDashboard({ portfolioData }: BacktestDashboardPr
           ) : (
             <>
               {/* Key Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-300 text-sm">Total Return</p>
-                  <p className={`text-2xl font-bold ${(backtestResult.summary.total_return || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {formatPercentage(backtestResult.summary.total_return)}
-                  </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-gray-300 text-sm">Total Return</p>
+                      <p className={`text-2xl font-bold ${(backtestResult.summary.total_return || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {formatPercentage(backtestResult.summary.total_return)}
+                      </p>
+                    </div>
+                    <TrendingUp className={`h-8 w-8 ${(backtestResult.summary.total_return || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`} />
+                  </div>
                 </div>
-                <TrendingUp className={`h-8 w-8 ${(backtestResult.summary.total_return || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`} />
-              </div>
-            </div>
 
-            <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-300 text-sm">Final Value</p>
-                  <p className="text-2xl font-bold text-white">
-                    {formatCurrency(backtestResult.summary.final_value)}
-                  </p>
+                <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-gray-300 text-sm">Final Value</p>
+                      <p className="text-2xl font-bold text-white">
+                        {formatCurrency(backtestResult.summary.final_value)}
+                      </p>
+                    </div>
+                    <DollarSign className="h-8 w-8 text-emerald-400" />
+                  </div>
                 </div>
-                <DollarSign className="h-8 w-8 text-emerald-400" />
-              </div>
-            </div>
 
-            <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-300 text-sm">Sharpe Ratio</p>
-                  <p className="text-2xl font-bold text-white">
-                    {backtestResult.summary.sharpe_ratio?.toFixed(3) || 'N/A'}
-                  </p>
+                <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-gray-300 text-sm">Sharpe Ratio</p>
+                      <p className="text-2xl font-bold text-white">
+                        {backtestResult.summary.sharpe_ratio?.toFixed(3) || 'N/A'}
+                      </p>
+                    </div>
+                    <Target className="h-8 w-8 text-blue-400" />
+                  </div>
                 </div>
-                <Target className="h-8 w-8 text-blue-400" />
-              </div>
-            </div>
 
-            <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-300 text-sm">Max Drawdown</p>
-                  <p className="text-2xl font-bold text-red-400">
-                    {formatPercentage(backtestResult.summary.max_drawdown)}
-                  </p>
+                <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-gray-300 text-sm">Max Drawdown</p>
+                      <p className="text-2xl font-bold text-red-400">
+                        {formatPercentage(backtestResult.summary.max_drawdown)}
+                      </p>
+                    </div>
+                    <TrendingDown className="h-8 w-8 text-red-400" />
+                  </div>
                 </div>
-                <TrendingDown className="h-8 w-8 text-red-400" />
               </div>
-            </div>
-          </div>
 
-          {/* Portfolio Value Chart */}
-          <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
-            <h3 className="text-xl font-semibold text-white mb-6">Portfolio Value Over Time</h3>
-            <div ref={areaRef} className="h-80 w-full">
-              {backtestResult.daily_values && backtestResult.daily_values.length > 0 ? (
-                <AreaChart width={areaSize.width > 0 ? areaSize.width : 1000} height={320} data={backtestResult.daily_values}>
-                  <defs>
-                    <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis 
-                    dataKey="date" 
-                    stroke="#9ca3af"
-                    tick={{ fontSize: 12 }}
-                    tickFormatter={formatDate}
-                  />
-                  <YAxis 
-                    stroke="#9ca3af"
-                    tick={{ fontSize: 12 }}
-                    tickFormatter={(value: number) => formatCurrency(value)}
-                  />
-                  <Tooltip 
-                    contentStyle={{
-                      backgroundColor: '#1f2937',
-                      border: '1px solid #374151',
-                      borderRadius: '8px',
-                      color: '#f3f4f6'
-                    }}
-                    labelFormatter={formatDate}
-                    formatter={(value: number) => [formatCurrency(value), 'Portfolio Value']}
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="portfolio_value" 
-                    stroke="#10b981" 
-                    strokeWidth={2}
-                    fill="url(#colorValue)" 
-                  />
-                </AreaChart>
-              ) : (
-                <div className="h-80 w-full flex items-center justify-center">
-                  <p className="text-gray-400">No chart data available</p>
+              {/* Portfolio Value Chart */}
+              <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
+                <h3 className="text-xl font-semibold text-white mb-6">Portfolio Value Over Time</h3>
+                <div ref={areaRef} className="h-80 w-full">
+                  {backtestResult.daily_values && backtestResult.daily_values.length > 0 ? (
+                    <AreaChart width={areaSize.width > 0 ? areaSize.width : 1000} height={320} data={backtestResult.daily_values}>
+                      <defs>
+                        <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                      <XAxis
+                        dataKey="date"
+                        stroke="#9ca3af"
+                        tick={{ fontSize: 12 }}
+                        tickFormatter={formatDate}
+                      />
+                      <YAxis
+                        stroke="#9ca3af"
+                        tick={{ fontSize: 12 }}
+                        tickFormatter={(value: number) => formatCurrency(value)}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: '#1f2937',
+                          border: '1px solid #374151',
+                          borderRadius: '8px',
+                          color: '#f3f4f6'
+                        }}
+                        labelFormatter={formatDate}
+                        formatter={(value: number) => [formatCurrency(value), 'Portfolio Value']}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="portfolio_value"
+                        stroke="#10b981"
+                        strokeWidth={2}
+                        fill="url(#colorValue)"
+                      />
+                    </AreaChart>
+                  ) : (
+                    <div className="h-80 w-full flex items-center justify-center">
+                      <p className="text-gray-400">No chart data available</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Detailed Metrics */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
+                  <h3 className="text-xl font-semibold text-white mb-6">Performance Metrics</h3>
+                  <div className="space-y-4">
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">Initial Investment</span>
+                      <span className="text-white font-medium">{formatCurrency(backtestResult.summary.initial_investment)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">Final Value</span>
+                      <span className="text-white font-medium">{formatCurrency(backtestResult.summary.final_value)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">Total Return</span>
+                      <span className={`font-medium ${(backtestResult.summary.total_return || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {formatPercentage(backtestResult.summary.total_return)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">Annualized Return</span>
+                      <span className={`font-medium ${(backtestResult.summary.annualized_return || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {formatPercentage(backtestResult.summary.annualized_return)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">Volatility</span>
+                      <span className="text-white font-medium">{formatPercentage(backtestResult.summary.volatility)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">Win Rate</span>
+                      <span className="text-white font-medium">{formatPercentage(backtestResult.summary.win_rate)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
+                  <h3 className="text-xl font-semibold text-white mb-6">Risk Metrics</h3>
+                  <div className="space-y-4">
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">Sharpe Ratio</span>
+                      <span className="text-white font-medium">{backtestResult.summary.sharpe_ratio?.toFixed(3) || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">Sortino Ratio</span>
+                      <span className="text-white font-medium">{backtestResult.summary.sortino_ratio?.toFixed(3) || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">Calmar Ratio</span>
+                      <span className="text-white font-medium">{backtestResult.summary.calmar_ratio?.toFixed(3) || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">Max Drawdown</span>
+                      <span className="text-red-400 font-medium">{formatPercentage(backtestResult.summary.max_drawdown)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">Value at Risk (95%)</span>
+                      <span className="text-red-400 font-medium">{formatPercentage(backtestResult.summary.var_95)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">Best Day</span>
+                      <span className="text-emerald-400 font-medium">{formatPercentage(backtestResult.summary.best_day)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">Worst Day</span>
+                      <span className="text-red-400 font-medium">{formatPercentage(backtestResult.summary.worst_day)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Rebalancing Info */}
+              {backtestResult.rebalancing && (
+                <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
+                  <h3 className="text-xl font-semibold text-white mb-4">Rebalancing Summary</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-gray-300 text-sm">Frequency</p>
+                      <p className="text-white font-medium capitalize">{backtestResult.rebalancing.frequency}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-300 text-sm">Total Rebalances</p>
+                      <p className="text-white font-medium">{backtestResult.rebalancing.total_rebalances}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-300 text-sm">Last Rebalance</p>
+                      <p className="text-white font-medium">
+                        {backtestResult.rebalancing.dates.length > 0
+                          ? formatDate(backtestResult.rebalancing.dates[backtestResult.rebalancing.dates.length - 1])
+                          : 'N/A'
+                        }
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
-            </div>
-          </div>
-
-          {/* Detailed Metrics */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
-              <h3 className="text-xl font-semibold text-white mb-6">Performance Metrics</h3>
-              <div className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-gray-300">Initial Investment</span>
-                  <span className="text-white font-medium">{formatCurrency(backtestResult.summary.initial_investment)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-300">Final Value</span>
-                  <span className="text-white font-medium">{formatCurrency(backtestResult.summary.final_value)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-300">Total Return</span>
-                  <span className={`font-medium ${(backtestResult.summary.total_return || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {formatPercentage(backtestResult.summary.total_return)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-300">Annualized Return</span>
-                  <span className={`font-medium ${(backtestResult.summary.annualized_return || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {formatPercentage(backtestResult.summary.annualized_return)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-300">Volatility</span>
-                  <span className="text-white font-medium">{formatPercentage(backtestResult.summary.volatility)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-300">Win Rate</span>
-                  <span className="text-white font-medium">{formatPercentage(backtestResult.summary.win_rate)}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
-              <h3 className="text-xl font-semibold text-white mb-6">Risk Metrics</h3>
-              <div className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-gray-300">Sharpe Ratio</span>
-                  <span className="text-white font-medium">{backtestResult.summary.sharpe_ratio?.toFixed(3) || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-300">Sortino Ratio</span>
-                  <span className="text-white font-medium">{backtestResult.summary.sortino_ratio?.toFixed(3) || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-300">Calmar Ratio</span>
-                  <span className="text-white font-medium">{backtestResult.summary.calmar_ratio?.toFixed(3) || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-300">Max Drawdown</span>
-                  <span className="text-red-400 font-medium">{formatPercentage(backtestResult.summary.max_drawdown)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-300">Value at Risk (95%)</span>
-                  <span className="text-red-400 font-medium">{formatPercentage(backtestResult.summary.var_95)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-300">Best Day</span>
-                  <span className="text-emerald-400 font-medium">{formatPercentage(backtestResult.summary.best_day)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-300">Worst Day</span>
-                  <span className="text-red-400 font-medium">{formatPercentage(backtestResult.summary.worst_day)}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Rebalancing Info */}
-          {backtestResult.rebalancing && (
-            <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
-              <h3 className="text-xl font-semibold text-white mb-4">Rebalancing Summary</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <p className="text-gray-300 text-sm">Frequency</p>
-                  <p className="text-white font-medium capitalize">{backtestResult.rebalancing.frequency}</p>
-                </div>
-                <div>
-                  <p className="text-gray-300 text-sm">Total Rebalances</p>
-                  <p className="text-white font-medium">{backtestResult.rebalancing.total_rebalances}</p>
-                </div>
-                <div>
-                  <p className="text-gray-300 text-sm">Last Rebalance</p>
-                  <p className="text-white font-medium">
-                    {backtestResult.rebalancing.dates.length > 0 
-                      ? formatDate(backtestResult.rebalancing.dates[backtestResult.rebalancing.dates.length - 1])
-                      : 'N/A'
-                    }
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
             </>
           )}
         </>
