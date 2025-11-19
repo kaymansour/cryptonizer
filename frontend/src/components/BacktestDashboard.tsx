@@ -117,7 +117,41 @@ export default function BacktestDashboard({ portfolioData }: BacktestDashboardPr
       }
 
       const data = await response.json();
-      setBacktestResult(data);
+      console.log("Backtest API response:", data);
+      
+      // Extract and transform backtest_results from the response
+      if (data.backtest_results) {
+        // Transform daily_data arrays into daily_values array of objects
+        let daily_values: Array<{
+          date: string;
+          portfolio_value: number;
+          daily_return: number;
+          cumulative_return: number;
+        }> = [];
+        
+        if (data.backtest_results.daily_data) {
+          const dailyData = data.backtest_results.daily_data;
+          daily_values = dailyData.dates.map((date: string, index: number) => ({
+            date: date,
+            portfolio_value: dailyData.portfolio_values[index],
+            daily_return: dailyData.returns[index],
+            cumulative_return: dailyData.cumulative_returns[index],
+          }));
+        }
+        
+        const result = {
+          success: data.success,
+          summary: data.backtest_results.summary,
+          daily_values: daily_values,
+          rebalancing: data.backtest_results.rebalancing,
+        };
+        console.log("Processed backtest result:", result);
+        console.log("Daily values count:", result.daily_values.length);
+        setBacktestResult(result);
+      } else {
+        console.log("Using data directly (no nested backtest_results)");
+        setBacktestResult(data);
+      }
     } catch (err) {
       console.error("Backtest error:", err);
       setError("Failed to run backtest. Please make sure the backend is running and try again.");
@@ -284,9 +318,9 @@ export default function BacktestDashboard({ portfolioData }: BacktestDashboardPr
           {/* Portfolio Value Chart */}
           <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
             <h3 className="text-xl font-semibold text-white mb-6">Portfolio Value Over Time</h3>
-            <div ref={areaRef} className="h-80 w-full min-w-0 min-h-0">
-              {areaSize.width > 0 ? (
-                <AreaChart width={Math.max(1, Math.floor(areaSize.width))} height={320} data={backtestResult.daily_values}>
+            <div ref={areaRef} className="h-80 w-full">
+              {backtestResult.daily_values && backtestResult.daily_values.length > 0 ? (
+                <AreaChart width={areaSize.width > 0 ? areaSize.width : 1000} height={320} data={backtestResult.daily_values}>
                   <defs>
                     <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
@@ -324,7 +358,9 @@ export default function BacktestDashboard({ portfolioData }: BacktestDashboardPr
                   />
                 </AreaChart>
               ) : (
-                <div className="h-80 w-full" />
+                <div className="h-80 w-full flex items-center justify-center">
+                  <p className="text-gray-400">No chart data available</p>
+                </div>
               )}
             </div>
           </div>
