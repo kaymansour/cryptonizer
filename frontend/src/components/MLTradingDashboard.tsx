@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
-import { TrendingUp, Target, AlertTriangle, Activity } from "lucide-react";
+import { TrendingUp, Target, AlertTriangle, Activity, ArrowUpCircle, ArrowDownCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import MLPredictionChart from "./MLPredictionChart";
 
 interface PortfolioData {
@@ -44,7 +44,11 @@ interface MLBacktestResult {
             timestamp: string;
             symbol: string;
             action: string;
+            coins: number;
+            price: number;
             value: number;
+            predicted_change: number;
+            confidence: number;
         }>;
         config: {
             interval: string;
@@ -77,6 +81,8 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
     const [timeperiod, setTimeperiod] = useState("1y");
     const [interval, setInterval] = useState("4h");
     const [signalThreshold, setSignalThreshold] = useState(0.5);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [tradesPerPage] = useState(10);
 
     const timeperiods = useMemo(() => [
         { value: "1m", label: "1 Month", days: 30 },
@@ -126,6 +132,7 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
             const data = await response.json();
             console.log("ML backtest result:", data);
             setBacktestResult(data);
+            setCurrentPage(1); // Reset to first page on new results
         } catch (err) {
             console.error("ML Backtest error:", err);
             setError(err instanceof Error ? err.message : "Failed to run ML backtest. Please make sure the backend is running and ML models are trained.");
@@ -383,6 +390,135 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
                             </div>
                         </div>
                     </div>
+
+                    {/* Trade History with Pagination */}
+                    {backtestResult.backtest_results.trade_history && backtestResult.backtest_results.trade_history.length > 0 && (
+                        <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
+                            <h3 className="text-xl font-semibold text-white mb-6">Trade History ({backtestResult.backtest_results.trade_history.length} trades)</h3>
+
+                            {/* Trade Table */}
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead>
+                                        <tr className="border-b border-white/20">
+                                            <th className="text-left py-3 px-4 text-gray-300 font-medium">Date & Time</th>
+                                            <th className="text-left py-3 px-4 text-gray-300 font-medium">Symbol</th>
+                                            <th className="text-center py-3 px-4 text-gray-300 font-medium">Action</th>
+                                            <th className="text-right py-3 px-4 text-gray-300 font-medium">Price</th>
+                                            <th className="text-right py-3 px-4 text-gray-300 font-medium">Coins</th>
+                                            <th className="text-right py-3 px-4 text-gray-300 font-medium">Value</th>
+                                            <th className="text-right py-3 px-4 text-gray-300 font-medium">Predicted Change</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {backtestResult.backtest_results.trade_history
+                                            .slice((currentPage - 1) * tradesPerPage, currentPage * tradesPerPage)
+                                            .map((trade, idx) => {
+                                                const isBuy = trade.action === "BUY";
+                                                return (
+                                                    <tr key={idx} className="border-b border-white/10 hover:bg-white/5 transition-colors">
+                                                        <td className="py-3 px-4 text-gray-300">
+                                                            {new Date(trade.timestamp).toLocaleString('en-US', {
+                                                                month: 'short',
+                                                                day: 'numeric',
+                                                                year: 'numeric',
+                                                                hour: '2-digit',
+                                                                minute: '2-digit'
+                                                            })}
+                                                        </td>
+                                                        <td className="py-3 px-4 text-white font-medium">
+                                                            {trade.symbol.replace('-USD', '')}
+                                                        </td>
+                                                        <td className="py-3 px-4">
+                                                            <div className="flex items-center justify-center gap-2">
+                                                                {isBuy ? (
+                                                                    <>
+                                                                        <ArrowUpCircle className="h-4 w-4 text-emerald-400" />
+                                                                        <span className="text-emerald-400 font-semibold">BUY</span>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <ArrowDownCircle className="h-4 w-4 text-red-400" />
+                                                                        <span className="text-red-400 font-semibold">SELL</span>
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-3 px-4 text-right text-white">
+                                                            {formatCurrency(trade.price)}
+                                                        </td>
+                                                        <td className="py-3 px-4 text-right text-gray-300">
+                                                            {trade.coins.toFixed(6)}
+                                                        </td>
+                                                        <td className="py-3 px-4 text-right text-white font-medium">
+                                                            {formatCurrency(trade.value)}
+                                                        </td>
+                                                        <td className="py-3 px-4 text-right">
+                                                            <span className={`font-medium ${trade.predicted_change > 0 ? 'text-emerald-400' :
+                                                                    trade.predicted_change < 0 ? 'text-red-400' : 'text-gray-400'
+                                                                }`}>
+                                                                {trade.predicted_change > 0 ? '+' : ''}{trade.predicted_change.toFixed(2)}%
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* Pagination Controls */}
+                            <div className="flex items-center justify-between mt-6 pt-4 border-t border-white/10">
+                                <div className="text-sm text-gray-300">
+                                    Showing {((currentPage - 1) * tradesPerPage) + 1} to {Math.min(currentPage * tradesPerPage, backtestResult.backtest_results.trade_history.length)} of {backtestResult.backtest_results.trade_history.length} trades
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                        disabled={currentPage === 1}
+                                        className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors flex items-center gap-2"
+                                    >
+                                        <ChevronLeft className="h-4 w-4" />
+                                        Previous
+                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        {Array.from({ length: Math.ceil(backtestResult.backtest_results.trade_history.length / tradesPerPage) }, (_, i) => i + 1)
+                                            .filter(page => {
+                                                // Show first page, last page, current page, and pages around current
+                                                const totalPages = Math.ceil(backtestResult.backtest_results.trade_history.length / tradesPerPage);
+                                                return page === 1 ||
+                                                    page === totalPages ||
+                                                    Math.abs(page - currentPage) <= 1;
+                                            })
+                                            .map((page, idx, arr) => (
+                                                <div key={page} className="flex items-center">
+                                                    {idx > 0 && arr[idx - 1] !== page - 1 && (
+                                                        <span className="text-gray-400 px-2">...</span>
+                                                    )}
+                                                    <button
+                                                        onClick={() => setCurrentPage(page)}
+                                                        className={`px-3 py-1 rounded-lg transition-colors ${currentPage === page
+                                                                ? 'bg-emerald-500 text-white'
+                                                                : 'bg-white/10 hover:bg-white/20 text-white'
+                                                            }`}
+                                                    >
+                                                        {page}
+                                                    </button>
+                                                </div>
+                                            ))}
+                                    </div>
+                                    <button
+                                        onClick={() => setCurrentPage(p => Math.min(Math.ceil(backtestResult.backtest_results.trade_history.length / tradesPerPage), p + 1))}
+                                        disabled={currentPage >= Math.ceil(backtestResult.backtest_results.trade_history.length / tradesPerPage)}
+                                        className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors flex items-center gap-2"
+                                    >
+                                        Next
+                                        <ChevronRight className="h-4 w-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </>
             )}
         </div>

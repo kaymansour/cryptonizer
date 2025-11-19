@@ -594,6 +594,28 @@ async def ml_backtest_endpoint(request: MLBacktestRequest):
         print(f"Total return: {results['summary']['total_return']:.2f}%")
         print(f"Total trades: {results['trading_stats']['total_trades']}")
 
+        # Format trade history timestamps for JSON serialization
+        formatted_trade_history = []
+        for trade in results.get("trade_history", []):
+            timestamp = trade["timestamp"]
+            if hasattr(timestamp, "isoformat"):
+                timestamp_str = timestamp.isoformat()
+            else:
+                timestamp_str = str(timestamp)
+
+            formatted_trade_history.append(
+                {
+                    "timestamp": timestamp_str,
+                    "symbol": trade["symbol"],
+                    "action": trade["action"],
+                    "coins": trade["coins"],
+                    "price": trade["price"],
+                    "value": trade["value"],
+                    "predicted_change": trade.get("predicted_change", 0),
+                    "confidence": trade.get("confidence", 0),
+                }
+            )
+
         return {
             "success": True,
             "backtest_results": {
@@ -601,7 +623,7 @@ async def ml_backtest_endpoint(request: MLBacktestRequest):
                 "trading_stats": results["trading_stats"],
                 "daily_values": daily_values,
                 "predictions_by_symbol": predictions_by_symbol,
-                "trade_history": results.get("trade_history", []),
+                "trade_history": formatted_trade_history,
                 "config": results.get("config", {}),
             },
             "summary": {
