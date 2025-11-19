@@ -320,7 +320,7 @@ export default function BacktestDashboard({ portfolioData }: BacktestDashboardPr
                 <h3 className="text-xl font-semibold text-white mb-6">Portfolio Value Over Time</h3>
                 <div ref={areaRef} className="h-80 w-full">
                   {backtestResult.daily_values && backtestResult.daily_values.length > 0 ? (
-                    <AreaChart width={areaSize.width > 0 ? areaSize.width : 1000} height={320} data={backtestResult.daily_values}>
+                    <AreaChart width={areaSize.width || "100%"} height={320} data={backtestResult.daily_values}>
                       <defs>
                         <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
