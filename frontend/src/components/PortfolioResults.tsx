@@ -260,7 +260,9 @@ export default function PortfolioResults({ result }: PortfolioResultsProps) {
                               <Badge variant="secondary">{formatPercentage(weight)}</Badge>
                             </div>
                             <div className="text-right">
-                              <div className="font-semibold text-foreground">{shares} shares</div>
+                              <div className="font-semibold text-foreground">
+                                {shares.toFixed(6)} shares
+                              </div>
                               <div className="text-sm text-muted-foreground">
                                 {formatCurrency(value)}
                               </div>
