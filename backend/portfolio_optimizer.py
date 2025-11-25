@@ -292,17 +292,24 @@ class CryptoPortfolioOptimizer:
             raise Exception(f"Error calculating efficient frontier: {str(e)}")
 
     def discrete_allocation(
-        self, total_portfolio_value: float, weights: Dict[str, float]
+        self,
+        total_portfolio_value: float,
+        weights: Dict[str, float],
+        fractional: bool = True,
     ) -> Dict:
         """
-        Calculate discrete allocation of assets based on portfolio weights
+        Calculate allocation of assets based on portfolio weights
+
+        For cryptocurrencies, fractional shares are supported and recommended.
+        For traditional stocks, set fractional=False to get whole shares only.
 
         Args:
             total_portfolio_value: Total value of the portfolio in USD
             weights: Portfolio weights dictionary
+            fractional: If True, allows fractional shares (recommended for crypto)
 
         Returns:
-            Dictionary containing discrete allocation results
+            Dictionary containing allocation results
         """
         try:
             # Get latest prices
@@ -311,13 +318,29 @@ class CryptoPortfolioOptimizer:
             # Filter weights to only include assets with meaningful allocation
             filtered_weights = {k: v for k, v in weights.items() if v > 0.001}
 
-            # Calculate discrete allocation
-            da = DiscreteAllocation(
-                filtered_weights,
-                latest_prices,
-                total_portfolio_value=total_portfolio_value,
-            )
-            allocation, leftover = da.greedy_portfolio()
+            if fractional:
+                # Fractional allocation - perfect for cryptocurrencies
+                allocation = {}
+                total_allocated_value = 0
+
+                for symbol, weight in filtered_weights.items():
+                    if symbol in latest_prices.index:
+                        price = latest_prices[symbol]
+                        target_value = total_portfolio_value * weight
+                        shares = target_value / price  # Fractional shares allowed
+                        allocation[symbol] = shares
+                        total_allocated_value += shares * price
+
+                leftover = total_portfolio_value - total_allocated_value
+
+            else:
+                # Discrete allocation - whole shares only
+                da = DiscreteAllocation(
+                    filtered_weights,
+                    latest_prices,
+                    total_portfolio_value=total_portfolio_value,
+                )
+                allocation, leftover = da.greedy_portfolio()
 
             return {
                 "allocation": allocation,
@@ -327,7 +350,7 @@ class CryptoPortfolioOptimizer:
             }
 
         except Exception as e:
-            raise Exception(f"Error calculating discrete allocation: {str(e)}")
+            raise Exception(f"Error calculating allocation: {str(e)}")
 
     def get_portfolio_metrics(
         self, weights: Dict[str, float], risk_free_rate: float = 0.02
@@ -415,7 +438,8 @@ class CryptoPortfolioOptimizer:
                 predictions[symbol] = 0.0
 
         return predictions
-# 
+
+    #
     def calculate_expected_returns_with_lstm(
         self,
         method: str = "mean_historical_return",
@@ -599,9 +623,9 @@ def optimize_crypto_portfolio(
         # Optimize portfolio
         optimization_result = optimizer.optimize_portfolio(objective=objective)
 
-        # Calculate discrete allocation
+        # Calculate fractional allocation (cryptocurrencies support fractional shares)
         allocation_result = optimizer.discrete_allocation(
-            total_value, optimization_result["weights"]
+            total_value, optimization_result["weights"], fractional=True
         )
 
         # Get comprehensive metrics
@@ -668,9 +692,9 @@ def optimize_crypto_portfolio_with_lstm(
             max_weight=max_weight,
         )
 
-        # Calculate discrete allocation
+        # Calculate fractional allocation (cryptocurrencies support fractional shares)
         allocation_result = optimizer.discrete_allocation(
-            total_value, optimization_result["weights"]
+            total_value, optimization_result["weights"], fractional=True
         )
 
         # Get metrics
