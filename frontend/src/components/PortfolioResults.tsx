@@ -6,6 +6,7 @@ import { BentoCard, BentoGrid } from './ui/bento-grid';
 import { Badge } from './ui/badge';
 import { Progress } from './ui/progress';
 import { Button } from './ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import PredictionsCard from './PredictionsCard';
 import {
   TrendingUp,
@@ -16,7 +17,8 @@ import {
   AlertTriangle,
   CheckCircle,
   History,
-  Sparkles
+  Sparkles,
+  Info
 } from 'lucide-react';
 
 interface OptimizationResult {
@@ -182,6 +184,16 @@ export default function PortfolioResults({ result }: PortfolioResultsProps) {
                   <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 to-transparent" />
                 }
               >
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button className="absolute top-4 right-4 z-20">
+                      <Info className="h-5 w-5 text-muted-foreground hover:text-foreground cursor-help" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="text-sm">The average yearly profit you can expect from this portfolio based on historical performance. For example, 15% means your investment could grow by $15 for every $100 invested annually.</p>
+                  </TooltipContent>
+                </Tooltip>
                 <div className="relative z-10 mt-4">
                   <div className="text-3xl font-bold text-green-600 dark:text-green-400">
                     {formatPercentage(result.portfolio?.expected_return || 0)}
@@ -201,6 +213,16 @@ export default function PortfolioResults({ result }: PortfolioResultsProps) {
                   <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent" />
                 }
               >
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button className="absolute top-4 right-4 z-20">
+                      <Info className="h-5 w-5 text-muted-foreground hover:text-foreground cursor-help" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="text-sm">How much your portfolio value might swing up or down. Low risk means stable but slower growth, High risk means bigger potential gains but also bigger potential losses. Volatility measures these price fluctuations.</p>
+                  </TooltipContent>
+                </Tooltip>
                 <div className="relative z-10 mt-4">
                   <div className={`text-3xl font-bold ${riskInfo.color}`}>
                     {riskInfo.level}
@@ -220,6 +242,16 @@ export default function PortfolioResults({ result }: PortfolioResultsProps) {
                   <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent" />
                 }
               >
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button className="absolute top-4 right-4 z-20">
+                      <Info className="h-5 w-5 text-muted-foreground hover:text-foreground cursor-help" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="text-sm">The Sharpe Ratio tells you how much return you&apos;re getting for the risk you&apos;re taking. Higher is better: &gt;2 is excellent, &gt;1 is good, &gt;0.5 is fair. Think of it as &quot;bang for your buck&quot; in investing.</p>
+                  </TooltipContent>
+                </Tooltip>
                 <div className="relative z-10 mt-4">
                   <div className={`text-3xl font-bold ${sharpeInfo.color}`}>
                     {result.portfolio?.sharpe_ratio?.toFixed(2) || '0.00'}
@@ -242,6 +274,16 @@ export default function PortfolioResults({ result }: PortfolioResultsProps) {
                   <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
                 }
               >
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button className="absolute top-4 right-4 z-20">
+                      <Info className="h-5 w-5 text-muted-foreground hover:text-foreground cursor-help" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="text-sm">Shows how your money is divided among different cryptocurrencies. The percentages show what portion of your total investment goes into each coin. Fractional shares mean you can own parts of expensive coins like Bitcoin.</p>
+                  </TooltipContent>
+                </Tooltip>
                 <div className="relative z-10 mt-4">
                   <div className="text-3xl font-bold text-foreground mb-6">
                     {formatCurrency(result.allocation?.total_value || 0)}
@@ -297,6 +339,16 @@ export default function PortfolioResults({ result }: PortfolioResultsProps) {
                   <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/10 to-transparent" />
                 }
               >
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button className="absolute top-4 right-4 z-20">
+                      <Info className="h-5 w-5 text-muted-foreground hover:text-foreground cursor-help" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="text-sm"><strong>Value at Risk (95%):</strong> The maximum you could lose in a bad day with 95% confidence.<br /><strong>Max Drawdown:</strong> The biggest loss from peak to bottom historically.<br /><strong>Volatility:</strong> How much prices typically fluctuate.</p>
+                  </TooltipContent>
+                </Tooltip>
                 <div className="relative z-10 mt-4 space-y-4">
                   <div className="flex flex-col p-4 rounded-xl bg-card/50 border border-border">
                     <div className="text-sm text-muted-foreground mb-1">Value at Risk (95%)</div>
@@ -333,6 +385,16 @@ export default function PortfolioResults({ result }: PortfolioResultsProps) {
                   <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
                 }
               >
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button className="absolute top-4 right-4 z-20">
+                      <Info className="h-5 w-5 text-muted-foreground hover:text-foreground cursor-help" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="text-sm">The mathematical approach used to balance your portfolio. Maximum Sharpe aims for best returns relative to risk. Minimum Volatility focuses on stability. Uses historical data to predict optimal allocation.</p>
+                  </TooltipContent>
+                </Tooltip>
                 <div className="relative z-10 mt-4 space-y-3 text-foreground">
                   <p>
                     <strong className="text-primary">Strategy:</strong>{" "}
