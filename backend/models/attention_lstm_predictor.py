@@ -60,13 +60,13 @@ class AttentionLayer(Layer):
 
         # Compute attention scores
         # (batch, time_steps, features) @ (features, features) -> (batch, time_steps, features)
-        score = K.tanh(K.dot(inputs, self.W) + self.b)
+        score = tf.nn.tanh(tf.matmul(inputs, self.W) + self.b)
 
         # (batch, time_steps, features) @ (features, 1) -> (batch, time_steps, 1)
-        attention_scores = K.dot(score, self.u)
+        attention_scores = tf.matmul(score, self.u)
 
         # Softmax over time dimension
-        attention_weights = K.softmax(attention_scores, axis=1)
+        attention_weights = tf.nn.softmax(attention_scores, axis=1)
 
         # Apply attention weights
         # (batch, time_steps, features) * (batch, time_steps, 1) -> (batch, time_steps, features)
@@ -74,7 +74,7 @@ class AttentionLayer(Layer):
 
         # Sum over time dimension to get context vector
         # (batch, time_steps, features) -> (batch, features)
-        context = K.sum(weighted_input, axis=1)
+        context = tf.reduce_sum(weighted_input, axis=1)
 
         return context
 
