@@ -435,13 +435,13 @@ def compare_all_models(
 
     for name, result in results.items():
         print(
-            f"{name. upper():<30} {result['test_loss']:>15. 6f} {result['test_mae']:>15.6f}"
+            f"{name.upper():<30} {result['test_loss']:>15.6f} {result['test_mae']:>15.6f}"
         )
 
     # Find winner
     best_model = min(results.items(), key=lambda x: x[1]["test_loss"])
     print(
-        f"\n✅ BEST MODEL: {best_model[0]. upper()} (MSE: {best_model[1]['test_loss']:. 6f})"
+        f"\n✅ BEST MODEL: {best_model[0].upper()} (MSE: {best_model[1]['test_loss']:.6f})"
     )
 
     return results
