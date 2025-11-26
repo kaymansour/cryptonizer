@@ -24,7 +24,7 @@ export default function CoinCard({ coin, currency, onViewDetails, isTopGainer }:
       {/* Top Gainer Badge */}
       {isTopGainer && (
         <span className="absolute -top-3 left-4 bg-primary text-primary-foreground text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
-          🚀 Top Gainer
+          Top Gainer
         </span>
       )}
 
