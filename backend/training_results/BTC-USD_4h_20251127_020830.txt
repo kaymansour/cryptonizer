@@ -1,0 +1,31 @@
+======================================================================
+MODEL COMPARISON: BTC-USD (4h candles)
+Training Date: 2025-11-27 02:08:30
+======================================================================
+
+🔵 Training Vanilla LSTM...
+✅ Vanilla LSTM Complete:
+   Test Loss (MSE): 0.006642
+   Test MAE: 0.078467
+   Training Samples: 2968
+   Test Samples: 743
+
+🟢 Training Optimized Multi-Head Attention-LSTM...
+✅ Optimized Attention Complete:
+   Test Loss (MSE): 0.005825
+   Test MAE: 0.051226
+   Training Samples: 2968
+   Test Samples: 743
+   Epochs Trained: 88
+
+======================================================================
+FINAL COMPARISON RESULTS
+======================================================================
+
+Model                                 MSE Loss             MAE
+----------------------------------------------------------------------
+VANILLA                               0.006642        0.078467
+OPTIMIZED                             0.005825        0.051226
+
+✅ BEST MODEL: OPTIMIZED (MSE: 0.005825)
+======================================================================

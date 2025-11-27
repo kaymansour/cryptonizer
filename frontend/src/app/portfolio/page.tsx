@@ -69,6 +69,7 @@ export default function PortfolioOptimizer() {
   const [riskTolerance, setRiskTolerance] = useState<string>("");
   const [investmentGoal, setInvestmentGoal] = useState<string>("");
   const [timePeriod, setTimePeriod] = useState<string>("1y");
+  const [useLSTM, setUseLSTM] = useState<boolean>(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>("");
   const [result, setResult] = useState<OptimizationResult | null>(null);
@@ -114,7 +115,13 @@ export default function PortfolioOptimizer() {
 
     try {
       const objective = getObjectiveFromAnswers();
-      const response = await fetch("http://localhost:8000/api/optimize-portfolio", {
+
+      // Use LSTM-enhanced endpoint if enabled, otherwise use traditional optimization
+      const endpoint = useLSTM
+        ? "http://localhost:8000/api/optimize-portfolio-lstm"
+        : "http://localhost:8000/api/optimize-portfolio";
+
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -221,88 +228,133 @@ export default function PortfolioOptimizer() {
             </div>
           </BentoCard>
 
-          {/* Time Period Card */}
+          {/* Time Period & LSTM Toggle Card */}
           <BentoCard
-            name="Data Period"
+            name="Configuration"
             className="lg:col-start-3 lg:col-end-4 lg:row-start-1 lg:row-end-2 border-primary/40"
             Icon={Clock}
-            description="Historical analysis timeframe"
+            description="Analysis settings"
             href="#"
             cta=""
             background={
               <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
             }
           >
-            <div className="relative z-10 mt-4">
-              <Select
-                instanceId="time-period-select"
-                className="react-select-container"
-                classNamePrefix="react-select"
-                value={timePeriodOptions.find(opt => opt.value === timePeriod)}
-                onChange={(option) => setTimePeriod(option?.value || "1y")}
-                options={timePeriodOptions}
-                isSearchable={false}
-                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                menuPosition="fixed"
-                styles={{
-                  control: (base) => ({
-                    ...base,
-                    backgroundColor: 'var(--muted)',
-                    borderColor: 'var(--input)',
-                    borderRadius: '0.75rem',
-                    padding: '0.25rem',
-                    cursor: 'pointer',
-                    '&:hover': {
-                      borderColor: 'var(--ring)',
-                    },
-                  }),
-                  singleValue: (base) => ({
-                    ...base,
-                    color: 'var(--foreground)',
-                  }),
-                  menuPortal: (base) => ({
-                    ...base,
-                    zIndex: 9999,
-                  }),
-                  menu: (base) => ({
-                    ...base,
-                    backgroundColor: 'var(--popover)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '0.75rem',
-                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.15)',
-                  }),
-                  menuList: (base) => ({
-                    ...base,
-                    backgroundColor: 'var(--popover)',
-                    padding: '0.25rem',
-                    borderRadius: '0.75rem',
-                  }),
-                  option: (base, state) => ({
-                    ...base,
-                    backgroundColor: state.isFocused
-                      ? 'var(--accent)'
-                      : state.isSelected
-                        ? 'var(--primary)'
-                        : 'var(--popover)',
-                    color: state.isFocused
-                      ? 'var(--accent-foreground)'
-                      : 'var(--foreground)',
-                    cursor: 'pointer',
-                    borderRadius: '0.5rem',
-                    opacity: 1,
-                    '&:active': {
-                      backgroundColor: 'var(--accent)',
-                    },
-                  }),
-                  dropdownIndicator: (base) => ({
-                    ...base,
-                    color: 'var(--primary)',
-                  }),
-                  indicatorSeparator: () => ({
-                    display: 'none',
-                  }),
-                }}
-              />
+            <div className="relative z-10 mt-4 space-y-4">
+              {/* Time Period Select */}
+              <div>
+                <label className="text-xs text-muted-foreground mb-2 block">Historical Period</label>
+                <Select
+                  instanceId="time-period-select"
+                  className="react-select-container"
+                  classNamePrefix="react-select"
+                  value={timePeriodOptions.find(opt => opt.value === timePeriod)}
+                  onChange={(option) => setTimePeriod(option?.value || "1y")}
+                  options={timePeriodOptions}
+                  isSearchable={false}
+                  menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                  menuPosition="fixed"
+                  styles={{
+                    control: (base) => ({
+                      ...base,
+                      backgroundColor: 'var(--muted)',
+                      borderColor: 'var(--input)',
+                      borderRadius: '0.75rem',
+                      padding: '0.25rem',
+                      cursor: 'pointer',
+                      '&:hover': {
+                        borderColor: 'var(--ring)',
+                      },
+                    }),
+                    singleValue: (base) => ({
+                      ...base,
+                      color: 'var(--foreground)',
+                    }),
+                    menuPortal: (base) => ({
+                      ...base,
+                      zIndex: 9999,
+                    }),
+                    menu: (base) => ({
+                      ...base,
+                      backgroundColor: 'var(--popover)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '0.75rem',
+                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.15)',
+                    }),
+                    menuList: (base) => ({
+                      ...base,
+                      backgroundColor: 'var(--popover)',
+                      padding: '0.25rem',
+                      borderRadius: '0.75rem',
+                    }),
+                    option: (base, state) => ({
+                      ...base,
+                      backgroundColor: state.isFocused
+                        ? 'var(--accent)'
+                        : state.isSelected
+                          ? 'var(--primary)'
+                          : 'var(--popover)',
+                      color: state.isFocused
+                        ? 'var(--accent-foreground)'
+                        : 'var(--foreground)',
+                      cursor: 'pointer',
+                      borderRadius: '0.5rem',
+                      opacity: 1,
+                      '&:active': {
+                        backgroundColor: 'var(--accent)',
+                      },
+                    }),
+                    dropdownIndicator: (base) => ({
+                      ...base,
+                      color: 'var(--primary)',
+                    }),
+                    indicatorSeparator: () => ({
+                      display: 'none',
+                    }),
+                  }}
+                />
+              </div>
+
+              {/* LSTM Toggle */}
+              <div className="pt-3 border-t border-border">
+                <label className="text-xs text-muted-foreground mb-2 block">AI Enhancement</label>
+                <div
+                  className={`cursor-pointer p-3 rounded-lg border transition-all duration-300 ${useLSTM
+                    ? "border-primary bg-primary/20"
+                    : "border-border bg-card/50 hover:border-primary/40"
+                    }`}
+                  onClick={() => setUseLSTM(!useLSTM)}
+                >
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={useLSTM}
+                      onChange={(e) => setUseLSTM(e.target.checked)}
+                      className="w-5 h-5 rounded accent-primary cursor-pointer"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <div className="flex-1">
+                      <div className="font-semibold text-foreground text-sm flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-primary" />
+                        LSTM Predictions
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {useLSTM ? "AI-powered optimization enabled" : "Traditional MPT only"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {useLSTM && (
+                  <div className="mt-2 p-2 rounded-lg bg-primary/10 border border-primary/30">
+                    <div className="text-xs text-primary">
+                      Using 60% ML predictions + 40% historical data
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Weight limits: 5% min, 50% max per asset
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </BentoCard>
 
@@ -352,10 +404,16 @@ export default function PortfolioOptimizer() {
           >
             <div className="relative z-10 space-y-4 mt-4">
               <Input
-                type="number"
-                value={investmentAmount}
-                onChange={(e) => setInvestmentAmount(e.target.value)}
-                placeholder="100000"
+                type="text"
+                value={investmentAmount.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
+                onChange={(e) => {
+                  // Remove commas and non-numeric characters except digits
+                  const value = e.target.value.replace(/,/g, "");
+                  if (value === "" || /^\d+$/.test(value)) {
+                    setInvestmentAmount(value);
+                  }
+                }}
+                placeholder="100,000"
                 className="text-lg w-full rounded-xl h-12"
               />
               <div className="grid grid-cols-3 gap-2">
@@ -367,7 +425,7 @@ export default function PortfolioOptimizer() {
                     variant={parseInt(investmentAmount) === amount ? "default" : "outline"}
                     className="rounded-xl transition-all"
                   >
-                    ${(amount / 1000)}K
+                    ${(amount / 1000).toLocaleString()}K
                   </Button>
                 ))}
               </div>

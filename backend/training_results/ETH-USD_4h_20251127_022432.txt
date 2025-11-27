@@ -1,0 +1,31 @@
+======================================================================
+MODEL COMPARISON: ETH-USD (4h candles)
+Training Date: 2025-11-27 02:24:32
+======================================================================
+
+🔵 Training Vanilla LSTM...
+✅ Vanilla LSTM Complete:
+   Test Loss (MSE): 0.013101
+   Test MAE: 0.100647
+   Training Samples: 3047
+   Test Samples: 762
+
+🟢 Training Optimized Multi-Head Attention-LSTM...
+✅ Optimized Attention Complete:
+   Test Loss (MSE): 0.010705
+   Test MAE: 0.077838
+   Training Samples: 3047
+   Test Samples: 762
+   Epochs Trained: 100
+
+======================================================================
+FINAL COMPARISON RESULTS
+======================================================================
+
+Model                                 MSE Loss             MAE
+----------------------------------------------------------------------
+VANILLA                               0.013101        0.100647
+OPTIMIZED                             0.010705        0.077838
+
+✅ BEST MODEL: OPTIMIZED (MSE: 0.010705)
+======================================================================

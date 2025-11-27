@@ -1,0 +1,12 @@
+# Ignore the SQLite database file (optional - remove this line if you want to commit the DB)
+crypto_portfolio.db
+
+# Ignore SQLite temporary files
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
