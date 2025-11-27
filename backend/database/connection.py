@@ -20,8 +20,21 @@ def get_db_connection() -> sqlite3.Connection:
     Returns:
         sqlite3.Connection: Database connection with row factory enabled
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(
+        DB_PATH, 
+        timeout=30.0,
+        isolation_level=None,  # Autocommit mode for better concurrency
+        check_same_thread=False  # Allow sharing connections across threads
+    )
     conn.row_factory = sqlite3.Row  # Enable column access by name
+    
+    # Enable WAL mode for better concurrency (allows multiple readers with one writer)
+    conn.execute("PRAGMA journal_mode=WAL")
+    # Optimize for performance
+    conn.execute("PRAGMA synchronous=NORMAL")
+    conn.execute("PRAGMA cache_size=-64000")  # 64MB cache
+    conn.execute("PRAGMA temp_store=MEMORY")
+    
     return conn
 
 
@@ -36,17 +49,35 @@ def get_db_cursor():
             cursor.execute("SELECT * FROM table")
             results = cursor.fetchall()
     """
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    conn = None
+    cursor = None
     try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
         yield cursor
-        conn.commit()
+        # Explicit commit (even though we're in autocommit mode)
+        if conn:
+            conn.commit()
     except Exception as e:
-        conn.rollback()
+        # Rollback on error
+        if conn:
+            try:
+                conn.rollback()
+            except:
+                pass
         raise e
     finally:
-        cursor.close()
-        conn.close()
+        # Always close cursor and connection, even if errors occur
+        if cursor:
+            try:
+                cursor.close()
+            except:
+                pass
+        if conn:
+            try:
+                conn.close()
+            except:
+                pass
 
 
 def close_db_connection(conn: sqlite3.Connection):

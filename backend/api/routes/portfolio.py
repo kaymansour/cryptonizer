@@ -15,7 +15,7 @@ import sys
 import os
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "models"))
-from intraday_predictor import IntradayPredictor
+from hybrid_predictor import HybridPredictor
 
 router = APIRouter(prefix="/api")
 
@@ -211,11 +211,16 @@ async def predict_next_candles(request: PredictionRequest):
             print(f"\n🔮 Predicting for {symbol}")
 
             try:
-                predictor = IntradayPredictor(
-                    symbol=symbol, interval=request.interval, lookback_periods=168
+                # Use hybrid predictor (automatically selects best model)
+                predictor = HybridPredictor(
+                    symbol=symbol,
+                    interval=request.interval,
+                    lookback_periods=168,
+                    auto_select=False,  # Use pre-configured optimal models
                 )
 
-                print(f"   Loading model from: {predictor.model_path}")
+                print(f"   Selected model: {predictor.selected_model}")
+                print(f"   Loading model from: {predictor.predictor.model_path}")
 
                 # Load model
                 predictor.load_model()
@@ -229,15 +234,15 @@ async def predict_next_candles(request: PredictionRequest):
                 )  # Fetch more data
                 print(f"   Fetching {days_to_fetch} days of data...")
 
-                recent_data = predictor.fetch_intraday_data(days_back=days_to_fetch)
+                recent_data = predictor.predictor.fetch_intraday_data(days_back=days_to_fetch)
                 print(f"   Fetched {len(recent_data)} candles (RAW data)")
 
                 # Don't pre-process! predict_next() will call _add_features() internally
                 # Validate we have enough RAW data
-                if len(recent_data) < predictor.lookback_periods + 60:
+                if len(recent_data) < predictor.predictor.lookback_periods + 60:
                     raise ValueError(
                         f"Insufficient raw data. "
-                        f"Need at least {predictor.lookback_periods + 60}, got {len(recent_data)}."
+                        f"Need at least {predictor.predictor.lookback_periods + 60}, got {len(recent_data)}."
                     )
 
                 # Multi-step prediction
@@ -297,6 +302,7 @@ async def predict_next_candles(request: PredictionRequest):
 
                 predictions[symbol] = {
                     "symbol": symbol.replace("-USD", ""),
+                    "model_used": predictor.selected_model,
                     "current_price": candle_predictions[0]["current_price"],
                     "predictions": candle_predictions,
                     "overall_trend": (

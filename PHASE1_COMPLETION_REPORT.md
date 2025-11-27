@@ -269,4 +269,6 @@ cd /home/ayoub/senior/backend && source venv/bin/activate && python test_api.py
 curl -X POST "http://localhost:8000/api/optimize-portfolio" -H "Content-Type: application/json" -d '{"symbols": ["BTC", "ETH"], "total_value": 150000, "objective": "max_sharpe"}'
 
 cd /home/ayoub/senior/backend && source venv/bin/activate && uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+ngrok http 8000
 ```

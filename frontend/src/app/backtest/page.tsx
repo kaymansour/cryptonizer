@@ -226,7 +226,6 @@ export default function BacktestPage() {
         {activeTab === "ml-trading" && <MLTradingDashboard portfolioData={portfolioData} />}
         {activeTab === "comparison" && <StrategyComparison portfolioData={portfolioData} />}
 
-        <BackToMain />
       </div>
     </div>
   );

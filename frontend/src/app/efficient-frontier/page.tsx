@@ -224,7 +224,6 @@ export default function EfficientFrontierPage() {
           )}
         </div>
 
-        <BackToMain />
       </div>
     </div>
   );
