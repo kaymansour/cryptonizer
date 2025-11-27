@@ -1,0 +1,31 @@
+======================================================================
+MODEL COMPARISON: AVAX-USD (4h candles)
+Training Date: 2025-11-27 03:51:01
+======================================================================
+
+🔵 Training Vanilla LSTM...
+✅ Vanilla LSTM Complete:
+   Test Loss (MSE): 0.002770
+   Test MAE: 0.046121
+   Training Samples: 2999
+   Test Samples: 750
+
+🟢 Training Optimized Multi-Head Attention-LSTM...
+✅ Optimized Attention Complete:
+   Test Loss (MSE): 0.002319
+   Test MAE: 0.022709
+   Training Samples: 2999
+   Test Samples: 750
+   Epochs Trained: 100
+
+======================================================================
+FINAL COMPARISON RESULTS
+======================================================================
+
+Model                                 MSE Loss             MAE
+----------------------------------------------------------------------
+VANILLA                               0.002770        0.046121
+OPTIMIZED                             0.002319        0.022709
+
+✅ BEST MODEL: OPTIMIZED (MSE: 0.002319)
+======================================================================
