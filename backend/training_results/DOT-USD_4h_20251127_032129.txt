@@ -1,0 +1,31 @@
+======================================================================
+MODEL COMPARISON: DOT-USD (4h candles)
+Training Date: 2025-11-27 03:21:29
+======================================================================
+
+🔵 Training Vanilla LSTM...
+✅ Vanilla LSTM Complete:
+   Test Loss (MSE): 0.000795
+   Test MAE: 0.018562
+   Training Samples: 2999
+   Test Samples: 750
+
+🟢 Training Optimized Multi-Head Attention-LSTM...
+✅ Optimized Attention Complete:
+   Test Loss (MSE): 0.002374
+   Test MAE: 0.022985
+   Training Samples: 2999
+   Test Samples: 750
+   Epochs Trained: 100
+
+======================================================================
+FINAL COMPARISON RESULTS
+======================================================================
+
+Model                                 MSE Loss             MAE
+----------------------------------------------------------------------
+VANILLA                               0.000795        0.018562
+OPTIMIZED                             0.002374        0.022985
+
+✅ BEST MODEL: VANILLA (MSE: 0.000795)
+======================================================================

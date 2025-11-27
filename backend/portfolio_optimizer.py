@@ -11,6 +11,12 @@ from pypfopt.discrete_allocation import DiscreteAllocation, get_latest_prices
 from pypfopt.exceptions import OptimizationError
 from typing import Dict, List, Tuple, Optional
 import warnings
+import sys
+import os
+
+# Add models directory to path for LSTM predictor
+sys.path.append(os.path.join(os.path.dirname(__file__), "models"))
+from intraday_predictor import IntradayPredictor
 
 warnings.filterwarnings("ignore")
 
@@ -286,17 +292,24 @@ class CryptoPortfolioOptimizer:
             raise Exception(f"Error calculating efficient frontier: {str(e)}")
 
     def discrete_allocation(
-        self, total_portfolio_value: float, weights: Dict[str, float]
+        self,
+        total_portfolio_value: float,
+        weights: Dict[str, float],
+        fractional: bool = True,
     ) -> Dict:
         """
-        Calculate discrete allocation of assets based on portfolio weights
+        Calculate allocation of assets based on portfolio weights
+
+        For cryptocurrencies, fractional shares are supported and recommended.
+        For traditional stocks, set fractional=False to get whole shares only.
 
         Args:
             total_portfolio_value: Total value of the portfolio in USD
             weights: Portfolio weights dictionary
+            fractional: If True, allows fractional shares (recommended for crypto)
 
         Returns:
-            Dictionary containing discrete allocation results
+            Dictionary containing allocation results
         """
         try:
             # Get latest prices
@@ -305,13 +318,29 @@ class CryptoPortfolioOptimizer:
             # Filter weights to only include assets with meaningful allocation
             filtered_weights = {k: v for k, v in weights.items() if v > 0.001}
 
-            # Calculate discrete allocation
-            da = DiscreteAllocation(
-                filtered_weights,
-                latest_prices,
-                total_portfolio_value=total_portfolio_value,
-            )
-            allocation, leftover = da.greedy_portfolio()
+            if fractional:
+                # Fractional allocation - perfect for cryptocurrencies
+                allocation = {}
+                total_allocated_value = 0
+
+                for symbol, weight in filtered_weights.items():
+                    if symbol in latest_prices.index:
+                        price = latest_prices[symbol]
+                        target_value = total_portfolio_value * weight
+                        shares = target_value / price  # Fractional shares allowed
+                        allocation[symbol] = shares
+                        total_allocated_value += shares * price
+
+                leftover = total_portfolio_value - total_allocated_value
+
+            else:
+                # Discrete allocation - whole shares only
+                da = DiscreteAllocation(
+                    filtered_weights,
+                    latest_prices,
+                    total_portfolio_value=total_portfolio_value,
+                )
+                allocation, leftover = da.greedy_portfolio()
 
             return {
                 "allocation": allocation,
@@ -321,7 +350,7 @@ class CryptoPortfolioOptimizer:
             }
 
         except Exception as e:
-            raise Exception(f"Error calculating discrete allocation: {str(e)}")
+            raise Exception(f"Error calculating allocation: {str(e)}")
 
     def get_portfolio_metrics(
         self, weights: Dict[str, float], risk_free_rate: float = 0.02
@@ -371,6 +400,198 @@ class CryptoPortfolioOptimizer:
         except Exception as e:
             raise Exception(f"Error calculating portfolio metrics: {str(e)}")
 
+    def get_lstm_predictions(self, interval: str = "4h") -> Dict[str, float]:
+        """
+        Get LSTM predictions for all symbols in the portfolio
+
+        Args:
+            interval: Candle interval (should match trained models)
+
+        Returns:
+            Dictionary of {symbol: predicted_return_percentage}
+        """
+        predictions = {}
+
+        for symbol in self.symbols:
+            try:
+                predictor = IntradayPredictor(
+                    symbol=symbol, interval=interval, lookback_periods=168
+                )
+
+                model_path = f"models/{symbol}_{interval}_predictor.keras"
+                if not os.path.exists(model_path):
+                    print(f"⚠️ Model not found for {symbol}, using 0% prediction")
+                    predictions[symbol] = 0.0
+                    continue
+
+                predictor.load_model()
+                recent_data = predictor.fetch_intraday_data(days_back=120)
+                prediction = predictor.predict_next(recent_data)
+                predictions[symbol] = prediction["predicted_change_percent"]
+
+                print(
+                    f"✅ {symbol}: {prediction['predicted_change_percent']:+.2f}% ({prediction['signal']})"
+                )
+
+            except Exception as e:
+                print(f"⚠️ Error predicting {symbol}: {str(e)}")
+                predictions[symbol] = 0.0
+
+        return predictions
+
+    #
+    def calculate_expected_returns_with_lstm(
+        self,
+        method: str = "mean_historical_return",
+        use_lstm: bool = True,
+        lstm_weight: float = 0.6,
+    ) -> pd.Series:
+        """
+        Calculate expected returns combining historical data and LSTM predictions
+
+        Args:
+            method: Historical return calculation method
+            use_lstm: Whether to incorporate LSTM predictions
+            lstm_weight: Weight given to LSTM predictions (0.6 = 60% LSTM, 40% historical)
+
+        Returns:
+            Series of expected returns
+        """
+        if self.price_data is None:
+            self.fetch_price_data()
+
+        # Get historical expected returns
+        if method == "mean_historical_return":
+            historical_returns = expected_returns.mean_historical_return(
+                self.price_data
+            )
+        elif method == "ema_historical_return":
+            historical_returns = expected_returns.ema_historical_return(self.price_data)
+        else:
+            historical_returns = expected_returns.mean_historical_return(
+                self.price_data
+            )
+
+        if not use_lstm:
+            self.mu = historical_returns
+            return self.mu
+
+        # Get LSTM predictions
+        lstm_predictions = self.get_lstm_predictions()
+
+        # Convert LSTM predictions to same scale as historical returns
+        # LSTM gives % change, convert to decimal returns
+        lstm_returns = pd.Series(
+            {symbol: pred / 100 for symbol, pred in lstm_predictions.items()}
+        )
+
+        # Ensure alignment
+        lstm_returns = lstm_returns.reindex(historical_returns.index, fill_value=0)
+
+        # Combine using weighted average
+        combined_returns = (
+            lstm_weight * lstm_returns + (1 - lstm_weight) * historical_returns
+        )
+
+        self.mu = combined_returns
+
+        print(f"\n📊 Expected Returns (LSTM weight: {lstm_weight*100}%):")
+        for symbol in self.symbols:
+            hist = historical_returns.get(symbol, 0)
+            lstm = lstm_returns.get(symbol, 0)
+            final = combined_returns.get(symbol, 0)
+            print(
+                f"  {symbol:10s}: Historical={hist:+.4f}, LSTM={lstm:+.4f}, Final={final:+.4f}"
+            )
+
+        return self.mu
+
+    def optimize_portfolio_with_lstm(
+        self,
+        objective: str = "max_sharpe",
+        risk_free_rate: float = 0.02,
+        use_lstm: bool = True,
+        lstm_weight: float = 0.6,
+        min_weight: float = 0.05,
+        max_weight: float = 0.50,
+        target_return: Optional[float] = None,
+        target_volatility: Optional[float] = None,
+    ) -> Dict:
+        """
+        Optimize portfolio with LSTM predictions and weight constraints
+
+        Args:
+            objective: Optimization objective
+            risk_free_rate: Risk-free rate
+            use_lstm: Use LSTM predictions
+            lstm_weight: Weight for LSTM predictions (0-1)
+            min_weight: Minimum weight per asset (default 5%)
+            max_weight: Maximum weight per asset (default 50%)
+            target_return: Target return for efficient_return objective
+            target_volatility: Target volatility for efficient_risk objective
+
+        Returns:
+            Optimization results with LSTM integration
+        """
+        # Calculate expected returns (with or without LSTM)
+        self.calculate_expected_returns_with_lstm(
+            use_lstm=use_lstm, lstm_weight=lstm_weight
+        )
+
+        # Calculate risk matrix
+        if self.S is None:
+            self.calculate_risk_matrix()
+
+        try:
+            # Create Efficient Frontier with weight bounds
+            self.ef = EfficientFrontier(
+                self.mu,
+                self.S,
+                weight_bounds=(min_weight, max_weight),  # Add constraints here!
+            )
+
+            # Perform optimization
+            if objective == "max_sharpe":
+                weights = self.ef.max_sharpe(risk_free_rate=risk_free_rate)
+            elif objective == "min_volatility":
+                weights = self.ef.min_volatility()
+            elif objective == "efficient_return":
+                if target_return is None:
+                    raise ValueError("target_return required for efficient_return")
+                weights = self.ef.efficient_return(target_return)
+            elif objective == "efficient_risk":
+                if target_volatility is None:
+                    raise ValueError("target_volatility required for efficient_risk")
+                weights = self.ef.efficient_risk(target_volatility)
+            else:
+                weights = self.ef.max_sharpe(risk_free_rate=risk_free_rate)
+
+            # Clean weights
+            cleaned_weights = self.ef.clean_weights()
+
+            # Calculate performance
+            performance = self.ef.portfolio_performance(
+                risk_free_rate=risk_free_rate, verbose=False
+            )
+
+            # Get LSTM predictions for reporting
+            lstm_predictions = self.get_lstm_predictions() if use_lstm else {}
+
+            return {
+                "weights": cleaned_weights,
+                "expected_return": performance[0],
+                "volatility": performance[1],
+                "sharpe_ratio": performance[2],
+                "objective": objective,
+                "symbols": self.symbols,
+                "lstm_enabled": use_lstm,
+                "lstm_predictions": lstm_predictions,
+                "constraints": {"min_weight": min_weight, "max_weight": max_weight},
+            }
+
+        except Exception as e:
+            raise Exception(f"Optimization failed: {str(e)}")
+
 
 def optimize_crypto_portfolio(
     symbols: List[str],
@@ -402,9 +623,9 @@ def optimize_crypto_portfolio(
         # Optimize portfolio
         optimization_result = optimizer.optimize_portfolio(objective=objective)
 
-        # Calculate discrete allocation
+        # Calculate fractional allocation (cryptocurrencies support fractional shares)
         allocation_result = optimizer.discrete_allocation(
-            total_value, optimization_result["weights"]
+            total_value, optimization_result["weights"], fractional=True
         )
 
         # Get comprehensive metrics
@@ -426,31 +647,120 @@ def optimize_crypto_portfolio(
         raise Exception(f"Portfolio optimization failed: {str(e)}")
 
 
+def optimize_crypto_portfolio_with_lstm(
+    symbols: List[str],
+    total_value: float = 10000,
+    objective: str = "max_sharpe",
+    period: str = "1y",
+    use_lstm: bool = True,
+    lstm_weight: float = 0.6,
+    min_weight: float = 0.05,
+    max_weight: float = 0.50,
+) -> Dict:
+    """
+    Complete portfolio optimization with LSTM predictions and constraints
+
+    Args:
+        symbols: Cryptocurrency symbols
+        total_value: Portfolio value in USD
+        objective: Optimization objective
+        period: Historical data period
+        use_lstm: Use LSTM predictions
+        lstm_weight: Weight for LSTM (0.6 = 60% LSTM, 40% historical)
+        min_weight: Minimum allocation per asset (5%)
+        max_weight: Maximum allocation per asset (50%)
+
+    Returns:
+        Complete optimization results
+    """
+    try:
+        # Initialize optimizer
+        optimizer = CryptoPortfolioOptimizer(symbols, period)
+
+        # Fetch data
+        optimizer.fetch_price_data()
+
+        # Calculate risk matrix
+        optimizer.calculate_risk_matrix()
+
+        # Optimize with LSTM
+        optimization_result = optimizer.optimize_portfolio_with_lstm(
+            objective=objective,
+            use_lstm=use_lstm,
+            lstm_weight=lstm_weight,
+            min_weight=min_weight,
+            max_weight=max_weight,
+        )
+
+        # Calculate fractional allocation (cryptocurrencies support fractional shares)
+        allocation_result = optimizer.discrete_allocation(
+            total_value, optimization_result["weights"], fractional=True
+        )
+
+        # Get metrics
+        metrics = optimizer.get_portfolio_metrics(optimization_result["weights"])
+
+        # Calculate efficient frontier
+        volatilities, returns = optimizer.calculate_efficient_frontier()
+
+        return {
+            "portfolio": optimization_result,  # Changed from "optimization" to match frontend
+            "allocation": allocation_result,
+            "metrics": metrics,
+            "efficient_frontier": {"volatilities": volatilities, "returns": returns},
+            "symbols": optimizer.symbols,
+            "period": period,
+        }
+
+    except Exception as e:
+        raise Exception(f"Portfolio optimization failed: {str(e)}")
+
+
 # Example usage and testing
 if __name__ == "__main__":
     # Example cryptocurrency symbols
     crypto_symbols = ["BTC-USD", "ETH-USD", "ADA-USD", "SOL-USD", "MATIC-USD"]
 
+    print("\n" + "=" * 70)
+    print("PORTFOLIO OPTIMIZATION WITH LSTM PREDICTIONS")
+    print("=" * 70)
+
     try:
-        # Optimize portfolio with a larger value
-        result = optimize_crypto_portfolio(
+        # Optimize with LSTM and constraints
+        result = optimize_crypto_portfolio_with_lstm(
             symbols=crypto_symbols,
-            total_value=150000,  # Increased to $150,000 to accommodate expensive cryptos like BTC
+            total_value=150000,
             objective="max_sharpe",
             period="1y",
+            use_lstm=True,
+            lstm_weight=0.6,  # 60% LSTM, 40% historical
+            min_weight=0.05,  # Min 5% per asset
+            max_weight=0.50,  # Max 50% per asset
         )
 
-        print("Portfolio Optimization Results:")
-        print("=" * 50)
-        print(
-            f"Expected Annual Return: {result['optimization']['expected_return']:.2%}"
-        )
-        print(f"Annual Volatility: {result['optimization']['volatility']:.2%}")
-        print(f"Sharpe Ratio: {result['optimization']['sharpe_ratio']:.3f}")
-        print("\nOptimal Weights:")
+        print("\n📊 OPTIMAL ALLOCATIONS (With LSTM + Constraints):")
         for symbol, weight in result["optimization"]["weights"].items():
-            if weight > 0.001:  # Only show meaningful allocations
-                print(f"  {symbol}: {weight:.2%}")
+            if weight > 0.001:
+                lstm_pred = result["optimization"]["lstm_predictions"].get(symbol, 0)
+                print(
+                    f"  {symbol:10s}: {weight*100:5.1f}% | LSTM Prediction: {lstm_pred:+6.2f}%"
+                )
+
+        print(f"\n📈 PORTFOLIO METRICS:")
+        print(
+            f"  Expected Annual Return: {result['optimization']['expected_return']:.2%}"
+        )
+        print(f"  Annual Volatility:      {result['optimization']['volatility']:.2%}")
+        print(f"  Sharpe Ratio:           {result['optimization']['sharpe_ratio']:.3f}")
+
+        print(f"\n🔒 CONSTRAINTS:")
+        print(
+            f"  Min weight: {result['optimization']['constraints']['min_weight']*100}%"
+        )
+        print(
+            f"  Max weight: {result['optimization']['constraints']['max_weight']*100}%"
+        )
+        print(f"  LSTM weight: 60% (Historical: 40%)")
 
         print(f"\nDiscrete Allocation (${result['allocation']['total_value']:,}):")
         total_allocated = 0
@@ -466,7 +776,6 @@ if __name__ == "__main__":
             print("  No meaningful allocations possible with current weights")
             print(f"  Cash remaining: ${result['allocation']['leftover']:.2f}")
 
-        # Show additional metrics
         print(f"\nAdditional Risk Metrics:")
         print(f"  Value at Risk (95%): {result['metrics']['var_95']:.2%}")
         print(f"  Maximum Drawdown: {result['metrics']['max_drawdown']:.2%}")

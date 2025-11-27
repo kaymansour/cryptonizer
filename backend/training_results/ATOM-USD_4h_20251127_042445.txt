@@ -1,0 +1,31 @@
+======================================================================
+MODEL COMPARISON: ATOM-USD (4h candles)
+Training Date: 2025-11-27 04:24:45
+======================================================================
+
+🔵 Training Vanilla LSTM...
+✅ Vanilla LSTM Complete:
+   Test Loss (MSE): 0.000363
+   Test MAE: 0.013784
+   Training Samples: 2976
+   Test Samples: 745
+
+🟢 Training Optimized Multi-Head Attention-LSTM...
+✅ Optimized Attention Complete:
+   Test Loss (MSE): 0.003112
+   Test MAE: 0.029626
+   Training Samples: 2976
+   Test Samples: 745
+   Epochs Trained: 100
+
+======================================================================
+FINAL COMPARISON RESULTS
+======================================================================
+
+Model                                 MSE Loss             MAE
+----------------------------------------------------------------------
+VANILLA                               0.000363        0.013784
+OPTIMIZED                             0.003112        0.029626
+
+✅ BEST MODEL: VANILLA (MSE: 0.000363)
+======================================================================
