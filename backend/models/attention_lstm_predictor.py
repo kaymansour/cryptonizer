@@ -204,7 +204,7 @@ class OptimizedAttentionLSTMPredictor(IntradayPredictor):
     def __init__(
         self,
         symbol: str,
-        interval: str = "1h",
+        interval: str = "4h",
         lookback_periods: int = 168,
         prediction_horizon: int = 1,
         num_attention_heads: int = 4,
@@ -357,7 +357,7 @@ class LightweightAttentionPredictor(IntradayPredictor):
     def __init__(
         self,
         symbol: str,
-        interval: str = "1h",
+        interval: str = "4h",
         lookback_periods: int = 168,
         prediction_horizon: int = 1,
     ):
@@ -401,32 +401,98 @@ def compare_all_models(
     """
     Compare all three model architectures on the same data
     """
+    import os
+    from datetime import datetime
+
     print(f"\n{'='*70}")
     print(f"COMPREHENSIVE MODEL COMPARISON: {symbol} ({interval} candles)")
     print(f"{'='*70}\n")
 
     results = {}
 
-    # 1.  Vanilla LSTM
-    print("🔵 Training Vanilla LSTM...")
-    vanilla = IntradayPredictor(symbol=symbol, interval=interval)
-    results["vanilla"] = vanilla.train(epochs=epochs, batch_size=batch_size)
+    # Create results directory if it doesn't exist
+    results_dir = "training_results"
+    os.makedirs(results_dir, exist_ok=True)
 
-    print("\n" + "-" * 70 + "\n")
+    # Create filename with timestamp
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    results_file = os.path.join(results_dir, f"{symbol}_{interval}_{timestamp}.txt")
 
-    # 2.  Lightweight Attention
-    print("🟡 Training Lightweight Attention-LSTM...")
-    lightweight = LightweightAttentionPredictor(symbol=symbol, interval=interval)
-    results["lightweight"] = lightweight.train(epochs=epochs, batch_size=batch_size)
+    # Open file for writing results
+    with open(results_file, "w") as f:
+        f.write(f"{'='*70}\n")
+        f.write(f"MODEL COMPARISON: {symbol} ({interval} candles)\n")
+        f.write(f"Training Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"{'='*70}\n\n")
 
-    print("\n" + "-" * 70 + "\n")
+        # 1.  Vanilla LSTM
+        print("🔵 Training Vanilla LSTM...")
+        f.write("🔵 Training Vanilla LSTM...\n")
+        f.flush()
 
-    # 3. Optimized Attention (with early stopping, will run up to epochs)
-    print("🟢 Training Optimized Multi-Head Attention-LSTM...")
-    optimized = OptimizedAttentionLSTMPredictor(symbol=symbol, interval=interval)
-    results["optimized"] = optimized.train(epochs=epochs, batch_size=batch_size)
+        vanilla = IntradayPredictor(symbol=symbol, interval=interval)
+        results["vanilla"] = vanilla.train(epochs=epochs, batch_size=batch_size)
 
-    # Print comparison
+        f.write(f"✅ Vanilla LSTM Complete:\n")
+        f.write(f"   Test Loss (MSE): {results['vanilla']['test_loss']:.6f}\n")
+        f.write(f"   Test MAE: {results['vanilla']['test_mae']:.6f}\n")
+        f.write(f"   Training Samples: {results['vanilla']['training_samples']}\n")
+        f.write(f"   Test Samples: {results['vanilla']['test_samples']}\n\n")
+        f.flush()
+
+        print("\n" + "-" * 70 + "\n")
+
+        # 2.  Lightweight Attention
+        # print("🟡 Training Lightweight Attention-LSTM...")
+        # f.write("🟡 Training Lightweight Attention-LSTM...\n")
+        # f.flush()
+
+        # lightweight = LightweightAttentionPredictor(symbol=symbol, interval=interval)
+        # results["lightweight"] = lightweight.train(epochs=epochs, batch_size=batch_size)
+
+        # f.write(f"✅ Lightweight Attention Complete:\n")
+        # f.write(f"   Test Loss (MSE): {results['lightweight']['test_loss']:.6f}\n")
+        # f.write(f"   Test MAE: {results['lightweight']['test_mae']:.6f}\n")
+        # f.write(f"   Training Samples: {results['lightweight']['training_samples']}\n")
+        # f.write(f"   Test Samples: {results['lightweight']['test_samples']}\n\n")
+        # f.flush()
+
+        # print("\n" + "-" * 70 + "\n")
+
+        # 3. Optimized Attention (with early stopping, will run up to epochs)
+        print("🟢 Training Optimized Multi-Head Attention-LSTM...")
+        f.write("🟢 Training Optimized Multi-Head Attention-LSTM...\n")
+        f.flush()
+
+        optimized = OptimizedAttentionLSTMPredictor(symbol=symbol, interval=interval)
+        results["optimized"] = optimized.train(epochs=epochs, batch_size=batch_size)
+
+        f.write(f"✅ Optimized Attention Complete:\n")
+        f.write(f"   Test Loss (MSE): {results['optimized']['test_loss']:.6f}\n")
+        f.write(f"   Test MAE: {results['optimized']['test_mae']:.6f}\n")
+        f.write(f"   Training Samples: {results['optimized']['training_samples']}\n")
+        f.write(f"   Test Samples: {results['optimized']['test_samples']}\n")
+        f.write(f"   Epochs Trained: {results['optimized']['epochs_trained']}\n\n")
+        f.flush()
+
+        # Print comparison
+        f.write(f"{'='*70}\n")
+        f.write("FINAL COMPARISON RESULTS\n")
+        f.write(f"{'='*70}\n\n")
+        f.write(f"{'Model':<30} {'MSE Loss':>15} {'MAE':>15}\n")
+        f.write("-" * 70 + "\n")
+
+        for name, result in results.items():
+            line = f"{name.upper():<30} {result['test_loss']:>15.6f} {result['test_mae']:>15.6f}\n"
+            f.write(line)
+
+        # Find winner
+        best_model = min(results.items(), key=lambda x: x[1]["test_loss"])
+        winner_line = f"\n✅ BEST MODEL: {best_model[0].upper()} (MSE: {best_model[1]['test_loss']:.6f})\n"
+        f.write(winner_line)
+        f.write(f"{'='*70}\n")
+
+    # Print comparison to console
     print(f"\n{'='*70}")
     print("FINAL COMPARISON RESULTS")
     print(f"{'='*70}")
@@ -444,11 +510,24 @@ def compare_all_models(
         f"\n✅ BEST MODEL: {best_model[0].upper()} (MSE: {best_model[1]['test_loss']:.6f})"
     )
 
+    print(f"\n📝 Results saved to: {results_file}")
+
     return results
 
 
 if __name__ == "__main__":
     # Test on BTC and ETH
-    for symbol in ["BTC-USD", "ETH-USD"]:
+    for symbol in [
+        "BTC-USD",
+        "ETH-USD",
+        "ADA-USD",
+        "SOL-USD",
+        "DOT-USD",
+        "MATIC-USD",
+        "AVAX-USD",
+        "LINK-USD",
+        "ATOM-USD",
+        "XRP-USD",
+    ]:
         results = compare_all_models(symbol, interval="4h", epochs=100, batch_size=32)
         print("\n" + "=" * 70 + "\n")

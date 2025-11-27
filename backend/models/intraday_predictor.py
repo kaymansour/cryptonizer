@@ -34,7 +34,7 @@ class IntradayPredictor:
     def __init__(
         self,
         symbol: str,
-        interval: str = "1h",  # "1h" or "4h"
+        interval: str = "4h",  # "1h" or "4h"
         lookback_periods: int = 168,  # 1 week of hourly data
         prediction_horizon: int = 1,  # Predict next candle
     ):
