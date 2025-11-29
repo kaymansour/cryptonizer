@@ -169,7 +169,6 @@ export default function PortfolioOptimizer() {
             </Button>
           </div>
           <PortfolioResults result={result} />
-          <BackToMain />
         </div>
       </div>
     );
@@ -514,8 +513,6 @@ export default function PortfolioOptimizer() {
             )}
           </Button>
         </div>
-
-        <BackToMain />
       </div>
     </div>
   );
