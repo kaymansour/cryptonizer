@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import Select from 'react-select';
 import PortfolioResults from "@/components/PortfolioResults";
-import BackToMain from "@/components/backtomain";
 import { AlertDescription } from "@/components/ui/alert";
 import { BentoCard, BentoGrid } from "@/components/ui/bento-grid";
 

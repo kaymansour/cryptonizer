@@ -6,10 +6,8 @@ import { ArrowLeft, TrendingUp, BarChart3, PieChart, DollarSign, Brain } from "l
 import { BentoCard, BentoGrid } from "@/components/ui/bento-grid";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import BacktestDashboard from "../../components/BacktestDashboard";
 import StrategyComparison from "@/components/StrategyComparison";
 import MLTradingDashboard from "@/components/MLTradingDashboard";
-import BackToMain from "../../components/backtomain";
 
 interface PortfolioData {
   symbols: string[];
@@ -21,7 +19,7 @@ export default function BacktestPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [portfolioData, setPortfolioData] = useState<PortfolioData | null>(null);
-  const [activeTab, setActiveTab] = useState<"backtest" | "comparison" | "ml-trading">("backtest");
+  const [activeTab, setActiveTab] = useState<"comparison" | "ml-trading">("comparison");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -196,12 +194,12 @@ export default function BacktestPage() {
         {/* Tab Navigation */}
         <div className="flex flex-wrap gap-4 mb-8">
           <Button
-            onClick={() => setActiveTab("backtest")}
-            variant={activeTab === "backtest" ? "default" : "outline"}
+            onClick={() => setActiveTab("comparison")}
+            variant={activeTab === "comparison" ? "default" : "outline"}
             className="rounded-xl"
           >
-            <BarChart3 className="mr-2 h-5 w-5" />
-            Historical Performance
+            <PieChart className="mr-2 h-5 w-5" />
+            Strategy Comparison
           </Button>
           <Button
             onClick={() => setActiveTab("ml-trading")}
@@ -211,22 +209,11 @@ export default function BacktestPage() {
             <Brain className="mr-2 h-5 w-5" />
             ML Trading
           </Button>
-          <Button
-            onClick={() => setActiveTab("comparison")}
-            variant={activeTab === "comparison" ? "default" : "outline"}
-            className="rounded-xl"
-          >
-            <PieChart className="mr-2 h-5 w-5" />
-            Strategy Comparison
-          </Button>
         </div>
 
         {/* Tab Content */}
-        {activeTab === "backtest" && <BacktestDashboard portfolioData={portfolioData} />}
-        {activeTab === "ml-trading" && <MLTradingDashboard portfolioData={portfolioData} />}
         {activeTab === "comparison" && <StrategyComparison portfolioData={portfolioData} />}
-
-        <BackToMain />
+        {activeTab === "ml-trading" && <MLTradingDashboard portfolioData={portfolioData} />}
       </div>
     </div>
   );

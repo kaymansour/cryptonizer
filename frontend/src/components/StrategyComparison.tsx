@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Trophy, Target, TrendingDown, BarChart3 } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart as RechartsPieChart, Pie, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, Tooltip, PieChart as RechartsPieChart, Pie, Cell } from "recharts";
+import { Checkbox } from "@/components/ui/checkbox"
 
 // Lightweight hook to measure container size for charts
 function useElementSize<T extends HTMLElement>() {
@@ -81,7 +82,7 @@ export default function StrategyComparison({ portfolioData }: StrategyComparison
   const [barRef, barSize] = useElementSize<HTMLDivElement>();
   const [pieRef, pieSize] = useElementSize<HTMLDivElement>();
   const [selectedStrategies, setSelectedStrategies] = useState<string[]>([
-    "equal_weight", "btc_only", "eth_only", "btc_eth_60_40"
+    "optimized", "equal_weight", "btc_only", "eth_only", "btc_eth_60_40"
   ]);
 
   const timeperiods = useMemo(() => [
@@ -92,6 +93,7 @@ export default function StrategyComparison({ portfolioData }: StrategyComparison
   ], []);
 
   const strategyOptions = useMemo(() => [
+    { value: "optimized", label: "Optimized Portfolio", description: "Your optimized portfolio weights" },
     { value: "equal_weight", label: "Equal Weight", description: "Equal allocation across all assets" },
     { value: "btc_only", label: "Bitcoin Only", description: "100% Bitcoin allocation" },
     { value: "eth_only", label: "Ethereum Only", description: "100% Ethereum allocation" },
@@ -144,25 +146,25 @@ export default function StrategyComparison({ portfolioData }: StrategyComparison
         best_overall:
           (rankings.sharpe_ratio && rankings.sharpe_ratio[0]?.strategy) ||
           Object.entries(comparison)
-            .sort((a: any, b: any) => (b[1]?.sharpe_ratio || 0) - (a[1]?.sharpe_ratio || 0))[0]?.[0] ||
+            .sort((a, b) => ((b[1] as StrategyResult)?.sharpe_ratio || 0) - ((a[1] as StrategyResult)?.sharpe_ratio || 0))[0]?.[0] ||
           undefined,
         most_consistent:
           (rankings.volatility && rankings.volatility[0]?.strategy) ||
           Object.entries(comparison)
-            .sort((a: any, b: any) => (a[1]?.volatility || 0) - (b[1]?.volatility || 0))[0]?.[0] ||
+            .sort((a, b) => ((a[1] as StrategyResult)?.volatility || 0) - ((b[1] as StrategyResult)?.volatility || 0))[0]?.[0] ||
           undefined,
         lowest_risk:
           (rankings.max_drawdown && rankings.max_drawdown[0]?.strategy) ||
           Object.entries(comparison)
-            .sort((a: any, b: any) => (a[1]?.max_drawdown || 0) - (b[1]?.max_drawdown || 0))[0]?.[0] ||
+            .sort((a, b) => ((a[1] as StrategyResult)?.max_drawdown || 0) - ((b[1] as StrategyResult)?.max_drawdown || 0))[0]?.[0] ||
           undefined,
-      } as any;
+      };
 
       const normalized: ComparisonResult = {
         success: true,
         comparison: comparison as Record<string, StrategyResult>,
         rankings,
-        summary: summary as any,
+        summary: summary,
       };
 
       setComparisonResult(normalized);
@@ -185,8 +187,8 @@ export default function StrategyComparison({ portfolioData }: StrategyComparison
   }, []);
 
   const handleStrategyToggle = (strategy: string) => {
-    setSelectedStrategies(prev => 
-      prev.includes(strategy) 
+    setSelectedStrategies(prev =>
+      prev.includes(strategy)
         ? prev.filter(s => s !== strategy)
         : [...prev, strategy]
     );
@@ -221,7 +223,7 @@ export default function StrategyComparison({ portfolioData }: StrategyComparison
 
   const prepareChartData = () => {
     if (!comparisonResult || !comparisonResult.comparison) return [];
-    
+
     return Object.entries(comparisonResult.comparison).map(([strategy, data]) => ({
       strategy: getStrategyDisplayName(strategy),
       'Total Return (%)': data.total_return,
@@ -233,7 +235,7 @@ export default function StrategyComparison({ portfolioData }: StrategyComparison
 
   const preparePieData = () => {
     if (!comparisonResult || !comparisonResult.comparison) return [];
-    
+
     return Object.entries(comparisonResult.comparison).map(([strategy, data]) => ({
       name: getStrategyDisplayName(strategy),
       value: data.final_value,
@@ -269,19 +271,33 @@ export default function StrategyComparison({ portfolioData }: StrategyComparison
             </label>
             <div className="grid grid-cols-2 gap-2">
               {strategyOptions.map((strategy) => (
-                <label key={strategy.value} className="flex items-center">
-                  <input
-                    type="checkbox"
+                <div
+                  key={strategy.value}
+                  className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-white/10 border border-white/20 hover:bg-white/20 transition-colors"
+                >
+                  <Checkbox
+                    id={strategy.value}
                     checked={selectedStrategies.includes(strategy.value)}
-                    onChange={() => handleStrategyToggle(strategy.value)}
-                    className="mr-2 rounded text-emerald-500 focus:ring-emerald-500"
+                    onCheckedChange={() => handleStrategyToggle(strategy.value)}
                   />
-                  <span className="text-sm text-gray-300">{strategy.label}</span>
-                </label>
+                  <label
+                    htmlFor={strategy.value}
+                    className="text-sm text-gray-300 cursor-pointer flex-1"
+                  >
+                    {strategy.label}
+                  </label>
+                </div>
               ))}
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="bg-amber-500/20 border border-amber-500/30 rounded-lg p-4">
+        <p className="text-amber-300 text-sm">
+          This is a <strong>passive buy-and-hold</strong> backtest with periodic rebalancing.
+          It does not use ML predictions. For ML-driven trading results, see the ML Trading tab.
+        </p>
       </div>
 
       {error && (
@@ -364,6 +380,10 @@ export default function StrategyComparison({ portfolioData }: StrategyComparison
                       color: '#f3f4f6'
                     }}
                   />
+                  <Legend
+                    wrapperStyle={{ color: '#9ca3af' }}
+                    iconType="rect"
+                  />
                   <Bar dataKey="Total Return (%)" fill="#10b981" name="Total Return %" />
                   <Bar dataKey="Sharpe Ratio" fill="#3b82f6" name="Sharpe Ratio" />
                 </BarChart>
@@ -406,7 +426,7 @@ export default function StrategyComparison({ portfolioData }: StrategyComparison
                 {preparePieData().map((entry, index) => (
                   <div key={entry.name} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div 
+                      <div
                         className="w-3 h-3 rounded-full"
                         style={{ backgroundColor: COLORS[index % COLORS.length] }}
                       />
