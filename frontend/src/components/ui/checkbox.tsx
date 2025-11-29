@@ -4,7 +4,7 @@ function cn(...classes: (string | undefined)[]) {
   return classes.filter(Boolean).join(" ")
 }
 
-interface CheckboxProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "type"> {}
+type CheckboxProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, "type">
 
 const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
   ({ className, ...props }, ref) => (
