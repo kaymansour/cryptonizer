@@ -29,9 +29,7 @@ const Select = ({ value, onValueChange, children }: SelectProps) => {
   )
 }
 
-interface SelectTriggerProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {}
-
-const SelectTrigger = React.forwardRef<HTMLButtonElement, SelectTriggerProps>(
+const SelectTrigger = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement>>(
   ({ className, children, ...props }, ref) => {
     const { open, onOpenChange } = React.useContext(SelectContext)
 
