@@ -27,6 +27,7 @@ import tensorflow as tf
 from intraday_predictor import IntradayPredictor
 
 
+@tf.keras.utils.register_keras_serializable(package="CustomLayers")
 class MultiHeadAttentionLayer(Layer):
     """
     Multi-Head Attention Layer optimized for time series
@@ -40,22 +41,53 @@ class MultiHeadAttentionLayer(Layer):
         self.num_heads = num_heads
         self.key_dim = key_dim
         self.dropout_rate = dropout_rate
+        
+        # Initialize sub-layers in __init__ instead of build()
+        # This ensures they are properly tracked for serialization
+        self.query_dense = None
+        self.key_dense = None
+        self.value_dense = None
+        self.output_dense = None
+        self.attention_dropout = None
 
     def build(self, input_shape):
         # input_shape: (batch_size, time_steps, features)
         self.features = input_shape[-1]
 
-        # Query, Key, Value projections for each head
-        self.query_dense = Dense(self.num_heads * self.key_dim, use_bias=False)
-        self.key_dense = Dense(self.num_heads * self.key_dim, use_bias=False)
-        self.value_dense = Dense(self.num_heads * self.key_dim, use_bias=False)
+        # Create Dense layers with unique names
+        self.query_dense = Dense(
+            self.num_heads * self.key_dim, 
+            use_bias=False, 
+            name=f"{self.name}_query"
+        )
+        self.key_dense = Dense(
+            self.num_heads * self.key_dim, 
+            use_bias=False, 
+            name=f"{self.name}_key"
+        )
+        self.value_dense = Dense(
+            self.num_heads * self.key_dim, 
+            use_bias=False, 
+            name=f"{self.name}_value"
+        )
+        self.output_dense = Dense(
+            self.features, 
+            name=f"{self.name}_output"
+        )
+        self.attention_dropout = Dropout(
+            self.dropout_rate, 
+            name=f"{self.name}_dropout"
+        )
+        
+        # Explicitly build the Dense layers
+        self.query_dense.build(input_shape)
+        self.key_dense.build(input_shape)
+        self.value_dense.build(input_shape)
+        self.output_dense.build((input_shape[0], input_shape[1], self.num_heads * self.key_dim))
 
-        # Output projection
-        self.output_dense = Dense(self.features)
-
-        # Dropout for attention weights
-        self.attention_dropout = Dropout(self.dropout_rate)
-
+        # Store input shape for serialization
+        self._build_input_shape = input_shape
+        
         super(MultiHeadAttentionLayer, self).build(input_shape)
 
     def call(self, inputs, training=None):
@@ -122,7 +154,18 @@ class MultiHeadAttentionLayer(Layer):
         )
         return config
 
+    def get_build_config(self):
+        return {"input_shape": self._build_input_shape}
+    
+    def build_from_config(self, config):
+        self.build(config["input_shape"])
 
+    def _set_save_spec(self, inputs_spec, args_spec=None, kwargs_spec=None):
+        super()._set_save_spec(inputs_spec, args_spec, kwargs_spec)
+        self._build_input_shape = inputs_spec.shape
+
+
+@tf.keras.utils.register_keras_serializable(package="CustomLayers")
 class TemporalAttentionLayer(Layer):
     """
     Temporal attention that preserves sequence information
@@ -132,29 +175,37 @@ class TemporalAttentionLayer(Layer):
     def __init__(self, use_causal_mask: bool = True, **kwargs):
         super(TemporalAttentionLayer, self).__init__(**kwargs)
         self.use_causal_mask = use_causal_mask
+        
+        # Initialize weight attributes
+        self.W_query = None
+        self.W_key = None
+        self.W_value = None
 
     def build(self, input_shape):
         self.features = input_shape[-1]
 
         self.W_query = self.add_weight(
-            name="query_weight",
+            name=f"{self.name}_query_weight",
             shape=(self.features, self.features),
             initializer="glorot_uniform",
             trainable=True,
         )
         self.W_key = self.add_weight(
-            name="key_weight",
+            name=f"{self.name}_key_weight",
             shape=(self.features, self.features),
             initializer="glorot_uniform",
             trainable=True,
         )
         self.W_value = self.add_weight(
-            name="value_weight",
+            name=f"{self.name}_value_weight",
             shape=(self.features, self.features),
             initializer="glorot_uniform",
             trainable=True,
         )
 
+        # Store input shape for serialization
+        self._build_input_shape = input_shape
+        
         super(TemporalAttentionLayer, self).build(input_shape)
 
     def call(self, inputs):
@@ -187,6 +238,16 @@ class TemporalAttentionLayer(Layer):
         config = super(TemporalAttentionLayer, self).get_config()
         config.update({"use_causal_mask": self.use_causal_mask})
         return config
+
+    def get_build_config(self):
+        return {"input_shape": self._build_input_shape}
+    
+    def build_from_config(self, config):
+        self.build(config["input_shape"])
+
+    def _set_save_spec(self, inputs_spec, args_spec=None, kwargs_spec=None):
+        super()._set_save_spec(inputs_spec, args_spec, kwargs_spec)
+        self._build_input_shape = inputs_spec.shape
 
 
 class OptimizedAttentionLSTMPredictor(IntradayPredictor):
@@ -276,10 +337,11 @@ class OptimizedAttentionLSTMPredictor(IntradayPredictor):
         lstm3 = Dropout(0.3)(lstm3)
 
         # === Output Block ===
-        dense1 = Dense(32, activation="relu", kernel_regularizer=l2(0.001))(lstm3)
+        # Explicitly build Dense layers with defined input shape
+        dense1 = Dense(32, activation="relu", kernel_regularizer=l2(0.001), name="output_dense_1")(lstm3)
         dense1 = Dropout(0.2)(dense1)
-        dense2 = Dense(16, activation="relu", kernel_regularizer=l2(0.001))(dense1)
-        outputs = Dense(1)(dense2)
+        dense2 = Dense(16, activation="relu", kernel_regularizer=l2(0.001), name="output_dense_2")(dense1)
+        outputs = Dense(1, name="prediction_output")(dense2)
 
         model = Model(inputs=inputs, outputs=outputs)
 

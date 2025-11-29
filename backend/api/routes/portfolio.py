@@ -48,7 +48,7 @@ async def optimize_portfolio(request: PortfolioOptimizationRequest):
             objective=request.objective,
             period=request.period,
             min_weight=0.05,  # 5% minimum per asset
-            max_weight=0.50,  # 50% maximum per asset
+            max_weight=0.60,  # 60% maximum per asset
         )
 
         # Format response for frontend
@@ -103,7 +103,7 @@ async def optimize_portfolio_lstm(request: PortfolioOptimizationRequest):
             use_lstm=True,
             lstm_weight=0.6,  # 60% LSTM, 40% historical
             min_weight=0.05,  # 5% minimum
-            max_weight=0.50,  # 50% maximum
+            max_weight=0.60,  # 60% maximum
         )
 
         return {"success": True, **result}
