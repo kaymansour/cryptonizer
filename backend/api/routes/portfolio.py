@@ -16,6 +16,7 @@ import os
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "models"))
 from intraday_predictor import IntradayPredictor
+from hybrid_predictor import HybridPredictor, EnsemblePredictor
 
 router = APIRouter(prefix="/api")
 
@@ -23,7 +24,7 @@ router = APIRouter(prefix="/api")
 class PredictionRequest(BaseModel):
     symbols: List[str]
     interval: str = "4h"
-    steps: int = 7
+    steps: int = 1
 
 
 @router.post("/optimize-portfolio")
@@ -46,6 +47,8 @@ async def optimize_portfolio(request: PortfolioOptimizationRequest):
             total_value=request.total_value,
             objective=request.objective,
             period=request.period,
+            min_weight=0.05,  # 5% minimum per asset
+            max_weight=0.60,  # 60% maximum per asset
         )
 
         # Format response for frontend
@@ -100,7 +103,7 @@ async def optimize_portfolio_lstm(request: PortfolioOptimizationRequest):
             use_lstm=True,
             lstm_weight=0.6,  # 60% LSTM, 40% historical
             min_weight=0.05,  # 5% minimum
-            max_weight=0.50,  # 50% maximum
+            max_weight=0.60,  # 60% maximum
         )
 
         return {"success": True, **result}
@@ -211,11 +214,16 @@ async def predict_next_candles(request: PredictionRequest):
             print(f"\n🔮 Predicting for {symbol}")
 
             try:
-                predictor = IntradayPredictor(
-                    symbol=symbol, interval=request.interval, lookback_periods=168
+                # Use HybridPredictor to automatically select best model
+                predictor = HybridPredictor(
+                    symbol=symbol,
+                    interval=request.interval,
+                    lookback_periods=168,
+                    auto_select=False,  # Use pre-configured model selection
                 )
 
-                print(f"   Loading model from: {predictor.model_path}")
+                print(f"   Using model: {predictor.selected_model}")
+                print(f"   Loading model from: {predictor.predictor.model_path}")
 
                 # Load model
                 predictor.load_model()
@@ -229,15 +237,17 @@ async def predict_next_candles(request: PredictionRequest):
                 )  # Fetch more data
                 print(f"   Fetching {days_to_fetch} days of data...")
 
-                recent_data = predictor.fetch_intraday_data(days_back=days_to_fetch)
+                recent_data = predictor.predictor.fetch_intraday_data(
+                    days_back=days_to_fetch
+                )
                 print(f"   Fetched {len(recent_data)} candles (RAW data)")
 
                 # Don't pre-process! predict_next() will call _add_features() internally
                 # Validate we have enough RAW data
-                if len(recent_data) < predictor.lookback_periods + 60:
+                if len(recent_data) < predictor.predictor.lookback_periods + 60:
                     raise ValueError(
                         f"Insufficient raw data. "
-                        f"Need at least {predictor.lookback_periods + 60}, got {len(recent_data)}."
+                        f"Need at least {predictor.predictor.lookback_periods + 60}, got {len(recent_data)}."
                     )
 
                 # Multi-step prediction
@@ -344,6 +354,55 @@ async def predict_next_candles(request: PredictionRequest):
             "steps": request.steps,
             "predictions": predictions,
             "note": "Multi-step predictions become less accurate over time. Use for short-term guidance only.",
+        }
+
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
+
+
+@router.get("/predict/{symbol}")
+async def predict_price(symbol: str, interval: str = "4h"):
+    """
+    Predict next candle price using optimal model for this cryptocurrency
+    Automatically selects between Vanilla LSTM and Optimized Attention-LSTM
+    """
+    try:
+        import yfinance as yf
+
+        # Format symbol properly
+        formatted_symbol = (
+            symbol.upper() if symbol.endswith("-USD") else f"{symbol.upper()}-USD"
+        )
+
+        # Use hybrid predictor (automatically selects best model)
+        predictor = HybridPredictor(
+            symbol=formatted_symbol,
+            interval=interval,
+            auto_select=False,  # Use pre-configured optimal models
+        )
+
+        # Load pre-trained model
+        predictor.load_model()
+
+        # Fetch recent data for prediction
+        recent_data = yf.download(
+            predictor.symbol, period="7d", interval=interval, progress=False
+        )
+
+        # Make prediction
+        prediction = predictor.predict_next(recent_data)
+
+        return {
+            "success": True,
+            "symbol": predictor.symbol,
+            "model_used": prediction["model_used"],
+            "current_price": prediction["current_price"],
+            "predicted_price": prediction["predicted_price"],
+            "predicted_change_percent": prediction["predicted_change_percent"],
+            "signal": prediction["signal"],
         }
 
     except Exception as e:

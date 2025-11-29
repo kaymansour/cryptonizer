@@ -412,20 +412,43 @@ class CryptoPortfolioOptimizer:
         """
         predictions = {}
 
+        # Import HybridPredictor for automatic model selection
+        try:
+            sys.path.append(os.path.join(os.path.dirname(__file__), "models"))
+            from hybrid_predictor import HybridPredictor
+            use_hybrid = True
+        except ImportError:
+            use_hybrid = False
+
         for symbol in self.symbols:
             try:
-                predictor = IntradayPredictor(
-                    symbol=symbol, interval=interval, lookback_periods=168
-                )
-
-                model_path = f"models/{symbol}_{interval}_predictor.keras"
-                if not os.path.exists(model_path):
-                    print(f"⚠️ Model not found for {symbol}, using 0% prediction")
-                    predictions[symbol] = 0.0
-                    continue
+                if use_hybrid:
+                    # Use HybridPredictor to automatically select best model
+                    predictor = HybridPredictor(
+                        symbol=symbol, 
+                        interval=interval, 
+                        lookback_periods=168,
+                        auto_select=False  # Use pre-configured model selection
+                    )
+                    
+                    # Check if model exists
+                    if not os.path.exists(predictor.predictor.model_path):
+                        print(f"⚠️ Model not found for {symbol}, using 0% prediction")
+                        predictions[symbol] = 0.0
+                        continue
+                else:
+                    # Fallback to vanilla IntradayPredictor
+                    predictor = IntradayPredictor(
+                        symbol=symbol, interval=interval, lookback_periods=168
+                    )
+                    
+                    if not os.path.exists(predictor.model_path):
+                        print(f"⚠️ Model not found for {symbol}, using 0% prediction")
+                        predictions[symbol] = 0.0
+                        continue
 
                 predictor.load_model()
-                recent_data = predictor.fetch_intraday_data(days_back=120)
+                recent_data = predictor.predictor.fetch_intraday_data(days_back=120) if use_hybrid else predictor.fetch_intraday_data(days_back=120)
                 prediction = predictor.predict_next(recent_data)
                 predictions[symbol] = prediction["predicted_change_percent"]
 
@@ -598,6 +621,8 @@ def optimize_crypto_portfolio(
     total_value: float = 10000,
     objective: str = "max_sharpe",
     period: str = "1y",
+    min_weight: float = 0.0,
+    max_weight: float = 1.0,
 ) -> Dict:
     """
     Convenience function to optimize a cryptocurrency portfolio
@@ -607,6 +632,8 @@ def optimize_crypto_portfolio(
         total_value: Total portfolio value in USD
         objective: Optimization objective
         period: Historical data period
+        min_weight: Minimum weight per asset (default 0%)
+        max_weight: Maximum weight per asset (default 100%)
 
     Returns:
         Complete optimization results
@@ -620,8 +647,37 @@ def optimize_crypto_portfolio(
         optimizer.calculate_expected_returns()
         optimizer.calculate_risk_matrix()
 
-        # Optimize portfolio
-        optimization_result = optimizer.optimize_portfolio(objective=objective)
+        # Create Efficient Frontier with weight constraints
+        from pypfopt.efficient_frontier import EfficientFrontier
+        
+        optimizer.ef = EfficientFrontier(
+            optimizer.mu,
+            optimizer.S,
+            weight_bounds=(min_weight, max_weight)
+        )
+
+        # Optimize portfolio based on objective
+        if objective == "max_sharpe":
+            optimizer.ef.max_sharpe()
+        elif objective == "min_volatility":
+            optimizer.ef.min_volatility()
+        else:
+            optimizer.ef.max_sharpe()
+
+        # Clean weights
+        cleaned_weights = optimizer.ef.clean_weights()
+        
+        # Calculate performance
+        performance = optimizer.ef.portfolio_performance(verbose=False)
+        
+        optimization_result = {
+            "weights": cleaned_weights,
+            "expected_return": performance[0],
+            "volatility": performance[1],
+            "sharpe_ratio": performance[2],
+            "objective": objective,
+            "constraints": {"min_weight": min_weight, "max_weight": max_weight},
+        }
 
         # Calculate fractional allocation (cryptocurrencies support fractional shares)
         allocation_result = optimizer.discrete_allocation(

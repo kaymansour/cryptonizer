@@ -257,8 +257,20 @@ class IntradayPredictor:
         }
 
     def save_model(self):
-        """Save model and scaler"""
+        """Save model and scaler with explicit build to ensure Keras 3.x compatibility"""
         os.makedirs("models", exist_ok=True)
+        
+        # CRITICAL: Ensure model is fully built before saving in Keras 3.x
+        # This prevents "Layer was never built" errors during loading
+        if not self.model.built:
+            print("⚠️  Model not built, building explicitly...")
+            # Build with the input shape the model was trained on
+            input_shape = self.model.input_shape
+            if input_shape[0] is None:
+                # Get from first layer
+                input_shape = self.model.layers[0].input_shape
+            self.model.build(input_shape)
+        
         self.model.save(self.model_path)
         with open(self.scaler_path, "wb") as f:
             pickle.dump(self.scaler, f)
@@ -269,7 +281,18 @@ class IntradayPredictor:
         if not os.path.exists(self.model_path):
             raise FileNotFoundError(f"Model not found: {self.model_path}")
 
-        self.model = load_model(self.model_path)
+        # Import custom layers for models that use them
+        try:
+            from attention_lstm_predictor import MultiHeadAttentionLayer, TemporalAttentionLayer
+            custom_objects = {
+                'MultiHeadAttentionLayer': MultiHeadAttentionLayer,
+                'TemporalAttentionLayer': TemporalAttentionLayer
+            }
+            self.model = load_model(self.model_path, custom_objects=custom_objects)
+        except ImportError:
+            # Vanilla LSTM doesn't need custom layers
+            self.model = load_model(self.model_path)
+        
         with open(self.scaler_path, "rb") as f:
             self.scaler = pickle.load(f)
         print(f"Model loaded from {self.model_path}")
