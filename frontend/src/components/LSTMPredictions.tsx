@@ -58,7 +58,7 @@ export default function LSTMPredictions({ portfolioData }: LSTMPredictionsProps)
                 body: JSON.stringify({
                     symbols: portfolioData.symbols,
                     interval: interval,
-                    steps: 7,
+                    steps: 1,
                 }),
             });
 
@@ -111,7 +111,7 @@ export default function LSTMPredictions({ portfolioData }: LSTMPredictionsProps)
                             AI Price Predictions
                         </h3>
                         <p className="text-sm text-gray-400 mt-1">
-                            LSTM neural network predictions for next 7 candles
+                            LSTM neural network predictions for next candle
                         </p>
                     </div>
                 </div>

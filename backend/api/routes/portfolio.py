@@ -24,7 +24,7 @@ router = APIRouter(prefix="/api")
 class PredictionRequest(BaseModel):
     symbols: List[str]
     interval: str = "4h"
-    steps: int = 7
+    steps: int = 1
 
 
 @router.post("/optimize-portfolio")
