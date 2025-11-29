@@ -31,7 +31,7 @@ class MLTradingBacktester:
         start_date: str,
         end_date: str,
         interval: str = "4h",
-        signal_threshold: float = 1.0,  # Increased from 0.5%
+        signal_threshold: float = 2.0,  # Increased from 1.0%
         max_position_size: float = 0.4,  # Increased from 0.3
         transaction_cost: float = 0.001,
         # New parameters for enhanced strategy
@@ -40,8 +40,12 @@ class MLTradingBacktester:
         use_volume_filter: bool = True,
         rsi_oversold: float = 30,
         rsi_overbought: float = 70,
-        min_confidence: float = 0.3,  # Minimum confidence to trade
+        min_confidence: float = 0.5,  # Increased from 0.3
         trailing_stop_pct: float = 0.05,  # 5% trailing stop
+        # NEW parameters for improved strategy
+        stop_loss_pct: float = 0.03,  # 3% stop loss from entry
+        trade_cooldown_periods: int = 6,  # 6 candles between trades
+        required_confirmations: int = 2,  # Need 2 consecutive signals
     ):
         self.symbols = symbols
         self.initial_capital = initial_capital
@@ -68,10 +72,27 @@ class MLTradingBacktester:
         self.min_confidence = min_confidence
         self.trailing_stop_pct = trailing_stop_pct
 
+        # NEW: Stop loss and cooldown parameters
+        self.stop_loss_pct = stop_loss_pct
+        self.trade_cooldown_periods = trade_cooldown_periods
+        self.required_confirmations = required_confirmations
+
         # Portfolio state
         self.positions = {symbol: 0.0 for symbol in symbols}
         self.entry_prices = {symbol: 0.0 for symbol in symbols}  # Track entry for P&L
         self.highest_prices = {symbol: 0.0 for symbol in symbols}  # For trailing stop
+
+        # NEW: Trade cooldown tracking
+        self.last_trade_time = {symbol: None for symbol in symbols}
+
+        # NEW: Signal confirmation tracking
+        self.signal_history = {symbol: [] for symbol in symbols}
+
+        # NEW: Take-profit tracking
+        self.take_profit_levels = [0.03, 0.05, 0.08]  # 3%, 5%, 8% profit targets
+        self.take_profit_portions = [0.3, 0.3, 0.4]   # Sell 30%, 30%, 40% at each level
+        self.take_profit_hit = {}  # Track which levels have been hit per symbol
+
         self.cash = initial_capital
 
         # Performance tracking
@@ -239,6 +260,76 @@ class MLTradingBacktester:
 
         return adx.fillna(25)  # Default to moderate trend
 
+    def _check_cooldown(self, symbol: str, current_idx: int) -> bool:
+        """Check if enough time has passed since last trade"""
+        if self.last_trade_time[symbol] is None:
+            return True
+        periods_since_last = current_idx - self.last_trade_time[symbol]
+        return periods_since_last >= self.trade_cooldown_periods
+
+    def check_stop_loss(self, symbol: str, current_price: float) -> bool:
+        """Check if stop loss is triggered (3% from entry)"""
+        if self.positions[symbol] <= 0:
+            return False
+        
+        entry_price = self.entry_prices[symbol]
+        if entry_price <= 0:
+            return False
+        
+        loss_pct = (entry_price - current_price) / entry_price
+        return loss_pct >= self.stop_loss_pct
+
+    def check_take_profit(self, symbol: str, current_price: float) -> Optional[float]:
+        """Check if any take profit level is hit, return portion to sell"""
+        if self.positions[symbol] <= 0:
+            return None
+        
+        entry_price = self.entry_prices[symbol]
+        if entry_price <= 0:
+            return None
+        
+        profit_pct = (current_price - entry_price) / entry_price
+        
+        # Check each take profit level
+        for i, (level, portion) in enumerate(zip(self.take_profit_levels, self.take_profit_portions)):
+            level_key = f"{symbol}_tp_{i}"
+            if profit_pct >= level and not self.take_profit_hit.get(level_key, False):
+                self.take_profit_hit[level_key] = True
+                return portion  # Return portion to sell
+        
+        return None
+
+    def _check_signal_confirmation(self, symbol: str, raw_signal: str) -> str:
+        """Check if signal is confirmed by consecutive same signals"""
+        self.signal_history[symbol].append(raw_signal)
+        if len(self.signal_history[symbol]) > 5:
+            self.signal_history[symbol].pop(0)
+        
+        recent = self.signal_history[symbol][-self.required_confirmations:]
+        if len(recent) < self.required_confirmations:
+            return "HOLD"
+        
+        if all(s == "BUY" for s in recent):
+            return "BUY"
+        elif all(s == "SELL" for s in recent):
+            return "SELL"
+        return "HOLD"
+
+    def _get_major_trend(self, data: pd.DataFrame) -> int:
+        """Determine major trend using longer-term MAs"""
+        if len(data) < 100:
+            return 0
+        
+        ma_50 = float(data["Close"].rolling(50).mean().iloc[-1])
+        ma_100 = float(data["Close"].rolling(100).mean().iloc[-1]) if len(data) >= 100 else ma_50
+        current_price = float(data["Close"].iloc[-1])
+        
+        if current_price > ma_50 and ma_50 > ma_100:
+            return 1  # Strong uptrend
+        elif current_price < ma_50 and ma_50 < ma_100:
+            return -1  # Strong downtrend
+        return 0  # Sideways
+
     def generate_trading_signal(
         self, symbol: str, historical_slice: pd.DataFrame
     ) -> Dict:
@@ -295,8 +386,8 @@ class MLTradingBacktester:
                 bb_position=bb_position,
             )
 
-            # Determine signal with confirmation
-            signal = self._determine_signal(
+            # Determine raw signal with confirmation
+            raw_signal = self._determine_signal(
                 predicted_change=predicted_change,
                 confidence=confidence,
                 rsi=rsi,
@@ -305,7 +396,11 @@ class MLTradingBacktester:
                 bb_position=bb_position,
                 current_position=self.positions[symbol],
                 current_price=current_price,
+                historical_data=historical_slice,
             )
+
+            # NEW: Apply signal confirmation (require consecutive same signals)
+            signal = self._check_signal_confirmation(symbol, raw_signal)
 
             return {
                 "signal": signal,
@@ -381,7 +476,7 @@ class MLTradingBacktester:
             score += adx_score * 0.05
         max_score += 0.05
 
-        return score / max_score if max_score > 0 else 0.0
+        return min(score / max_score, 1.0) if max_score > 0 else 0.0
 
     def _determine_signal(
         self,
@@ -393,6 +488,7 @@ class MLTradingBacktester:
         bb_position: float,
         current_position: float,
         current_price: float,
+        historical_data: pd.DataFrame = None,
     ) -> str:
         """
         Determine trading signal with multi-factor confirmation
@@ -401,8 +497,17 @@ class MLTradingBacktester:
         if confidence < self.min_confidence:
             return "HOLD"
 
+        # NEW: Get major trend and block buys in downtrends
+        major_trend = 0
+        if historical_data is not None:
+            major_trend = self._get_major_trend(historical_data)
+
         # Strong BUY conditions
         if predicted_change > self.signal_threshold:
+            # NEW: Block buys in strong downtrends
+            if major_trend == -1:
+                return "HOLD"
+
             buy_confirmations = 0
 
             # Confirmation 1: Trend alignment (or oversold bounce)
@@ -456,7 +561,8 @@ class MLTradingBacktester:
                 return "SELL"
 
         # Check for RSI extremes (mean reversion opportunities)
-        if rsi < 25 and predicted_change > 0 and current_position == 0:
+        # NEW: Only allow oversold bounce if not in strong downtrend
+        if rsi < 25 and predicted_change > 0 and current_position == 0 and major_trend != -1:
             return "BUY"  # Oversold bounce
         elif rsi > 75 and current_position > 0:
             return "SELL"  # Overbought, take profit
@@ -587,11 +693,80 @@ class MLTradingBacktester:
 
         return False
 
-    def execute_trade(self, symbol: str, signal_data: Dict, timestamp: pd.Timestamp):
+    def execute_trade(self, symbol: str, signal_data: Dict, timestamp: pd.Timestamp, current_idx: int = 0):
         """Execute trade based on signal with P&L tracking"""
         current_price = float(signal_data["current_price"])
 
-        # Check trailing stop first
+        # NEW: Check take-profit levels first (before other logic)
+        take_profit_portion = self.check_take_profit(symbol, current_price)
+        if take_profit_portion is not None:
+            coins_to_sell = self.positions[symbol] * take_profit_portion
+            if coins_to_sell > 0:
+                proceeds = coins_to_sell * current_price * (1 - self.transaction_cost)
+                
+                entry_price = self.entry_prices[symbol]
+                pnl = (current_price - entry_price) * coins_to_sell if entry_price > 0 else 0
+                self.realized_pnl.append({"symbol": symbol, "pnl": pnl, "type": "take_profit"})
+                
+                self.positions[symbol] -= coins_to_sell
+                self.cash += proceeds
+                self.last_trade_time[symbol] = current_idx
+                
+                # Reset take-profit tracking if position fully closed
+                if self.positions[symbol] <= 0.0001:
+                    self.entry_prices[symbol] = 0
+                    self.highest_prices[symbol] = 0
+                    for i in range(len(self.take_profit_levels)):
+                        self.take_profit_hit[f"{symbol}_tp_{i}"] = False
+                
+                self.trade_history.append({
+                    "timestamp": timestamp,
+                    "symbol": symbol,
+                    "action": "SELL",
+                    "coins": float(coins_to_sell),
+                    "price": float(current_price),
+                    "value": float(proceeds),
+                    "predicted_change": signal_data.get("predicted_change", 0),
+                    "confidence": signal_data.get("confidence", 0),
+                    "reason": "take_profit",
+                    "pnl": pnl,
+                })
+                return
+
+        # NEW: Check stop loss (3% fixed)
+        if self.check_stop_loss(symbol, current_price):
+            if self.positions[symbol] > 0:
+                coins_to_sell = self.positions[symbol]
+                proceeds = coins_to_sell * current_price * (1 - self.transaction_cost)
+                
+                entry_price = self.entry_prices[symbol]
+                pnl = (current_price - entry_price) * coins_to_sell if entry_price > 0 else 0
+                self.realized_pnl.append({"symbol": symbol, "pnl": pnl, "type": "stop_loss"})
+                
+                self.cash += proceeds
+                self.positions[symbol] = 0
+                self.entry_prices[symbol] = 0
+                self.highest_prices[symbol] = 0
+                self.last_trade_time[symbol] = current_idx
+                # Reset take-profit tracking
+                for i in range(len(self.take_profit_levels)):
+                    self.take_profit_hit[f"{symbol}_tp_{i}"] = False
+                
+                self.trade_history.append({
+                    "timestamp": timestamp,
+                    "symbol": symbol,
+                    "action": "SELL",
+                    "coins": float(coins_to_sell),
+                    "price": float(current_price),
+                    "value": float(proceeds),
+                    "predicted_change": signal_data.get("predicted_change", 0),
+                    "confidence": signal_data.get("confidence", 0),
+                    "reason": "stop_loss",
+                    "pnl": pnl,
+                })
+                return
+
+        # Check trailing stop
         if self.check_trailing_stop(symbol, current_price):
             # Force sell on trailing stop
             if self.positions[symbol] > 0:
@@ -613,6 +788,10 @@ class MLTradingBacktester:
                 self.positions[symbol] = 0
                 self.entry_prices[symbol] = 0
                 self.highest_prices[symbol] = 0
+                self.last_trade_time[symbol] = current_idx
+                # Reset take-profit tracking
+                for i in range(len(self.take_profit_levels)):
+                    self.take_profit_hit[f"{symbol}_tp_{i}"] = False
 
                 self.trade_history.append(
                     {
@@ -629,6 +808,10 @@ class MLTradingBacktester:
                     }
                 )
                 return
+
+        # NEW: Check cooldown before processing signals
+        if not self._check_cooldown(symbol, current_idx):
+            return
 
         position_size = self.calculate_position_size(symbol, signal_data)
 
@@ -650,6 +833,7 @@ class MLTradingBacktester:
                 self.positions[symbol] += coins_to_buy
                 self.cash -= cost
                 self.highest_prices[symbol] = current_price  # Reset trailing stop
+                self.last_trade_time[symbol] = current_idx  # NEW: Track trade time
 
                 self.trade_history.append(
                     {
@@ -669,6 +853,19 @@ class MLTradingBacktester:
                 )
 
         elif signal_data["signal"] == "SELL":
+            # NEW: Improve sell logic - don't sell at loss unless necessary
+            if self.positions[symbol] > 0:
+                entry_price = self.entry_prices[symbol]
+                is_in_profit = current_price > entry_price
+                is_strong_bearish = (
+                    signal_data.get("confidence", 0) > 0.7 and 
+                    signal_data.get("predicted_change", 0) < -2.0
+                )
+                
+                # Don't sell at a loss without strong reason
+                if not is_in_profit and not is_strong_bearish:
+                    return
+
             value_to_sell = position_size
             coins_to_sell = min(value_to_sell / current_price, self.positions[symbol])
 
@@ -688,11 +885,15 @@ class MLTradingBacktester:
 
                 self.positions[symbol] -= coins_to_sell
                 self.cash += proceeds
+                self.last_trade_time[symbol] = current_idx  # NEW: Track trade time
 
                 # Reset entry price if position closed
                 if self.positions[symbol] <= 0.0001:
                     self.entry_prices[symbol] = 0
                     self.highest_prices[symbol] = 0
+                    # Reset take-profit tracking
+                    for i in range(len(self.take_profit_levels)):
+                        self.take_profit_hit[f"{symbol}_tp_{i}"] = False
 
                 self.trade_history.append(
                     {
@@ -749,7 +950,7 @@ class MLTradingBacktester:
                         continue
 
                     signal_data = self.generate_trading_signal(symbol, historical_slice)
-                    self.execute_trade(symbol, signal_data, timestamp)
+                    self.execute_trade(symbol, signal_data, timestamp, current_idx=i)
 
                     # Log prediction
                     actual_next_price = signal_data["current_price"]
@@ -849,6 +1050,11 @@ class MLTradingBacktester:
 
         buy_trades = [t for t in self.trade_history if t["action"] == "BUY"]
 
+        # NEW: Track trade outcomes by reason
+        take_profit_trades = [t for t in self.trade_history if t.get("reason") == "take_profit"]
+        stop_loss_trades = [t for t in self.trade_history if t.get("reason") == "stop_loss"]
+        trailing_stop_trades = [t for t in self.trade_history if t.get("reason") == "trailing_stop"]
+
         return {
             "success": True,
             "summary": {
@@ -873,6 +1079,9 @@ class MLTradingBacktester:
                 "total_realized_pnl": total_pnl,
                 "avg_win": avg_win,
                 "avg_loss": avg_loss,
+                "take_profit_trades": len(take_profit_trades),
+                "stop_loss_trades": len(stop_loss_trades),
+                "trailing_stop_trades": len(trailing_stop_trades),
             },
             "final_positions": {
                 symbol: {
@@ -890,6 +1099,9 @@ class MLTradingBacktester:
                 "transaction_cost": self.transaction_cost,
                 "min_confidence": self.min_confidence,
                 "trailing_stop_pct": self.trailing_stop_pct,
+                "stop_loss_pct": self.stop_loss_pct,
+                "trade_cooldown_periods": self.trade_cooldown_periods,
+                "required_confirmations": self.required_confirmations,
             },
         }
 
@@ -905,7 +1117,7 @@ class MLTradingBacktester:
         return f"""
 Enhanced ML-Driven Trading Backtest Results
 {'='*60}
-Period: {self.start_date. date()} to {self.end_date.date()}
+Period: {self.start_date.date()} to {self.end_date.date()}
 Interval: {self.interval} candles
 Symbols: {', '.join(self.symbols)}
 
@@ -914,7 +1126,7 @@ Portfolio Performance:
   Final Value: ${summary['final_value']:,.2f}
   Total Return: {summary['total_return']:.2f}%
   Annualized Return: {summary['annualized_return']:.2f}%
-  Volatility: {summary['volatility']:. 2f}%
+  Volatility: {summary['volatility']:.2f}%
   Sharpe Ratio: {summary['sharpe_ratio']:.3f}
   Max Drawdown: {summary['max_drawdown']:.2f}%
 
@@ -925,12 +1137,18 @@ Trading Statistics:
   Win Rate: {trading['win_rate']:.1f}%
   Avg Trade Size: ${trading['avg_trade_size']:,.2f}
   Total Realized P&L: ${trading['total_realized_pnl']:,.2f}
+  Take-Profit Trades: {trading['take_profit_trades']}
+  Stop-Loss Trades: {trading['stop_loss_trades']}
+  Trailing-Stop Trades: {trading['trailing_stop_trades']}
 
 Strategy Configuration:
   Signal Threshold: {self.signal_threshold}%
   Min Confidence: {self.min_confidence}
   Max Position Size: {self.max_position_size*100}%
   Trailing Stop: {self.trailing_stop_pct*100}%
+  Stop Loss: {self.stop_loss_pct*100}%
+  Trade Cooldown: {self.trade_cooldown_periods} periods
+  Required Confirmations: {self.required_confirmations}
 """
 
 
@@ -940,7 +1158,7 @@ def ml_backtest_portfolio(
     start_date: str = None,
     end_date: str = None,
     interval: str = "4h",
-    signal_threshold: float = 1.0,
+    signal_threshold: float = 2.0,  # Updated from 1.0 to 2.0
 ) -> Dict:
     """Convenience function to run ML-driven backtest"""
     if start_date is None:
@@ -972,7 +1190,7 @@ if __name__ == "__main__":
         start_date="2024-06-01",
         end_date="2024-11-29",
         interval="4h",
-        signal_threshold=1.0,
+        signal_threshold=2.0,  # Updated from 1.0 to 2.0
     )
 
     results = backtester.run_backtest()
