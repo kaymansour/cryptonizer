@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { TrendingUp, TrendingDown, Sparkles, ChevronDown, ChevronUp, ArrowRight } from "lucide-react";
+import { TrendingUp, TrendingDown, Sparkles, ChevronDown, ChevronUp, ArrowRight, ArrowUpCircle, ArrowDownCircle, MinusCircle } from "lucide-react";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 
@@ -46,7 +46,7 @@ export default function PredictionsCard({ symbols }: PredictionsCardProps) {
                 body: JSON.stringify({
                     symbols: symbols,
                     interval: "4h",
-                    steps: 7,
+                    steps: 1,
                 }),
             });
 
@@ -99,11 +99,26 @@ export default function PredictionsCard({ symbols }: PredictionsCardProps) {
     const getSignalAction = (signal: string) => {
         switch (signal) {
             case "BUY":
-                return "📈 LONG Position";
+                return (
+                    <span className="flex items-center gap-2">
+                        <ArrowUpCircle className="h-4 w-4" />
+                        LONG Position
+                    </span>
+                );
             case "SELL":
-                return "📉 SHORT Position";
+                return (
+                    <span className="flex items-center gap-2">
+                        <ArrowDownCircle className="h-4 w-4" />
+                        SHORT Position
+                    </span>
+                );
             default:
-                return "⏸️ HOLD / No Position";
+                return (
+                    <span className="flex items-center gap-2">
+                        <MinusCircle className="h-4 w-4" />
+                        HOLD / No Position
+                    </span>
+                );
         }
     };
 
@@ -123,7 +138,7 @@ export default function PredictionsCard({ symbols }: PredictionsCardProps) {
                     ) : (
                         <>
                             <Sparkles className="h-4 w-4 mr-2" />
-                            Get 7-Candle Predictions
+                            Get Next Candle Prediction
                         </>
                     )}
                 </Button>
@@ -248,29 +263,6 @@ export default function PredictionsCard({ symbols }: PredictionsCardProps) {
                                                     </div>
                                                 </div>
                                             ))}
-
-                                            {/* Summary */}
-                                            <div className="mt-3 pt-3 border-t border-white/10 bg-white/5 rounded-lg p-3">
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-xs text-gray-400">28h Projection:</span>
-                                                    <div className="text-right">
-                                                        <p className={`font-bold font-mono ${data.predictions[6]?.predicted_price >= data.current_price
-                                                            ? 'text-green-400'
-                                                            : 'text-red-400'
-                                                            }`}>
-                                                            {data.predictions[6] ? formatCurrency(data.predictions[6].predicted_price) : 'N/A'}
-                                                        </p>
-                                                        {data.predictions[6] && (
-                                                            <p className="text-xs text-gray-400">
-                                                                {formatPercentage(
-                                                                    ((data.predictions[6].predicted_price - data.current_price) /
-                                                                        data.current_price) * 100
-                                                                )}
-                                                            </p>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
                                         </>
                                     )}
                                 </div>

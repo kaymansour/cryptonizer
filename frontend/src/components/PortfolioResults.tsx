@@ -445,7 +445,7 @@ export default function PortfolioResults({ result }: PortfolioResultsProps) {
               name="AI Price Predictions"
               className="lg:col-start-1 lg:col-end-4 lg:row-start-1 lg:row-end-2 border-purple-500/40"
               Icon={Sparkles}
-              description="LSTM neural network predictions for next 7 candles"
+              description="LSTM neural network predictions for next candle"
               href="#"
               cta=""
               background={

@@ -1,319 +1,152 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Select from 'react-select';
-import CoinCard from "@/components/CoinCard";
-import { useCoins } from "@/hooks/useCoins";
-import { Coin } from "@/types/Coin";
+import { TrendingUp, Shield, Zap, BarChart3, Brain, Target } from "lucide-react";
+import { AnimatedBeamMultipleOutputDemo } from "@/components/AnimatedBeam";
+import { InteractiveHoverButton } from "@/components/ui/interactive-hover-button"
 
-// Options for react-select dropdowns
-const sortOptions = [
-  { value: "price", label: "Price" },
-  { value: "change", label: "24h Change" },
-  { value: "name", label: "Name" },
-];
-
-const filterOptions = [
-  { value: "all", label: "All" },
-  { value: "gainers", label: "Gainers" },
-  { value: "losers", label: "Losers" },
-];
-
-const currencyOptions = [
-  { value: "usd", label: "USD ($)" },
-  { value: "bhd", label: "BHD (BD)" },
-];
-
-export default function HomePage() {
-  const { coins } = useCoins();
+export default function LandingPage() {
   const router = useRouter();
 
-  // -------------------- Local State --------------------
-  const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] = useState<"price" | "change" | "name">("price");
-  const [filterBy, setFilterBy] = useState<"all" | "gainers" | "losers">("all");
-  const [currency, setCurrency] = useState<"usd" | "bhd">("usd");
-
-  // -------------------- Filtering and Sorting --------------------
-  const filteredAndSortedCoins = coins
-    .filter((coin: Coin) => {
-      const matchesSearch =
-        coin.name.toLowerCase().includes(search.toLowerCase()) ||
-        coin.symbol.toLowerCase().includes(search.toLowerCase());
-
-      if (filterBy === "gainers") return matchesSearch && coin.price_change_percentage_24h > 0;
-      if (filterBy === "losers") return matchesSearch && coin.price_change_percentage_24h < 0;
-      return matchesSearch;
-    })
-    .sort((a: Coin, b: Coin) => {
-      if (sortBy === "price") return b.current_price - a.current_price;
-      if (sortBy === "change") return b.price_change_percentage_24h - a.price_change_percentage_24h;
-      if (sortBy === "name") return a.name.localeCompare(b.name);
-      return 0;
-    });
-
-  // -------------------- Navigation --------------------
-  const goToDetails = (coin: Coin) => {
-    // Pass both id and symbol in query parameters
-    router.push(
-      `/coin?id=${coin.id}&symbol=${coin.symbol}&currency=${currency}`
-    );
-  };
-
-  // -------------------- Render --------------------
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Search controls bar - appears below the header from layout */}
-      <div className="sticky top-[65px] z-40 backdrop-blur-md bg-card/95 border-b border-border">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-            {/* Search input */}
-            <div className="w-full sm:w-auto flex flex-col">
-              <input
-                type="text"
-                placeholder="Search coins..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full sm:w-64 px-4 py-2 rounded-xl bg-muted border border-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring font-sans"
-              />
-              {filteredAndSortedCoins.length === 0 && search.trim() !== "" && (
-                <p className="text-destructive text-sm mt-1 font-sans">
-                  ❌ No coins found with the name &ldquo;{search}&rdquo;
-                </p>
-              )}
+      {/* Hero Section */}
+      <section className="container mx-auto px-6 py-8 lg:py-10">
+        <div className="max-w-4xl mx-auto text-center">
+          {/* Main Heading */}
+          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight leading-tight mb-6">
+            Optimize Your
+            <span className="block bg-gradient-to-r from-primary via-purple-500 to-pink-500 bg-clip-text text-transparent">
+              Crypto Portfolio
+            </span>
+            with AI
+          </h1>
+
+          {/* Description */}
+          <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed mb-4">
+            Cryptonizer combines advanced LSTM neural networks with modern portfolio theory
+            to help you make smarter investment decisions. Get AI powered predictions,
+            optimize your allocations, and backtest strategies all in one place.
+          </p>
+
+          <AnimatedBeamMultipleOutputDemo className="-mt-8" />
+
+          {/* CTA Button */}
+          <div className="mt-4">
+            <InteractiveHoverButton
+              onClick={() => {
+                const featuresSection = document.getElementById('features');
+                featuresSection?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="text-lg px-8 py-3"
+            >
+              Discover
+            </InteractiveHoverButton>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Grid */}
+      <section id="features" className="container mx-auto px-6 py-16 lg:py-24">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="text-3xl sm:text-4xl font-bold text-center mb-12">
+            Powerful Features
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {/* Feature 1: AI Predictions */}
+            <div className="bg-card border border-border rounded-2xl p-6 hover:shadow-lg transition-shadow">
+              <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4">
+                <Brain className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">AI-Powered Predictions</h3>
+              <p className="text-muted-foreground">
+                Advanced LSTM neural networks analyze market trends to predict future price movements
+                with high accuracy.
+              </p>
             </div>
 
-            {/* Controls: Sort, Filter, Currency */}
-            <div className="flex gap-3 items-center w-full sm:w-auto justify-center sm:justify-end">
-              {/* Sort by dropdown */}
-              <Select
-                instanceId="sort-select"
-                className="react-select-container w-40"
-                classNamePrefix="react-select"
-                value={sortOptions.find(opt => opt.value === sortBy)}
-                onChange={(option) => setSortBy(option?.value as "price" | "change" | "name")}
-                options={sortOptions}
-                isSearchable={false}
-                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                menuPosition="fixed"
-                styles={{
-                  control: (base) => ({
-                    ...base,
-                    backgroundColor: 'var(--muted)',
-                    borderColor: 'var(--input)',
-                    borderRadius: '0.5rem',
-                    minHeight: '2.5rem',
-                    cursor: 'pointer',
-                    '&:hover': {
-                      borderColor: 'var(--ring)',
-                    },
-                  }),
-                  singleValue: (base) => ({
-                    ...base,
-                    color: 'var(--foreground)',
-                  }),
-                  menuPortal: (base) => ({
-                    ...base,
-                    zIndex: 9999,
-                  }),
-                  menu: (base) => ({
-                    ...base,
-                    backgroundColor: 'var(--popover)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '0.5rem',
-                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.15)',
-                  }),
-                  menuList: (base) => ({
-                    ...base,
-                    backgroundColor: 'var(--popover)',
-                    padding: '0.25rem',
-                    borderRadius: '0.5rem',
-                  }),
-                  option: (base, state) => ({
-                    ...base,
-                    backgroundColor: state.isFocused
-                      ? 'var(--accent)'
-                      : state.isSelected
-                        ? 'var(--primary)'
-                        : 'var(--popover)',
-                    color: state.isFocused
-                      ? 'var(--accent-foreground)'
-                      : 'var(--foreground)',
-                    cursor: 'pointer',
-                    opacity: 1,
-                    '&:active': {
-                      backgroundColor: 'var(--accent)',
-                    },
-                  }),
-                  dropdownIndicator: (base) => ({
-                    ...base,
-                    color: 'var(--primary)',
-                  }),
-                  indicatorSeparator: () => ({
-                    display: 'none',
-                  }),
-                }}
-              />
+            {/* Feature 2: Portfolio Optimization */}
+            <div className="bg-card border border-border rounded-2xl p-6 hover:shadow-lg transition-shadow">
+              <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4">
+                <Target className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Portfolio Optimization</h3>
+              <p className="text-muted-foreground">
+                Maximize returns while minimizing risk using modern portfolio theory and
+                efficient frontier analysis.
+              </p>
+            </div>
 
-              {/* Filter dropdown */}
-              <Select
-                instanceId="filter-select"
-                className="react-select-container w-36"
-                classNamePrefix="react-select"
-                value={filterOptions.find(opt => opt.value === filterBy)}
-                onChange={(option) => setFilterBy(option?.value as "all" | "gainers" | "losers")}
-                options={filterOptions}
-                isSearchable={false}
-                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                menuPosition="fixed"
-                styles={{
-                  control: (base) => ({
-                    ...base,
-                    backgroundColor: 'var(--muted)',
-                    borderColor: 'var(--input)',
-                    borderRadius: '0.5rem',
-                    minHeight: '2.5rem',
-                    cursor: 'pointer',
-                    '&:hover': {
-                      borderColor: 'var(--ring)',
-                    },
-                  }),
-                  singleValue: (base) => ({
-                    ...base,
-                    color: 'var(--foreground)',
-                  }),
-                  menuPortal: (base) => ({
-                    ...base,
-                    zIndex: 9999,
-                  }),
-                  menu: (base) => ({
-                    ...base,
-                    backgroundColor: 'var(--popover)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '0.5rem',
-                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.15)',
-                  }),
-                  menuList: (base) => ({
-                    ...base,
-                    backgroundColor: 'var(--popover)',
-                    padding: '0.25rem',
-                    borderRadius: '0.5rem',
-                  }),
-                  option: (base, state) => ({
-                    ...base,
-                    backgroundColor: state.isFocused
-                      ? 'var(--accent)'
-                      : state.isSelected
-                        ? 'var(--primary)'
-                        : 'var(--popover)',
-                    color: state.isFocused
-                      ? 'var(--accent-foreground)'
-                      : 'var(--foreground)',
-                    cursor: 'pointer',
-                    opacity: 1,
-                    '&:active': {
-                      backgroundColor: 'var(--accent)',
-                    },
-                  }),
-                  dropdownIndicator: (base) => ({
-                    ...base,
-                    color: 'var(--primary)',
-                  }),
-                  indicatorSeparator: () => ({
-                    display: 'none',
-                  }),
-                }}
-              />
+            {/* Feature 3: Backtesting */}
+            <div className="bg-card border border-border rounded-2xl p-6 hover:shadow-lg transition-shadow">
+              <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4">
+                <BarChart3 className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Strategy Backtesting</h3>
+              <p className="text-muted-foreground">
+                Test your trading strategies against historical data to validate performance
+                before investing real capital.
+              </p>
+            </div>
 
-              {/* Currency dropdown */}
-              <Select
-                instanceId="currency-select"
-                className="react-select-container w-36"
-                classNamePrefix="react-select"
-                value={currencyOptions.find(opt => opt.value === currency)}
-                onChange={(option) => setCurrency(option?.value as "usd" | "bhd")}
-                options={currencyOptions}
-                isSearchable={false}
-                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                menuPosition="fixed"
-                styles={{
-                  control: (base) => ({
-                    ...base,
-                    backgroundColor: 'var(--muted)',
-                    borderColor: 'var(--input)',
-                    borderRadius: '0.5rem',
-                    minHeight: '2.5rem',
-                    cursor: 'pointer',
-                    '&:hover': {
-                      borderColor: 'var(--ring)',
-                    },
-                  }),
-                  singleValue: (base) => ({
-                    ...base,
-                    color: 'var(--foreground)',
-                  }),
-                  menuPortal: (base) => ({
-                    ...base,
-                    zIndex: 9999,
-                  }),
-                  menu: (base) => ({
-                    ...base,
-                    backgroundColor: 'var(--popover)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '0.5rem',
-                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.15)',
-                  }),
-                  menuList: (base) => ({
-                    ...base,
-                    backgroundColor: 'var(--popover)',
-                    padding: '0.25rem',
-                    borderRadius: '0.5rem',
-                  }),
-                  option: (base, state) => ({
-                    ...base,
-                    backgroundColor: state.isFocused
-                      ? 'var(--accent)'
-                      : state.isSelected
-                        ? 'var(--primary)'
-                        : 'var(--popover)',
-                    color: state.isFocused
-                      ? 'var(--accent-foreground)'
-                      : 'var(--foreground)',
-                    cursor: 'pointer',
-                    opacity: 1,
-                    '&:active': {
-                      backgroundColor: 'var(--accent)',
-                    },
-                  }),
-                  dropdownIndicator: (base) => ({
-                    ...base,
-                    color: 'var(--primary)',
-                  }),
-                  indicatorSeparator: () => ({
-                    display: 'none',
-                  }),
-                }}
-              />
+            {/* Feature 4: Real-time Data */}
+            <div className="bg-card border border-border rounded-2xl p-6 hover:shadow-lg transition-shadow">
+              <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4">
+                <Zap className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Real-time Market Data</h3>
+              <p className="text-muted-foreground">
+                Access live cryptocurrency prices, market trends, and performance metrics
+                updated in real-time.
+              </p>
+            </div>
+
+            {/* Feature 5: Risk Analytics */}
+            <div className="bg-card border border-border rounded-2xl p-6 hover:shadow-lg transition-shadow">
+              <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4">
+                <Shield className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Risk Analytics</h3>
+              <p className="text-muted-foreground">
+                Comprehensive risk assessment with Sharpe ratios, volatility analysis,
+                and correlation matrices.
+              </p>
+            </div>
+
+            {/* Feature 6: Market Insights */}
+            <div className="bg-card border border-border rounded-2xl p-6 hover:shadow-lg transition-shadow">
+              <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4">
+                <TrendingUp className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Market Insights</h3>
+              <p className="text-muted-foreground">
+                Identify top gainers, losers, and trending cryptocurrencies with detailed
+                charts and analytics.
+              </p>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Grid of coins */}
-      <main className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
-          {filteredAndSortedCoins.map((coin: Coin, index: number) => (
-            <CoinCard
-              key={coin.id}
-              coin={coin}
-              currency={currency}
-              onViewDetails={() => goToDetails(coin)}
-              isTopGainer={index === 0}
-            />
-          ))}
+      {/* CTA Section */}
+      <section className="container mx-auto px-6 py-16 lg:py-24">
+        <div className="max-w-4xl mx-auto bg-gradient-to-r from-primary/10 via-purple-500/10 to-pink-500/10 border border-primary/20 rounded-3xl p-12 text-center">
+          <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+            Ready to Optimize Your Portfolio?
+          </h2>
+          <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
+            Join the platform using AI and make smarter crypto investment decisions.
+            Start optimizing your portfolio today.
+          </p>
+          <InteractiveHoverButton
+            onClick={() => router.push("/dashboard")}
+            className="text-lg px-8 py-6 rounded-xl"
+          >
+            Get Started Now
+          </InteractiveHoverButton>
         </div>
-      </main>
+      </section>
     </div>
   );
 }
