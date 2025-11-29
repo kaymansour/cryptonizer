@@ -412,20 +412,43 @@ class CryptoPortfolioOptimizer:
         """
         predictions = {}
 
+        # Import HybridPredictor for automatic model selection
+        try:
+            sys.path.append(os.path.join(os.path.dirname(__file__), "models"))
+            from hybrid_predictor import HybridPredictor
+            use_hybrid = True
+        except ImportError:
+            use_hybrid = False
+
         for symbol in self.symbols:
             try:
-                predictor = IntradayPredictor(
-                    symbol=symbol, interval=interval, lookback_periods=168
-                )
-
-                model_path = f"models/{symbol}_{interval}_predictor.keras"
-                if not os.path.exists(model_path):
-                    print(f"⚠️ Model not found for {symbol}, using 0% prediction")
-                    predictions[symbol] = 0.0
-                    continue
+                if use_hybrid:
+                    # Use HybridPredictor to automatically select best model
+                    predictor = HybridPredictor(
+                        symbol=symbol, 
+                        interval=interval, 
+                        lookback_periods=168,
+                        auto_select=False  # Use pre-configured model selection
+                    )
+                    
+                    # Check if model exists
+                    if not os.path.exists(predictor.predictor.model_path):
+                        print(f"⚠️ Model not found for {symbol}, using 0% prediction")
+                        predictions[symbol] = 0.0
+                        continue
+                else:
+                    # Fallback to vanilla IntradayPredictor
+                    predictor = IntradayPredictor(
+                        symbol=symbol, interval=interval, lookback_periods=168
+                    )
+                    
+                    if not os.path.exists(predictor.model_path):
+                        print(f"⚠️ Model not found for {symbol}, using 0% prediction")
+                        predictions[symbol] = 0.0
+                        continue
 
                 predictor.load_model()
-                recent_data = predictor.fetch_intraday_data(days_back=120)
+                recent_data = predictor.predictor.fetch_intraday_data(days_back=120) if use_hybrid else predictor.fetch_intraday_data(days_back=120)
                 prediction = predictor.predict_next(recent_data)
                 predictions[symbol] = prediction["predicted_change_percent"]
 
