@@ -88,6 +88,9 @@ class MLTradingBacktester:
         # Signal confirmation tracking
         self.signal_history = {symbol: [] for symbol in symbols}
         self.required_confirmations = 2  # Need 2 consecutive same signals
+        
+        # Confidence normalization factor (predicted_change / factor to get 0-1 range)
+        self.confidence_normalization_factor = 10.0
 
         # Performance tracking
         self.portfolio_values = []
@@ -222,10 +225,8 @@ class MLTradingBacktester:
             return True
         
         # Calculate periods since last trade based on interval
-        if self.interval == "4h":
-            period_delta = timedelta(hours=4)
-        else:  # 1h
-            period_delta = timedelta(hours=1)
+        interval_hours = {"4h": 4, "1h": 1}.get(self.interval, 4)  # Default to 4h
+        period_delta = timedelta(hours=interval_hours)
         
         periods_since_trade = (timestamp - self.last_trade_time[symbol]) / period_delta
         return periods_since_trade >= self.trade_cooldown_periods
@@ -330,7 +331,7 @@ class MLTradingBacktester:
 
             # Enhance signal based on prediction confidence
             predicted_change = float(prediction["predicted_change_percent"])
-            confidence = float(abs(predicted_change) / 10.0)  # Normalize to 0-1 range
+            confidence = float(abs(predicted_change) / self.confidence_normalization_factor)  # Normalize to 0-1 range
 
             # Determine raw signal based on threshold
             if predicted_change > self.signal_threshold:
@@ -350,13 +351,12 @@ class MLTradingBacktester:
             # Apply trend filter
             major_trend = self._get_major_trend(historical_slice)
             
-            # Only allow buys in uptrend/neutral, sells in downtrend/neutral
+            # Trend filter: Only allow buys in uptrend/neutral, sells in downtrend/neutral
             if confirmed_signal == "BUY" and major_trend == -1:
                 confirmed_signal = "HOLD"  # Don't buy in downtrend
-            if confirmed_signal == "SELL" and major_trend == 1:
-                # Allow sell only if stop loss is triggered (will be checked in execute_trade)
-                pass  # Keep signal, but execute_trade will handle the logic
-
+            # Note: In uptrends, SELL signals are kept but execute_trade() will only
+            # execute if in profit, stop-loss hit, or strong bearish signal
+            
             return {
                 "signal": confirmed_signal,
                 "predicted_price": float(prediction["predicted_price"]),
@@ -467,7 +467,6 @@ class MLTradingBacktester:
             coins_to_sell = value_to_sell / current_price
             
             if coins_to_sell > 0 and coins_to_sell <= self.positions[symbol]:
-                old_position = self.positions[symbol]
                 self.positions[symbol] -= coins_to_sell
                 proceeds = value_to_sell * (1 - self.transaction_cost)
                 self.cash += proceeds
@@ -562,12 +561,13 @@ class MLTradingBacktester:
                 if is_new_position:
                     self.entry_prices[symbol] = current_price
                 else:
-                    # Weighted average entry price
+                    # Weighted average entry price (with defensive check for division by zero)
                     total_coins = self.positions[symbol]
-                    old_coins = total_coins - coins_to_buy
-                    self.entry_prices[symbol] = (
-                        (entry_price * old_coins + current_price * coins_to_buy) / total_coins
-                    )
+                    if total_coins > 0:
+                        old_coins = total_coins - coins_to_buy
+                        self.entry_prices[symbol] = (
+                            (entry_price * old_coins + current_price * coins_to_buy) / total_coins
+                        )
 
                 self.trade_history.append({
                     "timestamp": timestamp,
@@ -597,7 +597,6 @@ class MLTradingBacktester:
             coins_to_sell = value_to_sell / current_price
 
             if coins_to_sell > 0 and coins_to_sell <= self.positions[symbol]:
-                old_position = self.positions[symbol]
                 self.positions[symbol] -= coins_to_sell
                 proceeds = value_to_sell * (1 - self.transaction_cost)
                 self.cash += proceeds
