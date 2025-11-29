@@ -9,6 +9,7 @@ import { Coin } from "@/types/Coin";
 
 // Options for react-select dropdowns
 const sortOptions = [
+    { value: "market_cap", label: "Market Cap" },
     { value: "price", label: "Price" },
     { value: "change", label: "24h Change" },
     { value: "name", label: "Name" },
@@ -31,7 +32,7 @@ export default function DashboardPage() {
 
     // -------------------- Local State --------------------
     const [search, setSearch] = useState("");
-    const [sortBy, setSortBy] = useState<"price" | "change" | "name">("price");
+    const [sortBy, setSortBy] = useState<"market_cap" | "price" | "change" | "name">("market_cap");
     const [filterBy, setFilterBy] = useState<"all" | "gainers" | "losers">("all");
     const [currency, setCurrency] = useState<"usd" | "bhd">("usd");
 
@@ -47,6 +48,7 @@ export default function DashboardPage() {
             return matchesSearch;
         })
         .sort((a: Coin, b: Coin) => {
+            if (sortBy === "market_cap") return (b.market_cap ?? 0) - (a.market_cap ?? 0);
             if (sortBy === "price") return b.current_price - a.current_price;
             if (sortBy === "change") return b.price_change_percentage_24h - a.price_change_percentage_24h;
             if (sortBy === "name") return a.name.localeCompare(b.name);
@@ -92,7 +94,7 @@ export default function DashboardPage() {
                                 className="react-select-container w-40"
                                 classNamePrefix="react-select"
                                 value={sortOptions.find(opt => opt.value === sortBy)}
-                                onChange={(option) => setSortBy(option?.value as "price" | "change" | "name")}
+                                onChange={(option) => setSortBy(option?.value as "market_cap" | "price" | "change" | "name")}
                                 options={sortOptions}
                                 isSearchable={false}
                                 menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
