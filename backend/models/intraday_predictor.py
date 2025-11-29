@@ -277,9 +277,30 @@ class IntradayPredictor:
         print(f"Model saved to {self.model_path}")
 
     def load_model(self):
-        """Load pre-trained model and scaler"""
-        if not os.path.exists(self.model_path):
-            raise FileNotFoundError(f"Model not found: {self.model_path}")
+        """Load pre-trained model and scaler - tries multiple naming conventions"""
+        # Try different model naming conventions
+        model_paths_to_try = [
+            f"models/{self.symbol}_{self.interval}_optimized_attention.keras",  # Try optimized attention first
+            f"models/{self.symbol}_{self.interval}_predictor.keras",  # Then standard predictor
+        ]
+        
+        scaler_paths_to_try = [
+            f"models/{self.symbol}_{self.interval}_optimized_attention_scaler.pkl",
+            f"models/{self.symbol}_{self.interval}_scaler.pkl",
+        ]
+        
+        # Find which model exists
+        model_found = None
+        scaler_found = None
+        
+        for model_path, scaler_path in zip(model_paths_to_try, scaler_paths_to_try):
+            if os.path.exists(model_path) and os.path.exists(scaler_path):
+                model_found = model_path
+                scaler_found = scaler_path
+                break
+        
+        if not model_found:
+            raise FileNotFoundError(f"Model not found. Tried: {model_paths_to_try}")
 
         # Import custom layers for models that use them
         try:
@@ -288,14 +309,14 @@ class IntradayPredictor:
                 'MultiHeadAttentionLayer': MultiHeadAttentionLayer,
                 'TemporalAttentionLayer': TemporalAttentionLayer
             }
-            self.model = load_model(self.model_path, custom_objects=custom_objects)
+            self.model = load_model(model_found, custom_objects=custom_objects)
         except ImportError:
             # Vanilla LSTM doesn't need custom layers
-            self.model = load_model(self.model_path)
+            self.model = load_model(model_found)
         
-        with open(self.scaler_path, "rb") as f:
+        with open(scaler_found, "rb") as f:
             self.scaler = pickle.load(f)
-        print(f"Model loaded from {self.model_path}")
+        print(f"✅ Model loaded from {model_found}")
 
 
 def train_all_crypto_models(symbols: List[str], interval: str = "4h"):
