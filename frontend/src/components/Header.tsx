@@ -20,7 +20,7 @@ export default function Header() {
         {/* Navigation - CENTERED */}
         <nav className="hidden md:flex items-center gap-10 absolute left-1/2 transform -translate-x-1/2">
           {[
-            { href: "/", label: "Home" },
+            { href: "/dashboard", label: "Home" },
             { href: "/portfolio", label: "Portfolio" },
             { href: "/chatbot", label: "AI Agent" },
           ].map((link) => (
