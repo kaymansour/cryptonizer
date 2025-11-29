@@ -476,6 +476,7 @@ class MLTradingBacktester:
             score += adx_score * 0.05
         max_score += 0.05
 
+        # Cap confidence at 1.0 to ensure valid probability range
         return min(score / max_score, 1.0) if max_score > 0 else 0.0
 
     def _determine_signal(
