@@ -6,6 +6,7 @@ import Select from 'react-select';
 import CoinCard from "@/components/CoinCard";
 import { useCoins } from "@/hooks/useCoins";
 import { Coin } from "@/types/Coin";
+import LoadingSkeleton from "@/components/skeleton-dashboard";
 
 // Options for react-select dropdowns
 const sortOptions = [
@@ -27,7 +28,7 @@ const currencyOptions = [
 ];
 
 export default function DashboardPage() {
-    const { coins } = useCoins();
+    const { coins, loading } = useCoins();
     const router = useRouter();
 
     // -------------------- Local State --------------------
@@ -64,6 +65,8 @@ export default function DashboardPage() {
     };
 
     // -------------------- Render --------------------
+    if (loading) return <LoadingSkeleton />;
+
     return (
         <div className="min-h-screen bg-background text-foreground">
             {/* Search controls bar - appears below the header from layout */}
