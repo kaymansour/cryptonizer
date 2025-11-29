@@ -3,6 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { useCoin } from "@/hooks/useCoinDetails";
 import CoinDetail from "@/components/CoinDetail";
+import LoadingSkeleton from "@/components/skeleton-coin";
 
 export default function CoinPage() {
   const searchParams = useSearchParams();
@@ -13,7 +14,7 @@ export default function CoinPage() {
   // Pass either id or symbol to your hook
   const { coin, loading, error } = useCoin(id || symbol);
 
-  if (loading) return <p className="text-white p-8">Loading...</p>;
+  if (loading) return <LoadingSkeleton />;
   if (error) return <p className="text-white p-8">Error: {error}</p>;
   if (!coin) return <p className="text-white p-8">Coin not found</p>;
 
