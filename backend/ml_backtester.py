@@ -24,6 +24,9 @@ class MLTradingBacktester:
     """
     Backtester that uses ML predictions to make trading decisions
     """
+    
+    # Interval to hours mapping for cooldown calculations
+    INTERVAL_HOURS = {"4h": 4, "1h": 1}
 
     def __init__(
         self,
@@ -203,17 +206,18 @@ class MLTradingBacktester:
             0: Sideways/neutral
         """
         if len(data) < 100:
-            return 0
+            return 0  # Not enough data for reliable trend detection
         
         ma_50 = data["Close"].rolling(50).mean().iloc[-1]
-        ma_100 = data["Close"].rolling(100).mean().iloc[-1] if len(data) >= 100 else ma_50
+        ma_100 = data["Close"].rolling(100).mean().iloc[-1]
         current_price = data["Close"].iloc[-1]
         
-        if current_price > ma_50 > ma_100:
+        # Require clear separation for trend detection
+        if current_price > ma_50 and ma_50 > ma_100:
             return 1  # Strong uptrend
-        elif current_price < ma_50 < ma_100:
+        elif current_price < ma_50 and ma_50 < ma_100:
             return -1  # Strong downtrend
-        return 0  # Sideways
+        return 0  # Sideways or unclear
 
     def _check_cooldown(self, symbol: str, timestamp: pd.Timestamp) -> bool:
         """Check if cooldown period has passed since last trade
@@ -225,7 +229,7 @@ class MLTradingBacktester:
             return True
         
         # Calculate periods since last trade based on interval
-        interval_hours = {"4h": 4, "1h": 1}.get(self.interval, 4)  # Default to 4h
+        interval_hours = self.INTERVAL_HOURS.get(self.interval, 4)  # Default to 4h
         period_delta = timedelta(hours=interval_hours)
         
         periods_since_trade = (timestamp - self.last_trade_time[symbol]) / period_delta
@@ -331,7 +335,8 @@ class MLTradingBacktester:
 
             # Enhance signal based on prediction confidence
             predicted_change = float(prediction["predicted_change_percent"])
-            confidence = float(abs(predicted_change) / self.confidence_normalization_factor)  # Normalize to 0-1 range
+            # Normalize to 0-1 range with bounds checking
+            confidence = min(1.0, float(abs(predicted_change) / self.confidence_normalization_factor))
 
             # Determine raw signal based on threshold
             if predicted_change > self.signal_threshold:
@@ -561,13 +566,16 @@ class MLTradingBacktester:
                 if is_new_position:
                     self.entry_prices[symbol] = current_price
                 else:
-                    # Weighted average entry price (with defensive check for division by zero)
+                    # Weighted average entry price (with defensive checks)
                     total_coins = self.positions[symbol]
-                    if total_coins > 0:
-                        old_coins = total_coins - coins_to_buy
+                    old_coins = total_coins - coins_to_buy
+                    # If old_coins is 0 or negative (edge case), just use new price
+                    if total_coins > 0 and old_coins > 0:
                         self.entry_prices[symbol] = (
                             (entry_price * old_coins + current_price * coins_to_buy) / total_coins
                         )
+                    else:
+                        self.entry_prices[symbol] = current_price
 
                 self.trade_history.append({
                     "timestamp": timestamp,
