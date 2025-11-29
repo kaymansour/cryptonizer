@@ -315,8 +315,8 @@ def train_hybrid_portfolio(symbols: list, interval: str = "4h", epochs: int = 10
 if __name__ == "__main__":
     # Your portfolio
     portfolio = [
-        # "BTC-USD",
-        # "ETH-USD",
+        "BTC-USD",
+        "ETH-USD",
         "SOL-USD",
         "AVAX-USD",
         "LINK-USD",

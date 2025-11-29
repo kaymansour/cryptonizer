@@ -1,6 +1,6 @@
 """
-ML-Driven Trading Backtester
-Uses trained LSTM models to generate trading signals and backtest strategy performance
+ML-Driven Trading Backtester - Enhanced Version
+Uses trained LSTM models with multi-factor signal confirmation
 """
 
 import yfinance as yf
@@ -12,7 +12,6 @@ import warnings
 import sys
 import os
 
-# Add models directory to path
 sys.path.append(os.path.join(os.path.dirname(__file__), "models"))
 
 from intraday_predictor import IntradayPredictor
@@ -22,7 +21,7 @@ warnings.filterwarnings("ignore")
 
 class MLTradingBacktester:
     """
-    Backtester that uses ML predictions to make trading decisions
+    Enhanced ML-driven backtester with multi-factor signal confirmation
     """
 
     def __init__(
@@ -31,48 +30,55 @@ class MLTradingBacktester:
         initial_capital: float,
         start_date: str,
         end_date: str,
-        interval: str = "4h",  # "1h" or "4h"
-        signal_threshold: float = 0.5,  # % price change threshold for trades
-        max_position_size: float = 0.3,  # Max 30% of portfolio in single asset
-        transaction_cost: float = 0.001,  # 0.1% transaction fee
+        interval: str = "4h",
+        signal_threshold: float = 1.0,  # Increased from 0.5%
+        max_position_size: float = 0.4,  # Increased from 0.3
+        transaction_cost: float = 0.001,
+        # New parameters for enhanced strategy
+        use_trend_filter: bool = True,
+        use_rsi_filter: bool = True,
+        use_volume_filter: bool = True,
+        rsi_oversold: float = 30,
+        rsi_overbought: float = 70,
+        min_confidence: float = 0.3,  # Minimum confidence to trade
+        trailing_stop_pct: float = 0.05,  # 5% trailing stop
     ):
-        """
-        Initialize ML-driven backtester
-
-        Args:
-            symbols: List of crypto symbols (e.g., ['BTC-USD', 'ETH-USD'])
-            initial_capital: Starting capital in USD
-            start_date: Backtest start date
-            end_date: Backtest end date
-            interval: Candle interval ("1h" or "4h")
-            signal_threshold: Minimum predicted % change to trigger trade
-            max_position_size: Maximum % of portfolio per asset
-            transaction_cost: Trading fee as decimal (0.001 = 0.1%)
-        """
         self.symbols = symbols
         self.initial_capital = initial_capital
         self.current_capital = initial_capital
-        # Make dates timezone-aware (UTC) to match yfinance data
+
         start_dt = pd.to_datetime(start_date)
         end_dt = pd.to_datetime(end_date)
-        # Only localize if timezone-naive
         self.start_date = (
             start_dt if start_dt.tz is not None else start_dt.tz_localize("UTC")
         )
         self.end_date = end_dt if end_dt.tz is not None else end_dt.tz_localize("UTC")
+
         self.interval = interval
         self.signal_threshold = signal_threshold
         self.max_position_size = max_position_size
         self.transaction_cost = transaction_cost
 
+        # Enhanced strategy parameters
+        self.use_trend_filter = use_trend_filter
+        self.use_rsi_filter = use_rsi_filter
+        self.use_volume_filter = use_volume_filter
+        self.rsi_oversold = rsi_oversold
+        self.rsi_overbought = rsi_overbought
+        self.min_confidence = min_confidence
+        self.trailing_stop_pct = trailing_stop_pct
+
         # Portfolio state
-        self.positions = {symbol: 0.0 for symbol in symbols}  # Number of coins held
+        self.positions = {symbol: 0.0 for symbol in symbols}
+        self.entry_prices = {symbol: 0.0 for symbol in symbols}  # Track entry for P&L
+        self.highest_prices = {symbol: 0.0 for symbol in symbols}  # For trailing stop
         self.cash = initial_capital
 
         # Performance tracking
         self.portfolio_values = []
         self.trade_history = []
         self.predictions_log = []
+        self.realized_pnl = []  # Track actual P&L per trade
 
         # ML predictors
         self.predictors = {}
@@ -87,9 +93,7 @@ class MLTradingBacktester:
                 predictor = IntradayPredictor(
                     symbol=symbol,
                     interval=self.interval,
-                    lookback_periods=(
-                        168 if self.interval == "1h" else 42
-                    ),  # 1 week of data
+                    lookback_periods=168 if self.interval == "1h" else 42,
                 )
                 predictor.load_model()
                 self.predictors[symbol] = predictor
@@ -102,14 +106,10 @@ class MLTradingBacktester:
                 self.predictors[symbol] = None
 
     def fetch_historical_data(self) -> Dict[str, pd.DataFrame]:
-        """
-        Fetch intraday historical data for backtesting
-
-        Note: yfinance limitations apply (max 730 days for hourly)
-        """
+        """Fetch intraday historical data for backtesting"""
         print(f"\n{'='*60}")
         print(f"Fetching {self.interval} data for backtesting")
-        print(f"Period: {self.start_date.date()} to {self.end_date.date()}")
+        print(f"Period: {self.start_date. date()} to {self.end_date.date()}")
         print(f"{'='*60}")
 
         historical_data = {}
@@ -117,10 +117,7 @@ class MLTradingBacktester:
         for symbol in self.symbols:
             try:
                 print(f"Fetching {symbol}...")
-                # Need extra data for feature engineering + LSTM lookback
-                # 4h interval: needs 42 lookback + 60 for features = ~30 days buffer
-                # 1h interval: needs 168 lookback + 60 for features = ~15 days buffer
-                extra_days = 30 if self.interval == "4h" else 15
+                extra_days = 60  # More buffer for indicators
                 data = yf.download(
                     symbol,
                     start=self.start_date - timedelta(days=extra_days),
@@ -132,9 +129,11 @@ class MLTradingBacktester:
                 if data.empty:
                     raise ValueError(f"No data for {symbol}")
 
+                # Flatten MultiIndex columns if present (happens with single ticker download)
+                if isinstance(data.columns, pd.MultiIndex):
+                    data.columns = data.columns.get_level_values(0)
+                
                 print(f"  Retrieved {len(data)} raw candles")
-
-                # Add technical indicators
                 data = self._add_features(data)
                 historical_data[symbol] = data
                 print(f"  After feature engineering: {len(data)} periods available")
@@ -146,92 +145,367 @@ class MLTradingBacktester:
         return historical_data
 
     def _add_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Add technical indicators"""
-        # Work with a copy
-        df = df.copy()
+        """Add comprehensive technical indicators"""
+        # Create a deep copy to avoid issues
+        df = df.copy(deep=True)
+        
+        # Flatten MultiIndex columns if present
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
 
+        # Moving Averages
+        df["MA_10"] = df["Close"].rolling(window=10).mean()
         df["MA_20"] = df["Close"].rolling(window=20).mean()
         df["MA_50"] = df["Close"].rolling(window=50).mean()
+        df["EMA_12"] = df["Close"].ewm(span=12, adjust=False).mean()
+        df["EMA_26"] = df["Close"].ewm(span=26, adjust=False).mean()
 
+        # MACD
+        df["MACD"] = df["EMA_12"] - df["EMA_26"]
+        df["MACD_Signal"] = df["MACD"].ewm(span=9, adjust=False).mean()
+        df["MACD_Histogram"] = df["MACD"] - df["MACD_Signal"]
+
+        # RSI
         delta = df["Close"].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
         rs = gain / loss
         df["RSI"] = 100 - (100 / (1 + rs))
 
+        # Bollinger Bands
+        df["BB_Middle"] = df["Close"].rolling(window=20).mean()
+        bb_std = df["Close"].rolling(window=20).std()
+        df["BB_Upper"] = df["BB_Middle"] + (bb_std * 2)
+        df["BB_Lower"] = df["BB_Middle"] - (bb_std * 2)
+        df["BB_Position"] = (df["Close"] - df["BB_Lower"]) / (
+            df["BB_Upper"] - df["BB_Lower"]
+        )
+
+        # Volume indicators
+        df["Volume_MA"] = df["Volume"].rolling(window=20).mean()
+        df["Volume_Ratio"] = df["Volume"] / df["Volume_MA"]
         df["Volume_Change"] = df["Volume"].pct_change()
+
+        # Price action
         df["Price_Change"] = df["Close"].pct_change()
         df["Volatility"] = df["Close"].rolling(window=20).std()
+        df["ATR"] = self._calculate_atr(df, period=14)
 
-        # Drop NaN values but keep datetime index for backtesting
+        # Trend strength
+        df["ADX"] = self._calculate_adx(df, period=14)
+
+        # Trend direction (1 = uptrend, -1 = downtrend, 0 = sideways)
+        df["Trend"] = np.where(
+            (df["MA_20"] > df["MA_50"]) & (df["Close"] > df["MA_20"]),
+            1,
+            np.where((df["MA_20"] < df["MA_50"]) & (df["Close"] < df["MA_20"]), -1, 0),
+        )
+
         df = df.dropna()
-
         return df
+
+    def _calculate_atr(self, df: pd.DataFrame, period: int = 14) -> pd.Series:
+        """Calculate Average True Range"""
+        high = df["High"]
+        low = df["Low"]
+        close = df["Close"].shift(1)
+
+        tr1 = high - low
+        tr2 = abs(high - close)
+        tr3 = abs(low - close)
+
+        tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+        return tr.rolling(window=period).mean()
+
+    def _calculate_adx(self, df: pd.DataFrame, period: int = 14) -> pd.Series:
+        """Calculate Average Directional Index (trend strength)"""
+        high = df["High"]
+        low = df["Low"]
+        close = df["Close"]
+
+        plus_dm = high.diff()
+        minus_dm = -low.diff()
+
+        plus_dm = plus_dm.where((plus_dm > minus_dm) & (plus_dm > 0), 0)
+        minus_dm = minus_dm.where((minus_dm > plus_dm) & (minus_dm > 0), 0)
+
+        atr = self._calculate_atr(df, period)
+
+        plus_di = 100 * (plus_dm.rolling(window=period).mean() / atr)
+        minus_di = 100 * (minus_dm.rolling(window=period).mean() / atr)
+
+        dx = 100 * abs(plus_di - minus_di) / (plus_di + minus_di)
+        adx = dx.rolling(window=period).mean()
+
+        return adx.fillna(25)  # Default to moderate trend
 
     def generate_trading_signal(
         self, symbol: str, historical_slice: pd.DataFrame
     ) -> Dict:
         """
-        Generate trading signal using ML prediction
-
-        Returns:
-            Dict with signal ('BUY', 'SELL', 'HOLD'), confidence, and predicted price
+        Generate enhanced trading signal using ML prediction + technical confirmation
         """
         predictor = self.predictors.get(symbol)
+        current_price = float(historical_slice["Close"].iloc[-1])
 
-        if predictor is None:
-            # Fallback to simple momentum strategy
-            return self._momentum_signal(symbol, historical_slice)
+        # Get technical indicators
+        rsi = (
+            float(historical_slice["RSI"].iloc[-1]) if "RSI" in historical_slice else 50
+        )
+        trend = (
+            int(historical_slice["Trend"].iloc[-1])
+            if "Trend" in historical_slice
+            else 0
+        )
+        volume_ratio = (
+            float(historical_slice["Volume_Ratio"].iloc[-1])
+            if "Volume_Ratio" in historical_slice
+            else 1.0
+        )
+        macd_hist = (
+            float(historical_slice["MACD_Histogram"].iloc[-1])
+            if "MACD_Histogram" in historical_slice
+            else 0
+        )
+        adx = (
+            float(historical_slice["ADX"].iloc[-1]) if "ADX" in historical_slice else 25
+        )
+        bb_position = (
+            float(historical_slice["BB_Position"].iloc[-1])
+            if "BB_Position" in historical_slice
+            else 0.5
+        )
+
+        if predictor is None or len(historical_slice) < 100:
+            return self._technical_signal(historical_slice, symbol)
 
         try:
-            # Make sure we have enough data
-            if len(historical_slice) < 100:  # Need buffer for feature engineering
-                return self._momentum_signal(symbol, historical_slice)
-
             prediction = predictor.predict_next(historical_slice)
-
-            # Enhance signal based on prediction confidence
             predicted_change = float(prediction["predicted_change_percent"])
+            predicted_price = float(prediction["predicted_price"])
 
-            if predicted_change > self.signal_threshold:
-                signal = "BUY"
-            elif predicted_change < -self.signal_threshold:
-                signal = "SELL"
-            else:
-                signal = "HOLD"
+            # Calculate multi-factor confidence score (0-1)
+            confidence = self._calculate_confidence(
+                predicted_change=predicted_change,
+                rsi=rsi,
+                trend=trend,
+                volume_ratio=volume_ratio,
+                macd_hist=macd_hist,
+                adx=adx,
+                bb_position=bb_position,
+            )
+
+            # Determine signal with confirmation
+            signal = self._determine_signal(
+                predicted_change=predicted_change,
+                confidence=confidence,
+                rsi=rsi,
+                trend=trend,
+                volume_ratio=volume_ratio,
+                bb_position=bb_position,
+                current_position=self.positions[symbol],
+                current_price=current_price,
+            )
 
             return {
                 "signal": signal,
-                "predicted_price": float(prediction["predicted_price"]),
+                "predicted_price": predicted_price,
                 "predicted_change": predicted_change,
-                "current_price": float(prediction["current_price"]),
-                "confidence": float(
-                    abs(predicted_change) / 10.0
-                ),  # Normalize to 0-1 range
+                "current_price": current_price,
+                "confidence": confidence,
+                "rsi": rsi,
+                "trend": trend,
+                "volume_ratio": volume_ratio,
+                "adx": adx,
             }
 
         except Exception as e:
-            # Fallback to momentum on any prediction error
-            return self._momentum_signal(symbol, historical_slice)
+            return self._technical_signal(historical_slice, symbol)
 
-    def _momentum_signal(self, symbol: str, data: pd.DataFrame) -> Dict:
-        """Fallback momentum-based signal"""
-        # Extract scalar values to avoid Series comparison ambiguity
+    def _calculate_confidence(
+        self,
+        predicted_change: float,
+        rsi: float,
+        trend: int,
+        volume_ratio: float,
+        macd_hist: float,
+        adx: float,
+        bb_position: float,
+    ) -> float:
+        """
+        Calculate multi-factor confidence score (0-1)
+        Higher = more confident in the trade
+        """
+        score = 0.0
+        max_score = 0.0
+
+        # 1. ML Prediction strength (0-0.35)
+        pred_strength = min(abs(predicted_change) / 5.0, 1.0)  # Cap at 5%
+        score += pred_strength * 0.35
+        max_score += 0.35
+
+        # 2.  Trend alignment (0-0.25)
+        if predicted_change > 0 and trend == 1:
+            score += 0.25
+        elif predicted_change < 0 and trend == -1:
+            score += 0.25
+        elif trend == 0:
+            score += 0.1  # Neutral trend, partial credit
+        max_score += 0.25
+
+        # 3. RSI confirmation (0-0.15)
+        if predicted_change > 0 and rsi < 70:  # Buy signal, not overbought
+            rsi_score = (70 - rsi) / 40  # Higher score when RSI is lower
+            score += min(rsi_score, 1.0) * 0.15
+        elif predicted_change < 0 and rsi > 30:  # Sell signal, not oversold
+            rsi_score = (rsi - 30) / 40
+            score += min(rsi_score, 1.0) * 0.15
+        max_score += 0.15
+
+        # 4. Volume confirmation (0-0.10)
+        if volume_ratio > 1.0:  # Above average volume
+            volume_score = min((volume_ratio - 1.0) / 1.0, 1.0)
+            score += volume_score * 0.10
+        max_score += 0.10
+
+        # 5. MACD alignment (0-0.10)
+        if (predicted_change > 0 and macd_hist > 0) or (
+            predicted_change < 0 and macd_hist < 0
+        ):
+            score += 0.10
+        max_score += 0.10
+
+        # 6. ADX trend strength (0-0.05)
+        if adx > 25:  # Strong trend
+            adx_score = min((adx - 25) / 25, 1.0)
+            score += adx_score * 0.05
+        max_score += 0.05
+
+        return score / max_score if max_score > 0 else 0.0
+
+    def _determine_signal(
+        self,
+        predicted_change: float,
+        confidence: float,
+        rsi: float,
+        trend: int,
+        volume_ratio: float,
+        bb_position: float,
+        current_position: float,
+        current_price: float,
+    ) -> str:
+        """
+        Determine trading signal with multi-factor confirmation
+        """
+        # Check minimum confidence threshold
+        if confidence < self.min_confidence:
+            return "HOLD"
+
+        # Strong BUY conditions
+        if predicted_change > self.signal_threshold:
+            buy_confirmations = 0
+
+            # Confirmation 1: Trend alignment (or oversold bounce)
+            if self.use_trend_filter:
+                if trend >= 0 or rsi < self.rsi_oversold:
+                    buy_confirmations += 1
+            else:
+                buy_confirmations += 1
+
+            # Confirmation 2: RSI not overbought (or momentum buy)
+            if self.use_rsi_filter:
+                if rsi < self.rsi_overbought or (rsi > 50 and rsi < 65 and trend == 1):
+                    buy_confirmations += 1
+            else:
+                buy_confirmations += 1
+
+            # Confirmation 3: Volume support
+            if self.use_volume_filter:
+                if volume_ratio > 0.8:  # At least 80% of average volume
+                    buy_confirmations += 1
+            else:
+                buy_confirmations += 1
+
+            # Need at least 2 confirmations to buy
+            if buy_confirmations >= 2:
+                return "BUY"
+
+        # Strong SELL conditions
+        elif predicted_change < -self.signal_threshold:
+            sell_confirmations = 0
+
+            # Confirmation 1: Trend alignment (or overbought reversal)
+            if self.use_trend_filter:
+                if trend <= 0 or rsi > self.rsi_overbought:
+                    sell_confirmations += 1
+            else:
+                sell_confirmations += 1
+
+            # Confirmation 2: RSI not oversold
+            if self.use_rsi_filter:
+                if rsi > self.rsi_oversold:
+                    sell_confirmations += 1
+            else:
+                sell_confirmations += 1
+
+            # Confirmation 3: Have position to sell
+            if current_position > 0:
+                sell_confirmations += 1
+
+            if sell_confirmations >= 2:
+                return "SELL"
+
+        # Check for RSI extremes (mean reversion opportunities)
+        if rsi < 25 and predicted_change > 0 and current_position == 0:
+            return "BUY"  # Oversold bounce
+        elif rsi > 75 and current_position > 0:
+            return "SELL"  # Overbought, take profit
+
+        return "HOLD"
+
+    def _technical_signal(self, data: pd.DataFrame, symbol: str) -> Dict:
+        """Enhanced fallback technical signal"""
         current_price = float(data["Close"].iloc[-1])
-        ma_20 = (
-            float(data["MA_20"].iloc[-1])
-            if not pd.isna(data["MA_20"].iloc[-1])
-            else current_price
-        )
-        ma_50 = (
-            float(data["MA_50"].iloc[-1])
-            if not pd.isna(data["MA_50"].iloc[-1])
-            else current_price
+
+        # Get indicators
+        ma_20 = float(data["MA_20"].iloc[-1]) if "MA_20" in data else current_price
+        ma_50 = float(data["MA_50"].iloc[-1]) if "MA_50" in data else current_price
+        rsi = float(data["RSI"].iloc[-1]) if "RSI" in data else 50
+        macd_hist = (
+            float(data["MACD_Histogram"].iloc[-1]) if "MACD_Histogram" in data else 0
         )
 
-        if current_price > ma_20 and ma_20 > ma_50:
+        # Multi-factor technical signal
+        bullish_signals = 0
+        bearish_signals = 0
+
+        # MA crossover
+        if ma_20 > ma_50:
+            bullish_signals += 1
+        else:
+            bearish_signals += 1
+
+        # Price vs MA
+        if current_price > ma_20:
+            bullish_signals += 1
+        else:
+            bearish_signals += 1
+
+        # RSI
+        if rsi < 40:
+            bullish_signals += 1
+        elif rsi > 60:
+            bearish_signals += 1
+
+        # MACD
+        if macd_hist > 0:
+            bullish_signals += 1
+        else:
+            bearish_signals += 1
+
+        if bullish_signals >= 3:
             signal = "BUY"
-        elif current_price < ma_20 and ma_20 < ma_50:
+        elif bearish_signals >= 3:
             signal = "SELL"
         else:
             signal = "HOLD"
@@ -241,89 +515,104 @@ class MLTradingBacktester:
             "predicted_price": current_price,
             "predicted_change": 0.0,
             "current_price": current_price,
-            "confidence": 0.5,
+            "confidence": 0.4,
+            "rsi": rsi,
+            "trend": 1 if ma_20 > ma_50 else -1,
+            "volume_ratio": 1.0,
+            "adx": 25,
         }
 
     def calculate_position_size(self, symbol: str, signal_data: Dict) -> float:
         """
-        Calculate optimal position size based on signal confidence and risk management
-
-        Returns:
-            Dollar amount to invest/divest
+        Enhanced position sizing with Kelly Criterion influence
         """
         if signal_data["signal"] == "HOLD":
             return 0.0
 
-        # Maximum position value
-        max_position_value = self.current_capital * self.max_position_size
+        # Calculate current portfolio value
+        total_value = self.cash
+        for sym in self.symbols:
+            total_value += self.positions[sym] * signal_data.get("current_price", 0)
 
-        # Current position value
+        self.current_capital = total_value
+
+        # Maximum position value based on confidence
+        base_position = self.current_capital * self.max_position_size
+        confidence = signal_data["confidence"]
+
+        # Scale position by confidence (minimum 30% of max, maximum 100%)
+        confidence_multiplier = 0.3 + (confidence * 0.7)
+        max_position_value = base_position * confidence_multiplier
+
         current_price = signal_data["current_price"]
         current_position_value = self.positions[symbol] * current_price
 
-        # Confidence-adjusted sizing
-        confidence = signal_data["confidence"]
-
         if signal_data["signal"] == "BUY":
-            # Can buy up to max position size
-            available_to_buy = min(
-                self.cash * 0.9, max_position_value - current_position_value
-            )
-            return available_to_buy * confidence if available_to_buy > 0 else 0.0
+            # Available cash to deploy
+            available_cash = self.cash * 0.95  # Keep 5% reserve
+            room_to_buy = max_position_value - current_position_value
+
+            # Don't over-allocate
+            position_size = min(available_cash, room_to_buy)
+            return max(position_size, 0)
 
         elif signal_data["signal"] == "SELL":
-            # Sell portion based on confidence
+            # Sell proportion based on confidence
+            # Higher confidence = sell more
+            sell_ratio = 0.3 + (confidence * 0.5)  # 30% to 80% of position
             return (
-                current_position_value * confidence
+                current_position_value * sell_ratio
                 if current_position_value > 0
                 else 0.0
             )
 
         return 0.0
 
+    def check_trailing_stop(self, symbol: str, current_price: float) -> bool:
+        """Check if trailing stop is triggered"""
+        if self.positions[symbol] <= 0:
+            return False
+
+        # Update highest price
+        if current_price > self.highest_prices[symbol]:
+            self.highest_prices[symbol] = current_price
+
+        # Check if price dropped below trailing stop
+        if self.highest_prices[symbol] > 0:
+            drop_pct = (
+                self.highest_prices[symbol] - current_price
+            ) / self.highest_prices[symbol]
+            if drop_pct > self.trailing_stop_pct:
+                return True
+
+        return False
+
     def execute_trade(self, symbol: str, signal_data: Dict, timestamp: pd.Timestamp):
-        """
-        Execute trade based on signal
-        """
-        position_size = self.calculate_position_size(symbol, signal_data)
-
-        if abs(position_size) < 10:  # Minimum $10 trade
-            return
-
-        # Ensure current_price is a float
+        """Execute trade based on signal with P&L tracking"""
         current_price = float(signal_data["current_price"])
 
-        if signal_data["signal"] == "BUY":
-            # Calculate coins to buy (accounting for fees)
-            coins_to_buy = (position_size * (1 - self.transaction_cost)) / current_price
-            cost = position_size
+        # Check trailing stop first
+        if self.check_trailing_stop(symbol, current_price):
+            # Force sell on trailing stop
+            if self.positions[symbol] > 0:
+                coins_to_sell = self.positions[symbol]
+                proceeds = coins_to_sell * current_price * (1 - self.transaction_cost)
 
-            if cost <= self.cash:
-                self.positions[symbol] += coins_to_buy
-                self.cash -= cost
-
-                self.trade_history.append(
-                    {
-                        "timestamp": timestamp,
-                        "symbol": symbol,
-                        "action": "BUY",
-                        "coins": float(coins_to_buy),
-                        "price": float(current_price),
-                        "value": float(cost),
-                        "predicted_change": float(signal_data["predicted_change"]),
-                        "confidence": float(signal_data["confidence"]),
-                    }
+                # Calculate P&L
+                entry_price = self.entry_prices[symbol]
+                pnl = (
+                    (current_price - entry_price) * coins_to_sell
+                    if entry_price > 0
+                    else 0
+                )
+                self.realized_pnl.append(
+                    {"symbol": symbol, "pnl": pnl, "type": "trailing_stop"}
                 )
 
-        elif signal_data["signal"] == "SELL":
-            # Calculate coins to sell
-            value_to_sell = position_size
-            coins_to_sell = value_to_sell / current_price
-
-            if coins_to_sell <= self.positions[symbol]:
-                self.positions[symbol] -= coins_to_sell
-                proceeds = value_to_sell * (1 - self.transaction_cost)
                 self.cash += proceeds
+                self.positions[symbol] = 0
+                self.entry_prices[symbol] = 0
+                self.highest_prices[symbol] = 0
 
                 self.trade_history.append(
                     {
@@ -333,26 +622,105 @@ class MLTradingBacktester:
                         "coins": float(coins_to_sell),
                         "price": float(current_price),
                         "value": float(proceeds),
-                        "predicted_change": float(signal_data["predicted_change"]),
-                        "confidence": float(signal_data["confidence"]),
+                        "predicted_change": signal_data.get("predicted_change", 0),
+                        "confidence": signal_data.get("confidence", 0),
+                        "reason": "trailing_stop",
+                        "pnl": pnl,
+                    }
+                )
+                return
+
+        position_size = self.calculate_position_size(symbol, signal_data)
+
+        if abs(position_size) < 50:  # Minimum $50 trade
+            return
+
+        if signal_data["signal"] == "BUY":
+            coins_to_buy = (position_size * (1 - self.transaction_cost)) / current_price
+            cost = position_size
+
+            if cost <= self.cash:
+                # Update average entry price
+                total_coins = self.positions[symbol] + coins_to_buy
+                if total_coins > 0:
+                    old_value = self.positions[symbol] * self.entry_prices[symbol]
+                    new_value = coins_to_buy * current_price
+                    self.entry_prices[symbol] = (old_value + new_value) / total_coins
+
+                self.positions[symbol] += coins_to_buy
+                self.cash -= cost
+                self.highest_prices[symbol] = current_price  # Reset trailing stop
+
+                self.trade_history.append(
+                    {
+                        "timestamp": timestamp,
+                        "symbol": symbol,
+                        "action": "BUY",
+                        "coins": float(coins_to_buy),
+                        "price": float(current_price),
+                        "value": float(cost),
+                        "predicted_change": float(
+                            signal_data.get("predicted_change", 0)
+                        ),
+                        "confidence": float(signal_data.get("confidence", 0)),
+                        "reason": "ml_signal",
+                        "rsi": signal_data.get("rsi", 50),
+                    }
+                )
+
+        elif signal_data["signal"] == "SELL":
+            value_to_sell = position_size
+            coins_to_sell = min(value_to_sell / current_price, self.positions[symbol])
+
+            if coins_to_sell > 0:
+                proceeds = coins_to_sell * current_price * (1 - self.transaction_cost)
+
+                # Calculate P&L
+                entry_price = self.entry_prices[symbol]
+                pnl = (
+                    (current_price - entry_price) * coins_to_sell
+                    if entry_price > 0
+                    else 0
+                )
+                self.realized_pnl.append(
+                    {"symbol": symbol, "pnl": pnl, "type": "signal"}
+                )
+
+                self.positions[symbol] -= coins_to_sell
+                self.cash += proceeds
+
+                # Reset entry price if position closed
+                if self.positions[symbol] <= 0.0001:
+                    self.entry_prices[symbol] = 0
+                    self.highest_prices[symbol] = 0
+
+                self.trade_history.append(
+                    {
+                        "timestamp": timestamp,
+                        "symbol": symbol,
+                        "action": "SELL",
+                        "coins": float(coins_to_sell),
+                        "price": float(current_price),
+                        "value": float(proceeds),
+                        "predicted_change": float(
+                            signal_data.get("predicted_change", 0)
+                        ),
+                        "confidence": float(signal_data.get("confidence", 0)),
+                        "reason": "ml_signal",
+                        "pnl": pnl,
+                        "rsi": signal_data.get("rsi", 50),
                     }
                 )
 
     def run_backtest(self) -> Dict:
-        """
-        Run complete ML-driven backtest
-
-        Returns:
-            Comprehensive performance report
-        """
+        """Run complete ML-driven backtest"""
         print(f"\n{'='*60}")
-        print(f"Running ML-Driven Backtest")
+        print(f"Running Enhanced ML-Driven Backtest")
+        print(f"Strategy: ML Predictions + Technical Confirmation")
         print(f"{'='*60}")
 
-        # Fetch data
         historical_data = self.fetch_historical_data()
 
-        # Get common timestamps across all symbols
         all_timestamps = set(historical_data[self.symbols[0]].index)
         for symbol in self.symbols[1:]:
             all_timestamps &= set(historical_data[symbol].index)
@@ -360,8 +728,9 @@ class MLTradingBacktester:
         timestamps = sorted([ts for ts in all_timestamps if ts >= self.start_date])
 
         print(f"\nBacktesting {len(timestamps)} periods...")
+        print(f"Signal threshold: {self.signal_threshold}%")
+        print(f"Min confidence: {self.min_confidence}")
 
-        # Minimum data needed for predictions
         min_lookback = 168 if self.interval == "1h" else 100
 
         for i, timestamp in enumerate(timestamps):
@@ -370,12 +739,8 @@ class MLTradingBacktester:
                     f"  Progress: {i}/{len(timestamps)} ({i/len(timestamps)*100:.1f}%)"
                 )
 
-            # Get historical slice for predictions (up to current timestamp)
-            period_signals = {}
-
             for symbol in self.symbols:
                 try:
-                    # Get data up to current timestamp
                     historical_slice = historical_data[symbol][
                         historical_data[symbol].index <= timestamp
                     ]
@@ -383,17 +748,11 @@ class MLTradingBacktester:
                     if len(historical_slice) < min_lookback:
                         continue
 
-                    # Generate signal
                     signal_data = self.generate_trading_signal(symbol, historical_slice)
-                    period_signals[symbol] = signal_data
-
-                    # Execute trade
                     self.execute_trade(symbol, signal_data, timestamp)
 
-                    # Get actual next price (if available) for comparison
-                    actual_next_price = signal_data[
-                        "current_price"
-                    ]  # Default to current
+                    # Log prediction
+                    actual_next_price = signal_data["current_price"]
                     if i < len(timestamps) - 1:
                         next_timestamp = timestamps[i + 1]
                         next_data = historical_data[symbol][
@@ -402,7 +761,6 @@ class MLTradingBacktester:
                         if not next_data.empty:
                             actual_next_price = float(next_data["Close"].iloc[-1])
 
-                    # Log prediction with actual outcome
                     self.predictions_log.append(
                         {
                             "timestamp": timestamp,
@@ -420,14 +778,13 @@ class MLTradingBacktester:
                     print(f"  ⚠️  Error processing {symbol} at {timestamp}: {str(e)}")
                     continue
 
-            # Calculate portfolio value at this timestamp
+            # Calculate portfolio value
             portfolio_value = self.cash
             for symbol in self.symbols:
                 current_data = historical_data[symbol][
                     historical_data[symbol].index <= timestamp
                 ]
                 if not current_data.empty:
-                    # Ensure we get a scalar float value, not a Series
                     current_price = float(current_data["Close"].iloc[-1])
                     portfolio_value += self.positions[symbol] * current_price
 
@@ -440,19 +797,15 @@ class MLTradingBacktester:
                 }
             )
 
-        # Calculate final metrics
         return self._calculate_performance_metrics()
 
     def _calculate_performance_metrics(self) -> Dict:
-        """Calculate comprehensive performance metrics"""
+        """Calculate comprehensive performance metrics with actual P&L"""
         if not self.portfolio_values:
             raise ValueError("No portfolio values to analyze")
 
-        # Convert to DataFrame for easier analysis
         portfolio_df = pd.DataFrame(self.portfolio_values)
         portfolio_df.set_index("timestamp", inplace=True)
-
-        # Calculate returns
         portfolio_df["returns"] = portfolio_df["portfolio_value"].pct_change()
 
         final_value = portfolio_df["portfolio_value"].iloc[-1]
@@ -460,7 +813,6 @@ class MLTradingBacktester:
             (final_value - self.initial_capital) / self.initial_capital
         ) * 100
 
-        # Annualized metrics
         days = (self.end_date - self.start_date).days
         years = days / 365.0
         annualized_return = (
@@ -469,30 +821,33 @@ class MLTradingBacktester:
             else 0
         )
 
-        # Risk metrics
-        volatility = portfolio_df["returns"].std() * np.sqrt(252) * 100  # Annualized
-        sharpe_ratio = (
-            (annualized_return - 2) / volatility if volatility > 0 else 0
-        )  # Assuming 2% risk-free rate
+        volatility = portfolio_df["returns"].std() * np.sqrt(252) * 100
+        sharpe_ratio = (annualized_return - 2) / volatility if volatility > 0 else 0
 
-        # Drawdown analysis
         cumulative_returns = (1 + portfolio_df["returns"]).cumprod()
         running_max = cumulative_returns.expanding().max()
         drawdown = ((cumulative_returns - running_max) / running_max) * 100
         max_drawdown = drawdown.min()
 
-        # Trading statistics
+        # Actual win rate from realized P&L
         num_trades = len(self.trade_history)
-        buy_trades = [t for t in self.trade_history if t["action"] == "BUY"]
         sell_trades = [t for t in self.trade_history if t["action"] == "SELL"]
+        winning_sells = [t for t in sell_trades if t.get("pnl", 0) > 0]
+        win_rate = (len(winning_sells) / len(sell_trades) * 100) if sell_trades else 0
 
-        # Win rate (trades that were followed by price increase)
-        winning_trades = sum(
-            1
-            for t in self.trade_history
-            if t["predicted_change"] * (1 if t["action"] == "BUY" else -1) > 0
+        total_pnl = sum(p["pnl"] for p in self.realized_pnl)
+        avg_win = (
+            np.mean([t.get("pnl", 0) for t in sell_trades if t.get("pnl", 0) > 0])
+            if winning_sells
+            else 0
         )
-        win_rate = (winning_trades / num_trades * 100) if num_trades > 0 else 0
+        avg_loss = (
+            np.mean([t.get("pnl", 0) for t in sell_trades if t.get("pnl", 0) <= 0])
+            if sell_trades
+            else 0
+        )
+
+        buy_trades = [t for t in self.trade_history if t["action"] == "BUY"]
 
         return {
             "success": True,
@@ -515,12 +870,14 @@ class MLTradingBacktester:
                     if num_trades > 0
                     else 0
                 ),
+                "total_realized_pnl": total_pnl,
+                "avg_win": avg_win,
+                "avg_loss": avg_loss,
             },
             "final_positions": {
                 symbol: {
                     "coins": position,
-                    "value": position
-                    * portfolio_df["portfolio_value"].iloc[-1],  # Approximation
+                    "value": position * portfolio_df["portfolio_value"].iloc[-1],
                 }
                 for symbol, position in self.positions.items()
             },
@@ -531,6 +888,8 @@ class MLTradingBacktester:
                 "signal_threshold": self.signal_threshold,
                 "max_position_size": self.max_position_size,
                 "transaction_cost": self.transaction_cost,
+                "min_confidence": self.min_confidence,
+                "trailing_stop_pct": self.trailing_stop_pct,
             },
         }
 
@@ -544,9 +903,9 @@ class MLTradingBacktester:
         trading = metrics["trading_stats"]
 
         return f"""
-ML-Driven Trading Backtest Results
+Enhanced ML-Driven Trading Backtest Results
 {'='*60}
-Period: {self.start_date.date()} to {self.end_date.date()}
+Period: {self.start_date. date()} to {self.end_date.date()}
 Interval: {self.interval} candles
 Symbols: {', '.join(self.symbols)}
 
@@ -555,7 +914,7 @@ Portfolio Performance:
   Final Value: ${summary['final_value']:,.2f}
   Total Return: {summary['total_return']:.2f}%
   Annualized Return: {summary['annualized_return']:.2f}%
-  Volatility: {summary['volatility']:.2f}%
+  Volatility: {summary['volatility']:. 2f}%
   Sharpe Ratio: {summary['sharpe_ratio']:.3f}
   Max Drawdown: {summary['max_drawdown']:.2f}%
 
@@ -565,26 +924,25 @@ Trading Statistics:
   Sell Trades: {trading['sell_trades']}
   Win Rate: {trading['win_rate']:.1f}%
   Avg Trade Size: ${trading['avg_trade_size']:,.2f}
+  Total Realized P&L: ${trading['total_realized_pnl']:,.2f}
 
 Strategy Configuration:
   Signal Threshold: {self.signal_threshold}%
+  Min Confidence: {self.min_confidence}
   Max Position Size: {self.max_position_size*100}%
-  Transaction Cost: {self.transaction_cost*100}%
+  Trailing Stop: {self.trailing_stop_pct*100}%
 """
 
 
-# Convenience function
 def ml_backtest_portfolio(
     symbols: List[str],
     initial_capital: float = 100000,
     start_date: str = None,
     end_date: str = None,
     interval: str = "4h",
-    signal_threshold: float = 0.5,
+    signal_threshold: float = 1.0,
 ) -> Dict:
-    """
-    Convenience function to run ML-driven backtest
-    """
+    """Convenience function to run ML-driven backtest"""
     if start_date is None:
         start_date = (datetime.now() - timedelta(days=90)).strftime("%Y-%m-%d")
     if end_date is None:
@@ -603,8 +961,7 @@ def ml_backtest_portfolio(
 
 
 if __name__ == "__main__":
-    # Example usage
-    print("ML-Driven Trading Backtest Demo")
+    print("Enhanced ML-Driven Trading Backtest Demo")
     print("=" * 60)
 
     symbols = ["BTC-USD", "ETH-USD"]
@@ -612,17 +969,11 @@ if __name__ == "__main__":
     backtester = MLTradingBacktester(
         symbols=symbols,
         initial_capital=100000,
-        start_date="2024-10-01",
-        end_date="2024-10-29",
+        start_date="2024-06-01",
+        end_date="2024-11-29",
         interval="4h",
-        signal_threshold=0.5,
+        signal_threshold=1.0,
     )
 
     results = backtester.run_backtest()
     print(backtester.get_performance_summary())
-
-    print(f"\nTrade History (last 10):")
-    for trade in backtester.trade_history[-10:]:
-        print(
-            f"  {trade['timestamp']}: {trade['action']} {trade['coins']:.6f} {trade['symbol']} @ ${trade['price']:.2f}"
-        )
