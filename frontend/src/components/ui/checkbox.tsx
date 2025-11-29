@@ -1,46 +1,32 @@
+"use client"
+
 import * as React from "react"
+import * as CheckboxPrimitive from "@radix-ui/react-checkbox"
+import { CheckIcon } from "lucide-react"
 
-function cn(...classes: (string | undefined)[]) {
-  return classes.filter(Boolean).join(" ")
-}
+import { cn } from "@/lib/utils"
 
-type CheckboxProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, "type">
-
-const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
-  ({ className, ...props }, ref) => (
-    <label className="relative inline-flex items-center cursor-pointer">
-      <input
-        type="checkbox"
-        className={cn(
-          "peer absolute w-0 h-0 opacity-0",
-          className
-        )}
-        ref={ref}
-        {...props}
-      />
-      <span
-        className={cn(
-          "h-6 w-6 flex items-center justify-center rounded-xl border border-gray-400 bg-gray-800/20 backdrop-blur-sm shadow-inner transition-all duration-300 " +
-          "peer-checked:bg-gradient-to-tr peer-checked:from-blue-500 peer-checked:to-purple-500 peer-checked:border-transparent " +
-          "hover:shadow-lg hover:shadow-gray-700/40"
-        )}
+function Checkbox({
+  className,
+  ...props
+}: React.ComponentProps<typeof CheckboxPrimitive.Root>) {
+  return (
+    <CheckboxPrimitive.Root
+      data-slot="checkbox"
+      className={cn(
+        "peer border-input dark:bg-input/30 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:data-[state=checked]:bg-primary data-[state=checked]:border-primary focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive size-4 shrink-0 rounded-[4px] border shadow-xs transition-shadow outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50",
+        className
+      )}
+      {...props}
+    >
+      <CheckboxPrimitive.Indicator
+        data-slot="checkbox-indicator"
+        className="grid place-content-center text-current transition-none"
       >
-        <svg
-          className="h-4 w-4 text-white opacity-0 peer-checked:opacity-100 transition-opacity duration-300"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <polyline points="20 6 9 17 4 12" />
-        </svg>
-      </span>
-    </label>
+        <CheckIcon className="size-3.5" />
+      </CheckboxPrimitive.Indicator>
+    </CheckboxPrimitive.Root>
   )
-)
-
-Checkbox.displayName = "Checkbox"
+}
 
 export { Checkbox }
