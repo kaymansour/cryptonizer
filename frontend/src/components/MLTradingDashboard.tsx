@@ -99,17 +99,52 @@ interface NextCandlePrediction {
 }
 
 export default function MLTradingDashboard({ portfolioData }: MLTradingDashboardProps) {
+    // Default values from backend
+    const defaultValues = {
+        interval: "4h",
+        signalThreshold: 2.0,
+        maxPositionSize: 0.6,
+        rsiOversold: 25,
+        rsiOverbought: 60,
+        stopLossPct: 0.03,
+        takeProfitLevels: 0.05,
+    };
+
+    // Load ML config from localStorage if available, otherwise use defaults
+    const loadInitialConfig = () => {
+        try {
+            const storedConfig = localStorage.getItem('mlConfig');
+            if (storedConfig) {
+                const mlConfig = JSON.parse(storedConfig);
+                return {
+                    interval: mlConfig.interval || defaultValues.interval,
+                    signalThreshold: mlConfig.signal_threshold || defaultValues.signalThreshold,
+                    maxPositionSize: mlConfig.max_position_size || defaultValues.maxPositionSize,
+                    rsiOversold: mlConfig.rsi_oversold || defaultValues.rsiOversold,
+                    rsiOverbought: mlConfig.rsi_overbought || defaultValues.rsiOverbought,
+                    stopLossPct: mlConfig.stop_loss_pct || defaultValues.stopLossPct,
+                    takeProfitLevels: mlConfig.trailing_stop_pct || defaultValues.takeProfitLevels,
+                };
+            }
+        } catch (err) {
+            console.error('Error loading ML config:', err);
+        }
+        return defaultValues;
+    };
+
+    const initialConfig = loadInitialConfig();
+
     const [backtestResult, setBacktestResult] = useState<MLBacktestResult | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string>("");
     const [timeperiod, setTimeperiod] = useState("1y");
-    const [interval, setInterval] = useState("4h");
-    const [signalThreshold, setSignalThreshold] = useState(2.0);
-    const [maxPositionSize, setMaxPositionSize] = useState(0.6);
-    const [rsiOversold, setRsiOversold] = useState(25);
-    const [rsiOverbought, setRsiOverbought] = useState(60);
-    const [stopLossPct, setStopLossPct] = useState(0.03);
-    const [takeProfitLevels, setTakeProfitLevels] = useState(0.05);
+    const [interval, setInterval] = useState(initialConfig.interval);
+    const [signalThreshold, setSignalThreshold] = useState(initialConfig.signalThreshold);
+    const [maxPositionSize, setMaxPositionSize] = useState(initialConfig.maxPositionSize);
+    const [rsiOversold, setRsiOversold] = useState(initialConfig.rsiOversold);
+    const [rsiOverbought, setRsiOverbought] = useState(initialConfig.rsiOverbought);
+    const [stopLossPct, setStopLossPct] = useState(initialConfig.stopLossPct);
+    const [takeProfitLevels, setTakeProfitLevels] = useState(initialConfig.takeProfitLevels);
     const [currentPage, setCurrentPage] = useState(1);
     const [tradesPerPage] = useState(10);
     const [nextCandlePrediction, setNextCandlePrediction] = useState<NextCandlePrediction | null>(null);
@@ -127,17 +162,6 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
         { value: "1h", label: "1 Hour" },
         { value: "4h", label: "4 Hours (Recommended)" },
     ];
-
-    // Default values from backend
-    const defaultValues = {
-        interval: "4h",
-        signalThreshold: 2.0,
-        maxPositionSize: 0.6,
-        rsiOversold: 25,
-        rsiOverbought: 60,
-        stopLossPct: 0.03,
-        takeProfitLevels: 0.05,
-    };
 
     const resetToDefaults = () => {
         setInterval(defaultValues.interval);

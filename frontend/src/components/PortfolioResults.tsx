@@ -149,265 +149,265 @@ export default function PortfolioResults({ result }: PortfolioResultsProps) {
           <TabsContent value="overview">
             {/* Portfolio Overview Content */}
             <div className="space-y-8">{/* Performance Metrics - Bento Grid */}
-            <BentoGrid className="lg:grid-rows-1">
-              {/* Expected Return */}
-              <BentoCard
-                name="Expected Annual Return"
-                className="lg:col-start-1 lg:col-end-2 lg:row-start-1 lg:row-end-2 border-green-500/40"
-                Icon={TrendingUp}
-                description="Based on historical data"
-                href="#"
-                cta=""
-                background={
-                  <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 to-transparent" />
-                }
-              >
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button className="absolute top-4 right-4 z-20">
-                      <Info className="h-5 w-5 text-muted-foreground hover:text-foreground cursor-help" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs">
-                    <p className="text-sm">The average yearly profit you can expect from this portfolio based on historical performance. For example, 15% means your investment could grow by $15 for every $100 invested annually.</p>
-                  </TooltipContent>
-                </Tooltip>
-                <div className="relative z-10 mt-4">
-                  <div className="text-3xl font-bold text-green-600 dark:text-green-400">
-                    {formatPercentage(result.portfolio?.expected_return + 0.1 || 0)} {/* Adding 10% as a baseline adjustment lol */}
+              <BentoGrid className="lg:grid-rows-1">
+                {/* Expected Return */}
+                <BentoCard
+                  name="Expected Annual Return"
+                  className="lg:col-start-1 lg:col-end-2 lg:row-start-1 lg:row-end-2 border-green-500/40"
+                  Icon={TrendingUp}
+                  description="Based on historical data"
+                  href="#"
+                  cta=""
+                  background={
+                    <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 to-transparent" />
+                  }
+                >
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button className="absolute top-4 right-4 z-20">
+                        <Info className="h-5 w-5 text-muted-foreground hover:text-foreground cursor-help" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="text-sm">The average yearly profit you can expect from this portfolio based on historical performance. For example, 15% means your investment could grow by $15 for every $100 invested annually.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <div className="relative z-10 mt-4">
+                    <div className="text-3xl font-bold text-green-600 dark:text-green-400">
+                      {formatPercentage(result.portfolio?.expected_return + 0.1 || 0)} {/* Adding 10% as a baseline adjustment lol */}
+                    </div>
                   </div>
-                </div>
-              </BentoCard>
+                </BentoCard>
 
-              {/* Risk Level */}
-              <BentoCard
-                name="Risk Level"
-                className="lg:col-start-2 lg:col-end-3 lg:row-start-1 lg:row-end-2 border-blue-500/40"
-                Icon={Shield}
-                description={`${formatPercentage(result.portfolio?.volatility || 0)} volatility`}
-                href="#"
-                cta=""
-                background={
-                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent" />
-                }
-              >
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button className="absolute top-4 right-4 z-20">
-                      <Info className="h-5 w-5 text-muted-foreground hover:text-foreground cursor-help" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs">
-                    <p className="text-sm">How much your portfolio value might swing up or down. Low risk means stable but slower growth, High risk means bigger potential gains but also bigger potential losses. Volatility measures these price fluctuations.</p>
-                  </TooltipContent>
-                </Tooltip>
-                <div className="relative z-10 mt-4">
-                  <div className={`text-3xl font-bold ${riskInfo.color}`}>
-                    {riskInfo.level}
+                {/* Risk Level */}
+                <BentoCard
+                  name="Risk Level"
+                  className="lg:col-start-2 lg:col-end-3 lg:row-start-1 lg:row-end-2 border-blue-500/40"
+                  Icon={Shield}
+                  description={`${formatPercentage(result.portfolio?.volatility || 0)} volatility`}
+                  href="#"
+                  cta=""
+                  background={
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent" />
+                  }
+                >
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button className="absolute top-4 right-4 z-20">
+                        <Info className="h-5 w-5 text-muted-foreground hover:text-foreground cursor-help" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="text-sm">How much your portfolio value might swing up or down. Low risk means stable but slower growth, High risk means bigger potential gains but also bigger potential losses. Volatility measures these price fluctuations.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <div className="relative z-10 mt-4">
+                    <div className={`text-3xl font-bold ${riskInfo.color}`}>
+                      {riskInfo.level}
+                    </div>
                   </div>
-                </div>
-              </BentoCard>
+                </BentoCard>
 
-              {/* Sharpe Ratio */}
-              <BentoCard
-                name="Risk-Adjusted Return"
-                className="lg:col-start-3 lg:col-end-4 lg:row-start-1 lg:row-end-2 border-purple-500/40"
-                Icon={BarChart3}
-                description={`Sharpe Ratio - ${sharpeInfo.rating}`}
-                href="#"
-                cta=""
-                background={
-                  <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent" />
-                }
-              >
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button className="absolute top-4 right-4 z-20">
-                      <Info className="h-5 w-5 text-muted-foreground hover:text-foreground cursor-help" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs">
-                    <p className="text-sm">The Sharpe Ratio tells you how much return you&apos;re getting for the risk you&apos;re taking. Higher is better: &gt;2 is excellent, &gt;1 is good, &gt;0.5 is fair. Think of it as &quot;bang for your buck&quot; in investing.</p>
-                  </TooltipContent>
-                </Tooltip>
-                <div className="relative z-10 mt-4">
-                  <div className={`text-3xl font-bold ${sharpeInfo.color}`}>
-                    {result.portfolio?.sharpe_ratio?.toFixed(2) || '0.00'}
+                {/* Sharpe Ratio */}
+                <BentoCard
+                  name="Risk-Adjusted Return"
+                  className="lg:col-start-3 lg:col-end-4 lg:row-start-1 lg:row-end-2 border-purple-500/40"
+                  Icon={BarChart3}
+                  description={`Sharpe Ratio - ${sharpeInfo.rating}`}
+                  href="#"
+                  cta=""
+                  background={
+                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent" />
+                  }
+                >
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button className="absolute top-4 right-4 z-20">
+                        <Info className="h-5 w-5 text-muted-foreground hover:text-foreground cursor-help" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="text-sm">The Sharpe Ratio tells you how much return you&apos;re getting for the risk you&apos;re taking. Higher is better: &gt;2 is excellent, &gt;1 is good, &gt;0.5 is fair. Think of it as &quot;bang for your buck&quot; in investing.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <div className="relative z-10 mt-4">
+                    <div className={`text-3xl font-bold ${sharpeInfo.color}`}>
+                      {result.portfolio?.sharpe_ratio?.toFixed(2) || '0.00'}
+                    </div>
                   </div>
-                </div>
-              </BentoCard>
-            </BentoGrid>
+                </BentoCard>
+              </BentoGrid>
 
-            {/* Portfolio Value, Risk Analysis & Optimization Strategy */}
-            <BentoGrid className="lg:grid-rows-1">
-              {/* Portfolio Value & Allocation */}
-              <BentoCard
-                name="Portfolio Value & Allocation"
-                className="lg:col-start-1 lg:col-end-2 lg:row-start-1 lg:row-end-2 border-primary/40"
-                Icon={DollarSign}
-                description="Optimized weights and share distribution"
-                href="#"
-                cta=""
-                background={
-                  <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
-                }
-              >
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button className="absolute top-4 right-4 z-20">
-                      <Info className="h-5 w-5 text-muted-foreground hover:text-foreground cursor-help" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs">
-                    <p className="text-sm">Shows how your money is divided among different cryptocurrencies. The percentages show what portion of your total investment goes into each coin. Fractional shares mean you can own parts of expensive coins like Bitcoin.</p>
-                  </TooltipContent>
-                </Tooltip>
-                <div className="relative z-10 mt-4">
-                  <div className="text-3xl font-bold text-foreground mb-6">
-                    {formatCurrency(result.allocation?.total_value || 0)}
-                  </div>
-                  <div className="space-y-4 mt-4">
-                    {meaningfulWeights.map(([symbol, weight]) => {
-                      const shares = result.allocation?.allocation?.[symbol] || 0;
-                      const price = result.allocation?.latest_prices?.[symbol] || 0;
-                      const value = shares * price;
+              {/* Portfolio Value, Risk Analysis & Optimization Strategy */}
+              <BentoGrid className="lg:grid-rows-1">
+                {/* Portfolio Value & Allocation */}
+                <BentoCard
+                  name="Portfolio Value & Allocation"
+                  className="lg:col-start-1 lg:col-end-2 lg:row-start-1 lg:row-end-2 border-primary/40"
+                  Icon={DollarSign}
+                  description="Optimized weights and share distribution"
+                  href="#"
+                  cta=""
+                  background={
+                    <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
+                  }
+                >
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button className="absolute top-4 right-4 z-20">
+                        <Info className="h-5 w-5 text-muted-foreground hover:text-foreground cursor-help" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="text-sm">Shows how your money is divided among different cryptocurrencies. The percentages show what portion of your total investment goes into each coin. Fractional shares mean you can own parts of expensive coins like Bitcoin.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <div className="relative z-10 mt-4">
+                    <div className="text-3xl font-bold text-foreground mb-6">
+                      {formatCurrency(result.allocation?.total_value || 0)}
+                    </div>
+                    <div className="space-y-4 mt-4">
+                      {meaningfulWeights.map(([symbol, weight]) => {
+                        const shares = result.allocation?.allocation?.[symbol] || 0;
+                        const price = result.allocation?.latest_prices?.[symbol] || 0;
+                        const value = shares * price;
 
-                      return (
-                        <div key={symbol} className="space-y-2">
-                          <div className="flex justify-between items-center">
-                            <div className="flex items-center gap-3">
-                              <span className="font-medium text-foreground">{symbol}</span>
-                              <Badge variant="secondary">{formatPercentage(weight)}</Badge>
-                            </div>
-                            <div className="text-right">
-                              <div className="font-semibold text-foreground">
-                                {shares.toFixed(6)} shares
+                        return (
+                          <div key={symbol} className="space-y-2">
+                            <div className="flex justify-between items-center">
+                              <div className="flex items-center gap-3">
+                                <span className="font-medium text-foreground">{symbol}</span>
+                                <Badge variant="secondary">{formatPercentage(weight)}</Badge>
                               </div>
-                              <div className="text-sm text-muted-foreground">
-                                {formatCurrency(value)}
+                              <div className="text-right">
+                                <div className="font-semibold text-foreground">
+                                  {shares.toFixed(6)} shares
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  {formatCurrency(value)}
+                                </div>
                               </div>
                             </div>
+                            <Progress value={weight * 100} className="h-2" />
                           </div>
-                          <Progress value={weight * 100} className="h-2" />
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
 
-                    {(result.allocation?.leftover || 0) > 0 && (
-                      <div className="pt-2 border-t border-border">
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-muted-foreground">Cash Remaining</span>
-                          <span className="font-medium text-foreground">{formatCurrency(result.allocation?.leftover || 0)}</span>
+                      {(result.allocation?.leftover || 0) > 0 && (
+                        <div className="pt-2 border-t border-border">
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="text-muted-foreground">Cash Remaining</span>
+                            <span className="font-medium text-foreground">{formatCurrency(result.allocation?.leftover || 0)}</span>
+                          </div>
                         </div>
+                      )}
+                    </div>
+                  </div>
+                </BentoCard>
+
+                {/* Risk Analysis */}
+                <BentoCard
+                  name="Risk Analysis"
+                  className="lg:col-start-2 lg:col-end-3 lg:row-start-1 lg:row-end-2 border-yellow-500/40"
+                  Icon={AlertTriangle}
+                  description="Portfolio risk metrics"
+                  href="#"
+                  cta=""
+                  background={
+                    <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/10 to-transparent" />
+                  }
+                >
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button className="absolute top-4 right-4 z-20">
+                        <Info className="h-5 w-5 text-muted-foreground hover:text-foreground cursor-help" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="text-sm"><strong>Value at Risk (95%):</strong> The maximum you could lose in a bad day with 95% confidence.<br /><strong>Max Drawdown:</strong> The biggest loss from peak to bottom historically.<br /><strong>Volatility:</strong> How much prices typically fluctuate.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <div className="relative z-10 mt-4 space-y-4">
+                    <div className="flex flex-col p-4 rounded-xl bg-card/50 border border-border">
+                      <div className="text-sm text-muted-foreground mb-1">Value at Risk</div>
+                      <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+                        {formatPercentage(Math.abs(result.metrics?.var_95 || 0))}
                       </div>
-                    )}
-                  </div>
-                </div>
-              </BentoCard>
+                    </div>
 
-              {/* Risk Analysis */}
-              <BentoCard
-                name="Risk Analysis"
-                className="lg:col-start-2 lg:col-end-3 lg:row-start-1 lg:row-end-2 border-yellow-500/40"
-                Icon={AlertTriangle}
-                description="Portfolio risk metrics"
-                href="#"
-                cta=""
-                background={
-                  <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/10 to-transparent" />
-                }
-              >
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button className="absolute top-4 right-4 z-20">
-                      <Info className="h-5 w-5 text-muted-foreground hover:text-foreground cursor-help" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs">
-                    <p className="text-sm"><strong>Value at Risk (95%):</strong> The maximum you could lose in a bad day with 95% confidence.<br /><strong>Max Drawdown:</strong> The biggest loss from peak to bottom historically.<br /><strong>Volatility:</strong> How much prices typically fluctuate.</p>
-                  </TooltipContent>
-                </Tooltip>
-                <div className="relative z-10 mt-4 space-y-4">
-                  <div className="flex flex-col p-4 rounded-xl bg-card/50 border border-border">
-                    <div className="text-sm text-muted-foreground mb-1">Value at Risk (95%)</div>
-                    <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-                      {formatPercentage(Math.abs(result.metrics?.var_95 || 0))}
+                    <div className="flex flex-col p-4 rounded-xl bg-card/50 border border-border">
+                      <div className="text-sm text-muted-foreground mb-1">Maximum Drawdown</div>
+                      <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                        {formatPercentage(Math.abs(result.metrics?.max_drawdown || 0))}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col p-4 rounded-xl bg-card/50 border border-border">
+                      <div className="text-sm text-muted-foreground mb-1">Annual Volatility</div>
+                      <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                        {formatPercentage(result.portfolio?.volatility || 0)}
+                      </div>
                     </div>
                   </div>
+                </BentoCard>
 
-                  <div className="flex flex-col p-4 rounded-xl bg-card/50 border border-border">
-                    <div className="text-sm text-muted-foreground mb-1">Maximum Drawdown</div>
-                    <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                      {formatPercentage(Math.abs(result.metrics?.max_drawdown || 0))}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col p-4 rounded-xl bg-card/50 border border-border">
-                    <div className="text-sm text-muted-foreground mb-1">Annual Volatility</div>
-                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                      {formatPercentage(result.portfolio?.volatility || 0)}
-                    </div>
-                  </div>
-                </div>
-              </BentoCard>
-
-              {/* Optimization Strategy */}
-              <BentoCard
-                name="Optimization Strategy"
-                className="lg:col-start-3 lg:col-end-4 lg:row-start-1 lg:row-end-2 border-primary/40"
-                Icon={CheckCircle}
-                description="Portfolio optimization details"
-                href="#"
-                cta=""
-                background={
-                  <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
-                }
-              >
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button className="absolute top-4 right-4 z-20">
-                      <Info className="h-5 w-5 text-muted-foreground hover:text-foreground cursor-help" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs">
-                    <p className="text-sm">The mathematical approach used to balance your portfolio. Maximum Sharpe aims for best returns relative to risk. Minimum Volatility focuses on stability. Uses historical data to predict optimal allocation.</p>
-                  </TooltipContent>
-                </Tooltip>
-                <div className="relative z-10 mt-4 space-y-3 text-foreground">
-                  <p>
-                    <strong className="text-primary">Strategy:</strong>{" "}
-                    <span className="text-muted-foreground">
+                {/* Optimization Strategy */}
+                <BentoCard
+                  name="Optimization Strategy"
+                  className="lg:col-start-3 lg:col-end-4 lg:row-start-1 lg:row-end-2 border-primary/40"
+                  Icon={CheckCircle}
+                  description="Portfolio optimization details"
+                  href="#"
+                  cta=""
+                  background={
+                    <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
+                  }
+                >
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button className="absolute top-4 right-4 z-20">
+                        <Info className="h-5 w-5 text-muted-foreground hover:text-foreground cursor-help" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="text-sm">The mathematical approach used to balance your portfolio. Maximum Sharpe aims for best returns relative to risk. Minimum Volatility focuses on stability. Uses historical data to predict optimal allocation.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <div className="relative z-10 mt-4 space-y-3 text-foreground">
+                    <p>
+                      <strong className="text-primary">Strategy:</strong>{" "}
+                      <span className="text-muted-foreground">
+                        {result.portfolio?.objective === "max_sharpe"
+                          ? "Maximum Sharpe Ratio (Risk-Adjusted Returns)"
+                          : "Minimum Volatility (Conservative)"}
+                      </span>
+                    </p>
+                    <p>
+                      <strong className="text-primary">Data Period:</strong>{" "}
+                      <span className="text-muted-foreground">
+                        {result.period === "1y"
+                          ? "1 Year"
+                          : result.period === "6mo"
+                            ? "6 Months"
+                            : result.period}
+                      </span>
+                    </p>
+                    <p>
+                      <strong className="text-primary">Cryptocurrencies:</strong>{" "}
+                      <span className="text-muted-foreground">
+                        {(result.symbols || []).join(", ")}
+                      </span>
+                    </p>
+                    <p className="text-sm text-muted-foreground pt-2 border-t border-border">
+                      This portfolio is optimized using Modern Portfolio Theory to{" "}
                       {result.portfolio?.objective === "max_sharpe"
-                        ? "Maximum Sharpe Ratio (Risk-Adjusted Returns)"
-                        : "Minimum Volatility (Conservative)"}
-                    </span>
-                  </p>
-                  <p>
-                    <strong className="text-primary">Data Period:</strong>{" "}
-                    <span className="text-muted-foreground">
-                      {result.period === "1y"
-                        ? "1 Year"
-                        : result.period === "6mo"
-                          ? "6 Months"
-                          : result.period}
-                    </span>
-                  </p>
-                  <p>
-                    <strong className="text-primary">Cryptocurrencies:</strong>{" "}
-                    <span className="text-muted-foreground">
-                      {(result.symbols || []).join(", ")}
-                    </span>
-                  </p>
-                  <p className="text-sm text-muted-foreground pt-2 border-t border-border">
-                    This portfolio is optimized using Modern Portfolio Theory to{" "}
-                    {result.portfolio?.objective === "max_sharpe"
-                      ? "maximize your risk-adjusted returns (Sharpe ratio)"
-                      : "minimize portfolio volatility and risk"}
-                    .
-                  </p>
-                </div>
-              </BentoCard>
-            </BentoGrid>
+                        ? "maximize your risk-adjusted returns (Sharpe ratio)"
+                        : "minimize portfolio volatility and risk"}
+                      .
+                    </p>
+                  </div>
+                </BentoCard>
+              </BentoGrid>
             </div>
           </TabsContent>
 

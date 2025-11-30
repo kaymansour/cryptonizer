@@ -93,8 +93,8 @@ const investmentHorizonOptions = [
 export default function PortfolioOptimizer() {
   const [selectedSymbols, setSelectedSymbols] = useState<string[]>(["BTC", "ETH"]);
   const [investmentAmount, setInvestmentAmount] = useState<string>("100000");
-  const [riskTolerance, setRiskTolerance] = useState<string>("");
-  const [investmentGoal, setInvestmentGoal] = useState<string>("");
+  const [riskTolerance, setRiskTolerance] = useState<string>("medium");
+  const [investmentGoal, setInvestmentGoal] = useState<string>("balanced");
   const [timePeriod, setTimePeriod] = useState<string>("1y");
   const [useLSTM, setUseLSTM] = useState<boolean>(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -258,6 +258,12 @@ export default function PortfolioOptimizer() {
       if (!response.ok) throw new Error("Failed to optimize portfolio");
 
       const data = await response.json();
+
+      // Store ML config in localStorage for backtest page
+      if (useLSTM && mlConfig) {
+        localStorage.setItem('mlConfig', JSON.stringify(mlConfig));
+      }
+
       setResult(data);
       setShowQuestions(false);
     } catch (err) {
