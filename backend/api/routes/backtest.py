@@ -206,9 +206,11 @@ async def ml_backtest_endpoint(request: MLBacktestRequest):
                 trade_cooldown_periods=ml_config.trade_cooldown_periods,
                 required_confirmations=ml_config.required_confirmations,
             )
-            # Set take profit levels if custom backtester supports it
-            backtester.take_profit_levels = ml_config.take_profit_levels
-            backtester.take_profit_portions = ml_config.take_profit_portions
+            # Set take profit levels if backtester supports these attributes
+            if hasattr(backtester, 'take_profit_levels'):
+                backtester.take_profit_levels = ml_config.take_profit_levels
+            if hasattr(backtester, 'take_profit_portions'):
+                backtester.take_profit_portions = ml_config.take_profit_portions
         else:
             backtester = MLTradingBacktester(
                 symbols=yf_symbols,
