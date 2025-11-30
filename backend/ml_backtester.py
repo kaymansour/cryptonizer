@@ -32,14 +32,14 @@ class MLTradingBacktester:
         end_date: str,
         interval: str = "4h",
         signal_threshold: float = 2.0,  # Increased from 1.0%
-        max_position_size: float = 0.4,  # Increased from 0.3
-        transaction_cost: float = 0.001,
+        max_position_size: float = 0.6,  # Increased from 0.3
+        transaction_cost: float = 0,
         # New parameters for enhanced strategy
         use_trend_filter: bool = True,
         use_rsi_filter: bool = True,
         use_volume_filter: bool = True,
-        rsi_oversold: float = 30,
-        rsi_overbought: float = 70,
+        rsi_oversold: float = 25,
+        rsi_overbought: float = 60,
         min_confidence: float = 0.5,  # Increased from 0.3
         trailing_stop_pct: float = 0.05,  # 5% trailing stop
         # NEW parameters for improved strategy

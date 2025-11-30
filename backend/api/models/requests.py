@@ -44,4 +44,7 @@ class MLBacktestRequest(BaseModel):
     start_date: str
     end_date: str
     interval: str = "4h"  # "1h" or "4h"
-    signal_threshold: float = 0.5
+    signal_threshold: float = 2.0
+    max_position_size: float = 0.6
+    rsi_oversold: int = 25
+    rsi_overbought: int = 60
