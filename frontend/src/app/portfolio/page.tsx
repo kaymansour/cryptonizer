@@ -135,7 +135,10 @@ export default function PortfolioOptimizer() {
 
   // Generate ML config based on user preferences
   const generateMLConfig = () => {
-    // Start with baseline (moderate) values that produce 10-15% profit
+    // Multiplier for long-term investment horizon cooldown
+    const LONG_TERM_COOLDOWN_MULTIPLIER = 2;
+    
+    // Start with baseline values optimized for moderate risk/return profile
     const config = {
       signal_threshold: 2.0,
       min_confidence: 0.5,
@@ -199,7 +202,7 @@ export default function PortfolioOptimizer() {
         config.interval = "1h";
         break;
       case "long":
-        config.trade_cooldown_periods = config.trade_cooldown_periods * 2;
+        config.trade_cooldown_periods = config.trade_cooldown_periods * LONG_TERM_COOLDOWN_MULTIPLIER;
         break;
       // "medium" uses defaults
     }
