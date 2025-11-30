@@ -101,7 +101,7 @@ export default function PortfolioOptimizer() {
   const [error, setError] = useState<string>("");
   const [result, setResult] = useState<OptimizationResult | null>(null);
   const [showQuestions, setShowQuestions] = useState(true);
-  
+
   // New ML preference state variables
   const [tradingFrequency, setTradingFrequency] = useState<string>("moderate");
   const [lossTolerance, setLossTolerance] = useState<string>("medium");
@@ -137,7 +137,7 @@ export default function PortfolioOptimizer() {
   const generateMLConfig = () => {
     // Multiplier for long-term investment horizon cooldown
     const LONG_TERM_COOLDOWN_MULTIPLIER = 2;
-    
+
     // Start with baseline values optimized for moderate risk/return profile
     const config = {
       signal_threshold: 2.0,
@@ -494,9 +494,9 @@ export default function PortfolioOptimizer() {
           >
             <div className="relative z-10 grid gap-2 mt-4">
               {[
-                { value: "low", label: "Conservative" },
-                { value: "medium", label: "Moderate" },
-                { value: "high", label: "Aggressive" },
+                { value: "low", label: "Conservative", description: "Minimize risk exposure" },
+                { value: "medium", label: "Moderate", description: "Balanced risk/reward" },
+                { value: "high", label: "Aggressive", description: "Maximize potential returns" },
               ].map((option) => (
                 <div
                   key={option.value}
@@ -507,6 +507,7 @@ export default function PortfolioOptimizer() {
                   onClick={() => setRiskTolerance(option.value)}
                 >
                   <div className="font-semibold text-foreground text-sm">{option.label}</div>
+                  <div className="text-xs text-muted-foreground">{option.description}</div>
                 </div>
               ))}
             </div>
@@ -568,34 +569,35 @@ export default function PortfolioOptimizer() {
           >
             <div className="relative z-10 grid gap-2 mt-4">
               {[
-                { value: "safety", label: "Preservation" },
-                { value: "balanced", label: "Balanced" },
-                { value: "growth", label: "Max Growth" },
+                { value: "safety", label: "Preservation", description: "Protect capital first" },
+                { value: "balanced", label: "Balanced", description: "Steady growth & stability" },
+                { value: "growth", label: "Max Growth", description: "Aggressive appreciation" },
               ].map((option) => (
                 <div
                   key={option.value}
-                  className={`cursor-pointer p-2 rounded-lg border transition-all duration-300 ${investmentGoal === option.value
+                  className={`cursor-pointer p-3 rounded-lg border transition-all duration-300 ${investmentGoal === option.value
                     ? "border-primary bg-primary/20"
                     : "border-border bg-card/50 hover:border-primary/40"
                     }`}
                   onClick={() => setInvestmentGoal(option.value)}
                 >
                   <div className="font-semibold text-foreground text-sm">{option.label}</div>
+                  <div className="text-xs text-muted-foreground">{option.description}</div>
                 </div>
               ))}
             </div>
           </BentoCard>
 
-          {/* Trading Frequency Card - NEW */}
+          {/* Trading Frequency */}
           <BentoCard
             name="Trading Frequency"
-            className="lg:col-start-1 lg:col-end-2 lg:row-start-3 lg:row-end-4 border-blue-500/40"
+            className="lg:col-start-1 lg:col-end-2 lg:row-start-3 lg:row-end-4 border-primary/40"
             Icon={Activity}
             description="How often should we trade?"
             href="#"
             cta=""
             background={
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
             }
           >
             <div className="relative z-10 grid gap-2 mt-4">
@@ -603,8 +605,8 @@ export default function PortfolioOptimizer() {
                 <div
                   key={option.value}
                   className={`cursor-pointer p-3 rounded-lg border transition-all duration-300 ${tradingFrequency === option.value
-                    ? "border-blue-500 bg-blue-500/20"
-                    : "border-border bg-card/50 hover:border-blue-500/40"
+                    ? "border-primary bg-primary/20"
+                    : "border-border bg-card/50 hover:border-primary/40"
                     }`}
                   onClick={() => setTradingFrequency(option.value)}
                 >
@@ -615,16 +617,16 @@ export default function PortfolioOptimizer() {
             </div>
           </BentoCard>
 
-          {/* Loss Tolerance Card - NEW */}
+          {/* Loss Tolerance */}
           <BentoCard
             name="Loss Tolerance"
-            className="lg:col-start-2 lg:col-end-3 lg:row-start-3 lg:row-end-4 border-red-500/40"
+            className="lg:col-start-2 lg:col-end-3 lg:row-start-3 lg:row-end-4 border-primary/40"
             Icon={TrendingDown}
             description="Max drawdown you can handle"
             href="#"
             cta=""
             background={
-              <div className="absolute inset-0 bg-gradient-to-br from-red-500/10 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
             }
           >
             <div className="relative z-10 grid gap-2 mt-4">
@@ -632,8 +634,8 @@ export default function PortfolioOptimizer() {
                 <div
                   key={option.value}
                   className={`cursor-pointer p-3 rounded-lg border transition-all duration-300 ${lossTolerance === option.value
-                    ? "border-red-500 bg-red-500/20"
-                    : "border-border bg-card/50 hover:border-red-500/40"
+                    ? "border-primary bg-primary/20"
+                    : "border-border bg-card/50 hover:border-primary/40"
                     }`}
                   onClick={() => setLossTolerance(option.value)}
                 >
@@ -644,16 +646,16 @@ export default function PortfolioOptimizer() {
             </div>
           </BentoCard>
 
-          {/* Profit Taking Card - NEW */}
+          {/* Profit Taking Style */}
           <BentoCard
             name="Profit Taking Style"
-            className="lg:col-start-3 lg:col-end-4 lg:row-start-3 lg:row-end-4 border-emerald-500/40"
+            className="lg:col-start-3 lg:col-end-4 lg:row-start-3 lg:row-end-4 border-primary/40"
             Icon={Gauge}
             description="When to lock in your gains"
             href="#"
             cta=""
             background={
-              <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
             }
           >
             <div className="relative z-10 grid gap-2 mt-4">
@@ -661,8 +663,8 @@ export default function PortfolioOptimizer() {
                 <div
                   key={option.value}
                   className={`cursor-pointer p-3 rounded-lg border transition-all duration-300 ${profitTaking === option.value
-                    ? "border-emerald-500 bg-emerald-500/20"
-                    : "border-border bg-card/50 hover:border-emerald-500/40"
+                    ? "border-primary bg-primary/20"
+                    : "border-border bg-card/50 hover:border-primary/40"
                     }`}
                   onClick={() => setProfitTaking(option.value)}
                 >
@@ -673,16 +675,16 @@ export default function PortfolioOptimizer() {
             </div>
           </BentoCard>
 
-          {/* Investment Horizon Card - NEW */}
+          {/* Investment Horizon */}
           <BentoCard
             name="Investment Horizon"
-            className="lg:col-start-1 lg:col-end-2 lg:row-start-4 lg:row-end-5 border-purple-500/40"
+            className="lg:col-start-1 lg:col-end-2 lg:row-start-4 lg:row-end-5 border-primary/40"
             Icon={Calendar}
             description="Your investment timeframe"
             href="#"
             cta=""
             background={
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
             }
           >
             <div className="relative z-10 grid gap-2 mt-4">
@@ -690,8 +692,8 @@ export default function PortfolioOptimizer() {
                 <div
                   key={option.value}
                   className={`cursor-pointer p-3 rounded-lg border transition-all duration-300 ${investmentHorizon === option.value
-                    ? "border-purple-500 bg-purple-500/20"
-                    : "border-border bg-card/50 hover:border-purple-500/40"
+                    ? "border-primary bg-primary/20"
+                    : "border-border bg-card/50 hover:border-primary/40"
                     }`}
                   onClick={() => setInvestmentHorizon(option.value)}
                 >
