@@ -44,10 +44,10 @@ interface OptimizationResult {
 const availableCryptos = [
   { symbol: "BTC", name: "Bitcoin", description: "The original cryptocurrency" },
   { symbol: "ETH", name: "Ethereum", description: "Smart contract platform" },
+  { symbol: "BNB", name: "Binance Coin", description: "Binance's native cryptocurrency" },
   { symbol: "ADA", name: "Cardano", description: "Proof-of-stake blockchain" },
   { symbol: "SOL", name: "Solana", description: "High-performance blockchain" },
   { symbol: "DOT", name: "Polkadot", description: "Multi-chain protocol" },
-  { symbol: "MATIC", name: "Polygon", description: "Ethereum scaling solution" },
   { symbol: "AVAX", name: "Avalanche", description: "Fast consensus platform" },
   { symbol: "LINK", name: "Chainlink", description: "Decentralized oracle network" },
   { symbol: "ATOM", name: "Cosmos", description: "Internet of blockchains" },

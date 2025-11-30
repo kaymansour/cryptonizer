@@ -9,6 +9,13 @@ import { Button } from './ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import PredictionsCard from './PredictionsCard';
 import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContents,
+  TabsContent,
+} from './ui/shadcn-io/tabs';
+import {
   TrendingUp,
   Shield,
   DollarSign,
@@ -75,7 +82,6 @@ const getSharpeRating = (sharpe: number) => {
 
 export default function PortfolioResults({ result }: PortfolioResultsProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'overview' | 'predictions' | 'backtest'>('overview');
 
   // Add safety checks to prevent undefined errors
   if (!result || !result.portfolio) {
@@ -122,55 +128,27 @@ export default function PortfolioResults({ result }: PortfolioResultsProps) {
 
   return (
     <div className="space-y-8">
-      {/* Tab Navigation */}
-      <div className="flex gap-2 border-b border-border pb-2">
-        <button
-          onClick={() => setActiveTab('overview')}
-          className={`px-6 py-3 rounded-t-lg font-medium transition-all duration-300 ${activeTab === 'overview'
-            ? 'bg-primary text-primary-foreground shadow-lg'
-            : 'bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-            }`}
-        >
-          <div className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" />
+      {/* Tab Navigation using Shadcn Tabs */}
+      <Tabs defaultValue="overview">
+        <TabsList className="w-full justify-start">
+          <TabsTrigger value="overview" className="flex-1 sm:flex-none">
+            <BarChart3 className="h-4 w-4 mr-2" />
             Portfolio Overview
-          </div>
-        </button>
-        <button
-          onClick={() => setActiveTab('predictions')}
-          className={`px-6 py-3 rounded-t-lg font-medium transition-all duration-300 ${activeTab === 'predictions'
-            ? 'bg-primary text-primary-foreground shadow-lg'
-            : 'bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-            }`}
-        >
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4" />
+          </TabsTrigger>
+          <TabsTrigger value="predictions" className="flex-1 sm:flex-none">
+            <Sparkles className="h-4 w-4 mr-2" />
             AI Predictions
-          </div>
-        </button>
-        <button
-          onClick={() => setActiveTab('backtest')}
-          className={`px-6 py-3 rounded-t-lg font-medium transition-all duration-300 ${activeTab === 'backtest'
-            ? 'bg-primary text-primary-foreground shadow-lg'
-            : 'bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-            }`}
-        >
-          <div className="flex items-center gap-2">
-            <History className="h-4 w-4" />
+          </TabsTrigger>
+          <TabsTrigger value="backtest" className="flex-1 sm:flex-none">
+            <History className="h-4 w-4 mr-2" />
             Historical Backtest
-          </div>
-        </button>
-      </div>
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Tab Content with smooth transition */}
-      <div className="relative overflow-hidden">
-        <div
-          className={`transition-all duration-500 ease-in-out ${activeTab === 'overview'
-            ? 'opacity-100 translate-x-0'
-            : 'opacity-0 -translate-x-full absolute inset-0 pointer-events-none'
-            }`}
-        >
-          <div className="space-y-8">{/* Performance Metrics - Bento Grid */}
+        <TabsContents className="mt-8">
+          <TabsContent value="overview">
+            {/* Portfolio Overview Content */}
+            <div className="space-y-8">{/* Performance Metrics - Bento Grid */}
             <BentoGrid className="lg:grid-rows-1">
               {/* Expected Return */}
               <BentoCard
@@ -430,70 +408,61 @@ export default function PortfolioResults({ result }: PortfolioResultsProps) {
                 </div>
               </BentoCard>
             </BentoGrid>
-          </div>
-        </div>
+            </div>
+          </TabsContent>
 
-        {/* AI Predictions Tab */}
-        <div
-          className={`transition-all duration-500 ease-in-out ${activeTab === 'predictions'
-            ? 'opacity-100 translate-x-0'
-            : 'opacity-0 translate-x-full absolute inset-0 pointer-events-none'
-            }`}
-        >
-          <BentoGrid className="lg:grid-rows-1">
-            <BentoCard
-              name="AI Price Predictions"
-              className="lg:col-start-1 lg:col-end-4 lg:row-start-1 lg:row-end-2 border-purple-500/40"
-              Icon={Sparkles}
-              description="LSTM neural network predictions for next candle"
-              href="#"
-              cta=""
-              background={
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-transparent" />
-              }
-            >
-              <div className="relative z-10 mt-4">
-                <PredictionsCard symbols={result.symbols} />
-              </div>
-            </BentoCard>
-          </BentoGrid>
-        </div>
+          {/* AI Predictions Tab */}
+          <TabsContent value="predictions">
+            <BentoGrid className="lg:grid-rows-1">
+              <BentoCard
+                name="AI Price Predictions"
+                className="lg:col-start-1 lg:col-end-4 lg:row-start-1 lg:row-end-2 border-purple-500/40"
+                Icon={Sparkles}
+                description="LSTM neural network predictions for next candle"
+                href="#"
+                cta=""
+                background={
+                  <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-transparent" />
+                }
+              >
+                <div className="relative z-10 mt-4">
+                  <PredictionsCard symbols={result.symbols} />
+                </div>
+              </BentoCard>
+            </BentoGrid>
+          </TabsContent>
 
-        {/* Backtest Tab */}
-        <div
-          className={`transition-all duration-500 ease-in-out ${activeTab === 'backtest'
-            ? 'opacity-100 translate-x-0'
-            : 'opacity-0 translate-x-full absolute inset-0 pointer-events-none'
-            }`}
-        >
-          <BentoGrid className="lg:grid-rows-1">
-            <BentoCard
-              name="Historical Performance Analysis"
-              className="lg:col-start-1 lg:col-end-4 lg:row-start-1 lg:row-end-2 border-emerald-500/40"
-              Icon={History}
-              description="Run a comprehensive backtest to analyze historical performance"
-              href="#"
-              cta=""
-              background={
-                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent" />
-              }
-            >
-              <div className="relative z-10 mt-4">
-                <p className="text-sm text-muted-foreground mb-4">
-                  See how this portfolio would have performed historically with real market data.
-                </p>
-                <Button
-                  onClick={handleBacktestPortfolio}
-                  className="rounded-xl shadow-lg transition-all transform hover:scale-105"
-                >
-                  <History className="mr-2 h-4 w-4" />
-                  Backtest Portfolio
-                </Button>
-              </div>
-            </BentoCard>
-          </BentoGrid>
-        </div>
-      </div>
+          {/* Backtest Tab */}
+          <TabsContent value="backtest">
+            <BentoGrid className="lg:grid-rows-1">
+              <BentoCard
+                name="Historical Performance Analysis"
+                className="lg:col-start-1 lg:col-end-4 lg:row-start-1 lg:row-end-2 border-emerald-500/40"
+                Icon={History}
+                description="Run a comprehensive backtest to analyze historical performance"
+                href="#"
+                cta=""
+                background={
+                  <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent" />
+                }
+              >
+                <div className="relative z-10 mt-4">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    See how this portfolio would have performed historically with real market data.
+                  </p>
+                  <Button
+                    onClick={handleBacktestPortfolio}
+                    className="rounded-xl shadow-lg transition-all transform hover:scale-105"
+                  >
+                    <History className="mr-2 h-4 w-4" />
+                    Backtest Portfolio
+                  </Button>
+                </div>
+              </BentoCard>
+            </BentoGrid>
+          </TabsContent>
+        </TabsContents>
+      </Tabs>
     </div>
   );
 }
