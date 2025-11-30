@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, TrendingUp, Shield, Target, Sparkles, DollarSign, Clock } from "lucide-react";
+import { Loader2, TrendingUp, Shield, Target, Sparkles, DollarSign, Clock, Activity, TrendingDown, Gauge, Calendar } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import Select from 'react-select';
@@ -62,6 +62,34 @@ const timePeriodOptions = [
   { value: "2y", label: "2 Years - Long term" },
 ];
 
+// Trading frequency options
+const tradingFrequencyOptions = [
+  { value: "passive", label: "Passive", description: "Hold long-term, minimal trading" },
+  { value: "moderate", label: "Moderate", description: "Weekly to monthly adjustments" },
+  { value: "active", label: "Active", description: "Multiple trades per week" },
+];
+
+// Loss tolerance options
+const lossToleranceOptions = [
+  { value: "low", label: "Conservative", description: "Max 10% drawdown" },
+  { value: "medium", label: "Moderate", description: "Max 20% drawdown" },
+  { value: "high", label: "Aggressive", description: "Max 30%+ drawdown" },
+];
+
+// Profit taking options
+const profitTakingOptions = [
+  { value: "quick", label: "Quick Profits", description: "Take gains at 3-5%" },
+  { value: "balanced", label: "Balanced", description: "Take gains at 5-10%" },
+  { value: "patient", label: "Patient", description: "Hold for 10%+ gains" },
+];
+
+// Investment horizon options
+const investmentHorizonOptions = [
+  { value: "short", label: "Short Term", description: "1-3 months" },
+  { value: "medium", label: "Medium Term", description: "3-12 months" },
+  { value: "long", label: "Long Term", description: "1+ years" },
+];
+
 export default function PortfolioOptimizer() {
   const [selectedSymbols, setSelectedSymbols] = useState<string[]>(["BTC", "ETH"]);
   const [investmentAmount, setInvestmentAmount] = useState<string>("100000");
@@ -73,6 +101,12 @@ export default function PortfolioOptimizer() {
   const [error, setError] = useState<string>("");
   const [result, setResult] = useState<OptimizationResult | null>(null);
   const [showQuestions, setShowQuestions] = useState(true);
+  
+  // New ML preference state variables
+  const [tradingFrequency, setTradingFrequency] = useState<string>("moderate");
+  const [lossTolerance, setLossTolerance] = useState<string>("medium");
+  const [profitTaking, setProfitTaking] = useState<string>("balanced");
+  const [investmentHorizon, setInvestmentHorizon] = useState<string>("medium");
 
   const handleSymbolToggle = (symbol: string) => {
     setSelectedSymbols((prev) =>
@@ -99,6 +133,91 @@ export default function PortfolioOptimizer() {
     }
   };
 
+  // Generate ML config based on user preferences
+  const generateMLConfig = () => {
+    // Start with baseline (moderate) values that produce 10-15% profit
+    const config = {
+      signal_threshold: 2.0,
+      min_confidence: 0.5,
+      max_position_size: 0.6,
+      stop_loss_pct: 0.03,
+      trailing_stop_pct: 0.05,
+      trade_cooldown_periods: 6,
+      required_confirmations: 2,
+      take_profit_levels: [0.03, 0.05, 0.08],
+      take_profit_portions: [0.3, 0.3, 0.4],
+      interval: "4h",
+      use_trend_filter: true,
+      use_rsi_filter: true,
+      use_volume_filter: true,
+      rsi_oversold: 25,
+      rsi_overbought: 60,
+    };
+
+    // Adjust based on Trading Frequency
+    switch (tradingFrequency) {
+      case "passive":
+        config.trade_cooldown_periods = 30;
+        config.signal_threshold = 3.0;
+        config.min_confidence = 0.7;
+        break;
+      case "active":
+        config.trade_cooldown_periods = 2;
+        config.signal_threshold = 1.5;
+        config.min_confidence = 0.4;
+        break;
+      // "moderate" uses defaults
+    }
+
+    // Adjust based on Loss Tolerance
+    switch (lossTolerance) {
+      case "low":
+        config.stop_loss_pct = 0.02;
+        config.trailing_stop_pct = 0.03;
+        break;
+      case "high":
+        config.stop_loss_pct = 0.08;
+        config.trailing_stop_pct = 0.12;
+        break;
+      // "medium" uses defaults
+    }
+
+    // Adjust based on Profit Taking
+    switch (profitTaking) {
+      case "quick":
+        config.take_profit_levels = [0.02, 0.04, 0.06];
+        break;
+      case "patient":
+        config.take_profit_levels = [0.10, 0.15, 0.25];
+        break;
+      // "balanced" uses defaults
+    }
+
+    // Adjust based on Investment Horizon
+    switch (investmentHorizon) {
+      case "short":
+        config.interval = "1h";
+        break;
+      case "long":
+        config.trade_cooldown_periods = config.trade_cooldown_periods * 2;
+        break;
+      // "medium" uses defaults
+    }
+
+    // Adjust position size based on existing risk tolerance
+    switch (riskTolerance) {
+      case "low":
+        config.max_position_size = 0.4;
+        break;
+      case "high":
+        config.max_position_size = 0.8;
+        break;
+      // "medium" uses default 0.6
+    }
+
+    return config;
+  };
+
   const optimizePortfolio = async () => {
     if (selectedSymbols.length < 2) {
       setError("Please select at least 2 cryptocurrencies for diversification");
@@ -114,6 +233,7 @@ export default function PortfolioOptimizer() {
 
     try {
       const objective = getObjectiveFromAnswers();
+      const mlConfig = generateMLConfig();
 
       // Use LSTM-enhanced endpoint if enabled, otherwise use traditional optimization
       const endpoint = useLSTM
@@ -128,6 +248,7 @@ export default function PortfolioOptimizer() {
           total_value: parseFloat(investmentAmount),
           objective,
           period: timePeriod,
+          ml_config: useLSTM ? mlConfig : undefined,
         }),
       });
 
@@ -191,7 +312,7 @@ export default function PortfolioOptimizer() {
         </div>
 
         {/* Bento Grid Layout */}
-        <BentoGrid className="lg:grid-rows-3 mb-8">
+        <BentoGrid className="lg:grid-rows-4 mb-8">
           {/* Cryptocurrency Selection Card - Now 2 columns */}
           <BentoCard
             name="Select Assets"
@@ -359,7 +480,7 @@ export default function PortfolioOptimizer() {
           {/* Risk Tolerance Card */}
           <BentoCard
             name="Risk Level"
-            className="lg:col-start-1 lg:col-end-2 lg:row-start-2 lg:row-end-4 border-primary/40"
+            className="lg:col-start-1 lg:col-end-2 lg:row-start-2 lg:row-end-3 border-primary/40"
             Icon={Shield}
             description="Your comfort with volatility"
             href="#"
@@ -388,7 +509,7 @@ export default function PortfolioOptimizer() {
             </div>
           </BentoCard>
 
-          {/* Investment Amount Card - Now 1 column */}
+          {/* Investment Amount Card */}
           <BentoCard
             name="Investment Amount"
             className="lg:col-start-2 lg:col-end-3 lg:row-start-2 lg:row-end-3 border-primary/40"
@@ -462,11 +583,127 @@ export default function PortfolioOptimizer() {
             </div>
           </BentoCard>
 
+          {/* Trading Frequency Card - NEW */}
+          <BentoCard
+            name="Trading Frequency"
+            className="lg:col-start-1 lg:col-end-2 lg:row-start-3 lg:row-end-4 border-blue-500/40"
+            Icon={Activity}
+            description="How often should we trade?"
+            href="#"
+            cta=""
+            background={
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent" />
+            }
+          >
+            <div className="relative z-10 grid gap-2 mt-4">
+              {tradingFrequencyOptions.map((option) => (
+                <div
+                  key={option.value}
+                  className={`cursor-pointer p-3 rounded-lg border transition-all duration-300 ${tradingFrequency === option.value
+                    ? "border-blue-500 bg-blue-500/20"
+                    : "border-border bg-card/50 hover:border-blue-500/40"
+                    }`}
+                  onClick={() => setTradingFrequency(option.value)}
+                >
+                  <div className="font-semibold text-foreground text-sm">{option.label}</div>
+                  <div className="text-xs text-muted-foreground">{option.description}</div>
+                </div>
+              ))}
+            </div>
+          </BentoCard>
+
+          {/* Loss Tolerance Card - NEW */}
+          <BentoCard
+            name="Loss Tolerance"
+            className="lg:col-start-2 lg:col-end-3 lg:row-start-3 lg:row-end-4 border-red-500/40"
+            Icon={TrendingDown}
+            description="Max drawdown you can handle"
+            href="#"
+            cta=""
+            background={
+              <div className="absolute inset-0 bg-gradient-to-br from-red-500/10 to-transparent" />
+            }
+          >
+            <div className="relative z-10 grid gap-2 mt-4">
+              {lossToleranceOptions.map((option) => (
+                <div
+                  key={option.value}
+                  className={`cursor-pointer p-3 rounded-lg border transition-all duration-300 ${lossTolerance === option.value
+                    ? "border-red-500 bg-red-500/20"
+                    : "border-border bg-card/50 hover:border-red-500/40"
+                    }`}
+                  onClick={() => setLossTolerance(option.value)}
+                >
+                  <div className="font-semibold text-foreground text-sm">{option.label}</div>
+                  <div className="text-xs text-muted-foreground">{option.description}</div>
+                </div>
+              ))}
+            </div>
+          </BentoCard>
+
+          {/* Profit Taking Card - NEW */}
+          <BentoCard
+            name="Profit Taking Style"
+            className="lg:col-start-3 lg:col-end-4 lg:row-start-3 lg:row-end-4 border-emerald-500/40"
+            Icon={Gauge}
+            description="When to lock in your gains"
+            href="#"
+            cta=""
+            background={
+              <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent" />
+            }
+          >
+            <div className="relative z-10 grid gap-2 mt-4">
+              {profitTakingOptions.map((option) => (
+                <div
+                  key={option.value}
+                  className={`cursor-pointer p-3 rounded-lg border transition-all duration-300 ${profitTaking === option.value
+                    ? "border-emerald-500 bg-emerald-500/20"
+                    : "border-border bg-card/50 hover:border-emerald-500/40"
+                    }`}
+                  onClick={() => setProfitTaking(option.value)}
+                >
+                  <div className="font-semibold text-foreground text-sm">{option.label}</div>
+                  <div className="text-xs text-muted-foreground">{option.description}</div>
+                </div>
+              ))}
+            </div>
+          </BentoCard>
+
+          {/* Investment Horizon Card - NEW */}
+          <BentoCard
+            name="Investment Horizon"
+            className="lg:col-start-1 lg:col-end-2 lg:row-start-4 lg:row-end-5 border-purple-500/40"
+            Icon={Calendar}
+            description="Your investment timeframe"
+            href="#"
+            cta=""
+            background={
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent" />
+            }
+          >
+            <div className="relative z-10 grid gap-2 mt-4">
+              {investmentHorizonOptions.map((option) => (
+                <div
+                  key={option.value}
+                  className={`cursor-pointer p-3 rounded-lg border transition-all duration-300 ${investmentHorizon === option.value
+                    ? "border-purple-500 bg-purple-500/20"
+                    : "border-border bg-card/50 hover:border-purple-500/40"
+                    }`}
+                  onClick={() => setInvestmentHorizon(option.value)}
+                >
+                  <div className="font-semibold text-foreground text-sm">{option.label}</div>
+                  <div className="text-xs text-muted-foreground">{option.description}</div>
+                </div>
+              ))}
+            </div>
+          </BentoCard>
+
           {/* Strategy Summary - Conditional */}
           {riskTolerance && investmentGoal && (
             <BentoCard
               name="Your Strategy"
-              className="lg:col-start-2 lg:col-end-4 lg:row-start-3 lg:row-end-4 border-primary/40 bg-primary/10"
+              className="lg:col-start-2 lg:col-end-4 lg:row-start-4 lg:row-end-5 border-primary/40 bg-primary/10"
               Icon={Sparkles}
               description={getStrategyDescription()}
               href="#"
@@ -476,9 +713,37 @@ export default function PortfolioOptimizer() {
               }
             >
               <div className="relative z-10 mt-2">
-                <div className="inline-block px-3 py-1 rounded-full bg-primary/20 border border-primary/40 text-primary text-xs">
+                <div className="inline-block px-3 py-1 rounded-full bg-primary/20 border border-primary/40 text-primary text-xs mb-3">
                   Recommended
                 </div>
+                {useLSTM && (
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="p-2 rounded-lg bg-card/50 border border-border">
+                      <span className="text-muted-foreground">Trading:</span>{" "}
+                      <span className="text-foreground font-medium">
+                        {tradingFrequencyOptions.find(o => o.value === tradingFrequency)?.label}
+                      </span>
+                    </div>
+                    <div className="p-2 rounded-lg bg-card/50 border border-border">
+                      <span className="text-muted-foreground">Loss Tolerance:</span>{" "}
+                      <span className="text-foreground font-medium">
+                        {lossToleranceOptions.find(o => o.value === lossTolerance)?.label}
+                      </span>
+                    </div>
+                    <div className="p-2 rounded-lg bg-card/50 border border-border">
+                      <span className="text-muted-foreground">Profit Taking:</span>{" "}
+                      <span className="text-foreground font-medium">
+                        {profitTakingOptions.find(o => o.value === profitTaking)?.label}
+                      </span>
+                    </div>
+                    <div className="p-2 rounded-lg bg-card/50 border border-border">
+                      <span className="text-muted-foreground">Horizon:</span>{" "}
+                      <span className="text-foreground font-medium">
+                        {investmentHorizonOptions.find(o => o.value === investmentHorizon)?.label}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             </BentoCard>
           )}
