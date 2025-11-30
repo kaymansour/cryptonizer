@@ -4,7 +4,7 @@ import React, { forwardRef, useRef } from "react"
 
 import { cn } from "@/lib/utils"
 import { AnimatedBeam } from "@/components/ui/animated-beam"
-import Sparkles from "lucide-react/dist/esm/icons/sparkles"
+import { Brain } from "lucide-react";
 
 const Circle = forwardRef(({ className, children }, ref) => {
     return (
@@ -35,32 +35,32 @@ export function AnimatedBeamMultipleOutputDemo({ className }) {
     return (
         <div
             className={cn(
-                "relative flex h-[300px] w-full items-center justify-center overflow-hidden p-20",
+                "relative flex h-[320px] w-full items-center justify-center overflow-hidden p-20",
                 className
             )}
             ref={containerRef}
         >
             <div className="flex size-full max-w-lg flex-row items-stretch justify-between gap-10">
                 <div className="flex flex-col justify-center gap-2">
-                    <Circle ref={div1Ref}>
+                    <Circle ref={div1Ref} className="size-14">
                         <img src="/Bitcoin.png" alt="Bitcoin" className="w-full h-full object-contain" />
                     </Circle>
-                    <Circle ref={div2Ref}>
+                    <Circle ref={div2Ref} className="size-14">
                         <img src="/ethereum.png" alt="Ethereum" className="w-full h-full object-contain" />
                     </Circle>
-                    <Circle ref={div3Ref}>
+                    <Circle ref={div3Ref} className="size-14">
                         <img src="/bnb.png" alt="BNB" className="w-full h-full object-contain" />
                     </Circle>
-                    <Circle ref={div4Ref}>
+                    <Circle ref={div4Ref} className="size-14">
                         <img src="/cardano_ada.png" alt="Cardano" className="w-full h-full object-contain" />
                     </Circle>
-                    <Circle ref={div5Ref}>
+                    <Circle ref={div5Ref} className="size-14">
                         <img src="/XRP.png" alt="XRP" className="w-full h-full object-contain" />
                     </Circle>
                 </div>
                 <div className="flex flex-col justify-center">
                     <Circle ref={div6Ref} className="size-16">
-                        <Sparkles color="#000000" />
+                        <Brain color="#000000" />
                     </Circle>
                 </div>
                 <div className="flex flex-col justify-center">

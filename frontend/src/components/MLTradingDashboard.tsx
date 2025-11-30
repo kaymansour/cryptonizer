@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
-import { TrendingUp, Target, AlertTriangle, Activity, ArrowUpCircle, ArrowDownCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { TrendingUp, Target, AlertTriangle, Activity, ArrowUpCircle, ArrowDownCircle, ChevronLeft, ChevronRight, Info, Brain } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import MLPredictionChart from "./MLPredictionChart";
 import Select from 'react-select';
@@ -76,6 +76,28 @@ interface MLTradingDashboardProps {
     portfolioData: PortfolioData;
 }
 
+interface NextCandlePrediction {
+    success: boolean;
+    predictions: Record<string, {
+        current_price: number;
+        predicted_price: number;
+        predicted_change: number;
+        signal: string;
+        rsi: number;
+        trend: string;
+        trend_strength: number;
+        position_recommendation: number;
+        action_reason: string;
+        risk_metrics: {
+            stop_loss_price: number | null;
+            take_profit_price: number | null;
+            risk_reward_ratio: number | null;
+        };
+    }>;
+    interval: string;
+    signal_threshold: number;
+}
+
 export default function MLTradingDashboard({ portfolioData }: MLTradingDashboardProps) {
     const [backtestResult, setBacktestResult] = useState<MLBacktestResult | null>(null);
     const [loading, setLoading] = useState(false);
@@ -86,8 +108,12 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
     const [maxPositionSize, setMaxPositionSize] = useState(0.6);
     const [rsiOversold, setRsiOversold] = useState(25);
     const [rsiOverbought, setRsiOverbought] = useState(60);
+    const [stopLossPct, setStopLossPct] = useState(0.03);
+    const [takeProfitLevels, setTakeProfitLevels] = useState(0.05);
     const [currentPage, setCurrentPage] = useState(1);
     const [tradesPerPage] = useState(10);
+    const [nextCandlePrediction, setNextCandlePrediction] = useState<NextCandlePrediction | null>(null);
+    const [predictionLoading, setPredictionLoading] = useState(false);
 
     const timeperiods = useMemo(() => [
         { value: "1m", label: "1 Month", days: 30 },
@@ -122,6 +148,8 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
                 max_position_size: maxPositionSize,
                 rsi_oversold: rsiOversold,
                 rsi_overbought: rsiOverbought,
+                stop_loss_pct: stopLossPct,
+                trailing_stop_pct: takeProfitLevels,
             };
 
             console.log("Running ML backtest with config:", requestData);
@@ -147,7 +175,7 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
         } finally {
             setLoading(false);
         }
-    }, [portfolioData, timeperiod, interval, signalThreshold, maxPositionSize, rsiOversold, rsiOverbought, timeperiods]);
+    }, [portfolioData, timeperiod, interval, signalThreshold, maxPositionSize, rsiOversold, rsiOverbought, stopLossPct, takeProfitLevels, timeperiods]);
 
     const formatCurrency = (value: number | undefined | null) => {
         if (value === undefined || value === null || isNaN(value)) {
@@ -168,11 +196,27 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
         return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
     };
 
+    const Tooltip = ({ text }: { text: string }) => (
+        <div className="group relative inline-block ml-1">
+            <Info className="h-4 w-4 text-gray-400 cursor-help" />
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-64 p-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg z-50">
+                {text}
+                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+            </div>
+        </div>
+    );
+
     return (
         <div className="space-y-8">
             {/* Controls */}
             <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
-                <h3 className="text-xl font-semibold text-white mb-6">ML Trading Configuration</h3>
+                <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-xl font-semibold text-white">ML Trading Configuration</h3>
+                    <div className="flex items-center gap-2 text-sm text-gray-300">
+                        <Info className="h-4 w-4" />
+                        <span className="hidden md:inline">Parameters optimized based on your risk tolerance and investment goals</span>
+                    </div>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -335,9 +379,12 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
                     <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">
-                            Max Position Size ({(maxPositionSize * 100).toFixed(0)}%)
-                        </label>
+                        <div className="flex items-center mb-2">
+                            <label className="block text-sm font-medium text-gray-300">
+                                Max Position Size ({(maxPositionSize * 100).toFixed(0)}%)
+                            </label>
+                            <Tooltip text="Maximum percentage of your portfolio that can be allocated to a single trade. Lower values reduce risk but may limit gains." />
+                        </div>
                         <Slider
                             defaultValue={[maxPositionSize]}
                             value={[maxPositionSize]}
@@ -347,13 +394,53 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
                             onValueChange={(value) => setMaxPositionSize(value[0])}
                             className="w-full"
                         />
-                        <p className="text-xs text-gray-400 mt-1">Max portfolio % per trade</p>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">
-                            RSI Oversold ({rsiOversold})
-                        </label>
+                        <div className="flex items-center mb-2">
+                            <label className="block text-sm font-medium text-gray-300">
+                                Stop Loss ({(stopLossPct * 100).toFixed(1)}%)
+                            </label>
+                            <Tooltip text="Automatically sell a position if it drops by this percentage from your entry price to limit losses." />
+                        </div>
+                        <Slider
+                            defaultValue={[stopLossPct]}
+                            value={[stopLossPct]}
+                            min={0.01}
+                            max={0.10}
+                            step={0.005}
+                            onValueChange={(value) => setStopLossPct(value[0])}
+                            className="w-full"
+                        />
+                    </div>
+
+                    <div>
+                        <div className="flex items-center mb-2">
+                            <label className="block text-sm font-medium text-gray-300">
+                                Take Profit ({(takeProfitLevels * 100).toFixed(0)}%)
+                            </label>
+                            <Tooltip text="Target profit level. When a position gains this percentage, the system considers taking profits using a trailing stop." />
+                        </div>
+                        <Slider
+                            defaultValue={[takeProfitLevels]}
+                            value={[takeProfitLevels]}
+                            min={0.02}
+                            max={0.20}
+                            step={0.01}
+                            onValueChange={(value) => setTakeProfitLevels(value[0])}
+                            className="w-full"
+                        />
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                    <div>
+                        <div className="flex items-center mb-2">
+                            <label className="block text-sm font-medium text-gray-300">
+                                RSI Oversold ({rsiOversold})
+                            </label>
+                            <Tooltip text="RSI threshold below which an asset is considered oversold (potential buy signal). Lower values mean stricter buy conditions." />
+                        </div>
                         <Slider
                             defaultValue={[rsiOversold]}
                             value={[rsiOversold]}
@@ -363,13 +450,15 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
                             onValueChange={(value) => setRsiOversold(value[0])}
                             className="w-full"
                         />
-                        <p className="text-xs text-gray-400 mt-1">Buy signal threshold</p>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">
-                            RSI Overbought ({rsiOverbought})
-                        </label>
+                        <div className="flex items-center mb-2">
+                            <label className="block text-sm font-medium text-gray-300">
+                                RSI Overbought ({rsiOverbought})
+                            </label>
+                            <Tooltip text="RSI threshold above which an asset is considered overbought (potential sell signal). Higher values mean stricter sell conditions." />
+                        </div>
                         <Slider
                             defaultValue={[rsiOverbought]}
                             value={[rsiOverbought]}
@@ -379,20 +468,172 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
                             onValueChange={(value) => setRsiOverbought(value[0])}
                             className="w-full"
                         />
-                        <p className="text-xs text-gray-400 mt-1">Sell signal threshold</p>
+                    </div>
+
+                    <div className="flex items-center">
+                        <button
+                            onClick={runMLBacktest}
+                            disabled={loading}
+                            className="w-full px-6 py-3 bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600 text-white rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed h-fit self-end"
+                        >
+                            {loading ? "Running ML Backtest..." : "Run ML Backtest"}
+                        </button>
                     </div>
                 </div>
-
-                <div className="mt-6">
-                    <button
-                        onClick={runMLBacktest}
-                        disabled={loading}
-                        className="w-full px-6 py-3 bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600 text-white rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {loading ? "Running ML Backtest..." : "Run ML Backtest"}
-                    </button>
-                </div>
             </div>
+
+            {/* Next Candle Prediction Card - Only show after backtest results */}
+            {backtestResult && !loading && (
+                <div className="bg-gradient-to-br from-purple-500/10 to-blue-500/10 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6">
+                    <div className="flex items-center gap-3 mb-6">
+                        <Brain className="h-6 w-6 text-purple-400" />
+                        <h3 className="text-xl font-semibold text-white">Next Candle Prediction</h3>
+                    </div>
+
+                    <p className="text-gray-300 text-sm mb-4">
+                        Get AI-powered predictions for the next {interval} candle based on your current ML configuration.
+                    </p>
+
+                    <button
+                        onClick={async () => {
+                            setPredictionLoading(true);
+                            try {
+                                const response = await fetch("http://localhost:8000/api/predict-next-candle", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({
+                                        symbols: portfolioData.symbols,
+                                        interval: interval,
+                                        signal_threshold: signalThreshold,
+                                        max_position_size: maxPositionSize,
+                                        rsi_oversold: rsiOversold,
+                                        rsi_overbought: rsiOverbought,
+                                        stop_loss_pct: stopLossPct,
+                                        trailing_stop_pct: takeProfitLevels,
+                                    }),
+                                });
+                                if (response.ok) {
+                                    const data = await response.json();
+                                    setNextCandlePrediction(data);
+                                }
+                            } catch (err) {
+                                console.error("Prediction error:", err);
+                            } finally {
+                                setPredictionLoading(false);
+                            }
+                        }}
+                        disabled={predictionLoading}
+                        className="w-full md:w-auto px-6 py-3 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed mb-4"
+                    >
+                        {predictionLoading ? "Analyzing with your configuration..." : "Predict Next Candle"}
+                    </button>
+
+                    {nextCandlePrediction && (
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {Object.entries(nextCandlePrediction.predictions || {}).map(([symbol, pred]) => {
+                                const getSignalColor = (signal: string) => {
+                                    if (signal === 'STRONG BUY') return 'from-emerald-500/20 to-green-500/20 border-emerald-500/30';
+                                    if (signal === 'BUY') return 'from-emerald-500/10 to-green-500/10 border-emerald-500/20';
+                                    if (signal === 'STRONG SELL') return 'from-red-500/20 to-rose-500/20 border-red-500/30';
+                                    if (signal === 'SELL') return 'from-red-500/10 to-rose-500/10 border-red-500/20';
+                                    if (signal === 'WATCH') return 'from-yellow-500/10 to-amber-500/10 border-yellow-500/20';
+                                    return 'from-gray-500/10 to-slate-500/10 border-gray-500/20';
+                                };
+
+                                const getSignalTextColor = (signal: string) => {
+                                    if (signal.includes('BUY')) return 'text-emerald-400';
+                                    if (signal.includes('SELL')) return 'text-red-400';
+                                    if (signal === 'WATCH') return 'text-yellow-400';
+                                    return 'text-gray-400';
+                                };
+
+                                return (
+                                    <div key={symbol} className={`bg-gradient-to-br ${getSignalColor(pred.signal)} backdrop-blur-sm rounded-xl p-5 border`}>
+                                        {/* Header */}
+                                        <div className="flex items-center justify-between mb-4">
+                                            <h4 className="text-white text-lg font-bold">{symbol.replace('-USD', '')}</h4>
+                                            <span className={`${getSignalTextColor(pred.signal)} font-bold text-lg px-3 py-1 rounded-lg bg-black/20`}>
+                                                {pred.signal}
+                                            </span>
+                                        </div>
+
+                                        {/* Action Reason */}
+                                        <div className="mb-4 p-3 bg-black/20 rounded-lg">
+                                            <p className="text-gray-200 text-sm">{pred.action_reason}</p>
+                                        </div>
+
+                                        {/* Price Information */}
+                                        <div className="grid grid-cols-2 gap-3 mb-4">
+                                            <div className="bg-black/20 rounded-lg p-3">
+                                                <p className="text-gray-400 text-xs mb-1">Current Price</p>
+                                                <p className="text-white font-bold text-lg">${pred.current_price?.toFixed(2)}</p>
+                                            </div>
+                                            <div className="bg-black/20 rounded-lg p-3">
+                                                <p className="text-gray-400 text-xs mb-1">Predicted Price</p>
+                                                <p className="text-white font-bold text-lg">${pred.predicted_price?.toFixed(2)}</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Technical Indicators */}
+                                        <div className="grid grid-cols-3 gap-2 mb-4">
+                                            <div className="bg-black/20 rounded-lg p-2">
+                                                <p className="text-gray-400 text-xs">Change</p>
+                                                <p className={`font-bold text-sm ${pred.predicted_change >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                                    {pred.predicted_change >= 0 ? '+' : ''}{pred.predicted_change?.toFixed(2)}%
+                                                </p>
+                                            </div>
+                                            <div className="bg-black/20 rounded-lg p-2">
+                                                <p className="text-gray-400 text-xs">RSI</p>
+                                                <p className={`font-bold text-sm ${pred.rsi < 30 ? 'text-emerald-400' : pred.rsi > 70 ? 'text-red-400' : 'text-white'}`}>
+                                                    {pred.rsi?.toFixed(0)}
+                                                </p>
+                                            </div>
+                                            <div className="bg-black/20 rounded-lg p-2">
+                                                <p className="text-gray-400 text-xs">Trend</p>
+                                                <p className={`font-bold text-xs ${pred.trend === 'UPTREND' ? 'text-emerald-400' :
+                                                    pred.trend === 'DOWNTREND' ? 'text-red-400' : 'text-gray-400'
+                                                    }`}>
+                                                    {pred.trend}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Position Recommendation */}
+                                        {pred.position_recommendation > 0 && (
+                                            <div className="bg-black/30 rounded-lg p-3 mb-3">
+                                                <p className="text-gray-400 text-xs mb-1">Position Size</p>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="flex-1 bg-gray-700 rounded-full h-2">
+                                                        <div
+                                                            className="bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full transition-all"
+                                                            style={{ width: `${(pred.position_recommendation * 100)}%` }}
+                                                        ></div>
+                                                    </div>
+                                                    <span className="text-white font-bold text-sm">{(pred.position_recommendation * 100).toFixed(0)}%</span>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Risk Metrics */}
+                                        {pred.risk_metrics?.stop_loss_price && (
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-2">
+                                                    <p className="text-red-400 text-xs mb-1">Stop Loss</p>
+                                                    <p className="text-white font-semibold text-sm">${pred.risk_metrics.stop_loss_price?.toFixed(2)}</p>
+                                                </div>
+                                                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-2">
+                                                    <p className="text-emerald-400 text-xs mb-1">Take Profit</p>
+                                                    <p className="text-white font-semibold text-sm">${pred.risk_metrics.take_profit_price?.toFixed(2)}</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {error && (
                 <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-4">

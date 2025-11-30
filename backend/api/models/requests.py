@@ -1,6 +1,7 @@
 """
 Pydantic models for API request validation
 """
+
 from pydantic import BaseModel
 from typing import List, Optional, Dict
 
@@ -48,3 +49,5 @@ class MLBacktestRequest(BaseModel):
     max_position_size: float = 0.6
     rsi_oversold: int = 25
     rsi_overbought: int = 60
+    stop_loss_pct: float = 0.03
+    trailing_stop_pct: float = 0.05
