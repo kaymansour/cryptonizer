@@ -74,7 +74,24 @@ class IntradayPredictor:
             if data.empty:
                 raise ValueError(f"No data retrieved for {self.symbol}")
 
-            print(f"Retrieved {len(data)} candles")
+            print(f"✅ Retrieved {len(data)} {self.interval} candles")
+            
+            # Verify the interval by checking time differences
+            if len(data) > 1:
+                time_diff = data.index[1] - data.index[0]
+                print(f"✅ Verified interval: First candle time difference = {time_diff}")
+                
+                # Calculate expected candles for verification
+                days_diff = (end_date - start_date).days
+                if self.interval == "4h":
+                    expected_candles = days_diff * 6  # 6 candles per day for 4h
+                    print(f"   Expected ~{expected_candles} candles for {days_diff} days at 4h interval")
+                elif self.interval == "1h":
+                    expected_candles = days_diff * 24  # 24 candles per day for 1h
+                    print(f"   Expected ~{expected_candles} candles for {days_diff} days at 1h interval")
+                elif self.interval == "1d":
+                    expected_candles = days_diff  # 1 candle per day
+                    print(f"   Expected ~{expected_candles} candles for {days_diff} days at 1d interval")
 
             # Return raw data - features will be added when needed
             return data
