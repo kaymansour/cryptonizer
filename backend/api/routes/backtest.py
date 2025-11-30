@@ -1,12 +1,13 @@
 """
 Backtesting routes for portfolio performance analysis
 """
+
 from fastapi import APIRouter, HTTPException
 from typing import List, Dict
 from api.models.requests import (
-    BacktestRequest, 
-    StrategyComparisonRequest, 
-    MLBacktestRequest
+    BacktestRequest,
+    StrategyComparisonRequest,
+    MLBacktestRequest,
 )
 from backtester import Backtester
 from strategy_comparator import StrategyComparator
@@ -160,6 +161,9 @@ async def ml_backtest_endpoint(request: MLBacktestRequest):
         print(f"Period: {request.start_date} to {request.end_date}")
         print(f"Interval: {request.interval}")
         print(f"Signal threshold: {request.signal_threshold}")
+        print(f"Max position size: {request.max_position_size}")
+        print(f"RSI oversold: {request.rsi_oversold}")
+        print(f"RSI overbought: {request.rsi_overbought}")
 
         # Validate weights
         total_weight = sum(request.weights.values())
@@ -185,6 +189,9 @@ async def ml_backtest_endpoint(request: MLBacktestRequest):
             end_date=request.end_date,
             interval=request.interval,
             signal_threshold=request.signal_threshold,
+            max_position_size=request.max_position_size,
+            rsi_oversold=request.rsi_oversold,
+            rsi_overbought=request.rsi_overbought,
         )
 
         # Run backtest
@@ -290,6 +297,7 @@ async def ml_backtest_endpoint(request: MLBacktestRequest):
     except Exception as e:
         print(f"Error in ML backtest endpoint: {str(e)}")
         import traceback
+
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"ML backtesting failed: {str(e)}")
 

@@ -2,7 +2,9 @@
 
 import { useState, useCallback, useMemo } from "react";
 import { TrendingUp, Target, AlertTriangle, Activity, ArrowUpCircle, ArrowDownCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
 import MLPredictionChart from "./MLPredictionChart";
+import Select from 'react-select';
 
 interface PortfolioData {
     symbols: string[];
@@ -80,7 +82,10 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
     const [error, setError] = useState<string>("");
     const [timeperiod, setTimeperiod] = useState("1y");
     const [interval, setInterval] = useState("4h");
-    const [signalThreshold, setSignalThreshold] = useState(0.5);
+    const [signalThreshold, setSignalThreshold] = useState(2.0);
+    const [maxPositionSize, setMaxPositionSize] = useState(0.6);
+    const [rsiOversold, setRsiOversold] = useState(25);
+    const [rsiOverbought, setRsiOverbought] = useState(60);
     const [currentPage, setCurrentPage] = useState(1);
     const [tradesPerPage] = useState(10);
 
@@ -114,6 +119,9 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
                 end_date: endDate.toISOString().split('T')[0],
                 interval: interval,
                 signal_threshold: signalThreshold,
+                max_position_size: maxPositionSize,
+                rsi_oversold: rsiOversold,
+                rsi_overbought: rsiOverbought,
             };
 
             console.log("Running ML backtest with config:", requestData);
@@ -139,7 +147,7 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
         } finally {
             setLoading(false);
         }
-    }, [portfolioData, timeperiod, interval, signalThreshold, timeperiods]);
+    }, [portfolioData, timeperiod, interval, signalThreshold, maxPositionSize, rsiOversold, rsiOverbought, timeperiods]);
 
     const formatCurrency = (value: number | undefined | null) => {
         if (value === undefined || value === null || isNaN(value)) {
@@ -170,17 +178,70 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
                         <label className="block text-sm font-medium text-gray-300 mb-2">
                             Time Period
                         </label>
-                        <select
-                            value={timeperiod}
-                            onChange={(e) => setTimeperiod(e.target.value)}
-                            className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        >
-                            {timeperiods.map((period) => (
-                                <option key={period.value} value={period.value} className="bg-gray-800">
-                                    {period.label}
-                                </option>
-                            ))}
-                        </select>
+                        <Select
+                            value={timeperiods.find(p => p.value === timeperiod)}
+                            onChange={(option) => option && setTimeperiod(option.value)}
+                            options={timeperiods}
+                            className="react-select-container"
+                            classNamePrefix="react-select"
+                            styles={{
+                                control: (base) => ({
+                                    ...base,
+                                    backgroundColor: 'var(--muted)',
+                                    borderColor: 'var(--input)',
+                                    borderRadius: '0.5rem',
+                                    minHeight: '2.5rem',
+                                    cursor: 'pointer',
+                                    '&:hover': {
+                                        borderColor: 'var(--ring)',
+                                    },
+                                }),
+                                singleValue: (base) => ({
+                                    ...base,
+                                    color: 'var(--foreground)',
+                                }),
+                                menuPortal: (base) => ({
+                                    ...base,
+                                    zIndex: 9999,
+                                }),
+                                menu: (base) => ({
+                                    ...base,
+                                    backgroundColor: 'var(--popover)',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '0.5rem',
+                                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.15)',
+                                }),
+                                menuList: (base) => ({
+                                    ...base,
+                                    backgroundColor: 'var(--popover)',
+                                    padding: '0.25rem',
+                                    borderRadius: '0.5rem',
+                                }),
+                                option: (base, state) => ({
+                                    ...base,
+                                    backgroundColor: state.isFocused
+                                        ? 'var(--accent)'
+                                        : state.isSelected
+                                            ? 'var(--primary)'
+                                            : 'var(--popover)',
+                                    color: state.isFocused
+                                        ? 'var(--accent-foreground)'
+                                        : 'var(--foreground)',
+                                    cursor: 'pointer',
+                                    opacity: 1,
+                                    '&:active': {
+                                        backgroundColor: 'var(--accent)',
+                                    },
+                                }),
+                                dropdownIndicator: (base) => ({
+                                    ...base,
+                                    color: 'var(--primary)',
+                                }),
+                                indicatorSeparator: () => ({
+                                    display: 'none',
+                                }),
+                            }}
+                        />
                         <p className="text-xs text-gray-400 mt-1">Max 2 years for hourly data</p>
                     </div>
 
@@ -188,17 +249,70 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
                         <label className="block text-sm font-medium text-gray-300 mb-2">
                             Candle Interval
                         </label>
-                        <select
-                            value={interval}
-                            onChange={(e) => setInterval(e.target.value)}
-                            className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        >
-                            {intervalOptions.map((option) => (
-                                <option key={option.value} value={option.value} className="bg-gray-800">
-                                    {option.label}
-                                </option>
-                            ))}
-                        </select>
+                        <Select
+                            value={intervalOptions.find(opt => opt.value === interval)}
+                            onChange={(option) => option && setInterval(option.value)}
+                            options={intervalOptions}
+                            className="react-select-container"
+                            classNamePrefix="react-select"
+                            styles={{
+                                control: (base) => ({
+                                    ...base,
+                                    backgroundColor: 'var(--muted)',
+                                    borderColor: 'var(--input)',
+                                    borderRadius: '0.5rem',
+                                    minHeight: '2.5rem',
+                                    cursor: 'pointer',
+                                    '&:hover': {
+                                        borderColor: 'var(--ring)',
+                                    },
+                                }),
+                                singleValue: (base) => ({
+                                    ...base,
+                                    color: 'var(--foreground)',
+                                }),
+                                menuPortal: (base) => ({
+                                    ...base,
+                                    zIndex: 9999,
+                                }),
+                                menu: (base) => ({
+                                    ...base,
+                                    backgroundColor: 'var(--popover)',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '0.5rem',
+                                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.15)',
+                                }),
+                                menuList: (base) => ({
+                                    ...base,
+                                    backgroundColor: 'var(--popover)',
+                                    padding: '0.25rem',
+                                    borderRadius: '0.5rem',
+                                }),
+                                option: (base, state) => ({
+                                    ...base,
+                                    backgroundColor: state.isFocused
+                                        ? 'var(--accent)'
+                                        : state.isSelected
+                                            ? 'var(--primary)'
+                                            : 'var(--popover)',
+                                    color: state.isFocused
+                                        ? 'var(--accent-foreground)'
+                                        : 'var(--foreground)',
+                                    cursor: 'pointer',
+                                    opacity: 1,
+                                    '&:active': {
+                                        backgroundColor: 'var(--accent)',
+                                    },
+                                }),
+                                dropdownIndicator: (base) => ({
+                                    ...base,
+                                    color: 'var(--primary)',
+                                }),
+                                indicatorSeparator: () => ({
+                                    display: 'none',
+                                }),
+                            }}
+                        />
                         <p className="text-xs text-gray-400 mt-1">Trading frequency</p>
                     </div>
 
@@ -206,16 +320,66 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
                         <label className="block text-sm font-medium text-gray-300 mb-2">
                             Signal Threshold ({signalThreshold.toFixed(2)})
                         </label>
-                        <input
-                            type="range"
-                            min="0.1"
-                            max="2.0"
-                            step="0.1"
-                            value={signalThreshold}
-                            onChange={(e) => setSignalThreshold(parseFloat(e.target.value))}
+                        <Slider
+                            defaultValue={[signalThreshold]}
+                            value={[signalThreshold]}
+                            min={0.1}
+                            max={10.0}
+                            step={0.1}
+                            onValueChange={(value) => setSignalThreshold(value[0])}
                             className="w-full"
                         />
                         <p className="text-xs text-gray-400 mt-1">Min % change to trigger trade</p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                            Max Position Size ({(maxPositionSize * 100).toFixed(0)}%)
+                        </label>
+                        <Slider
+                            defaultValue={[maxPositionSize]}
+                            value={[maxPositionSize]}
+                            min={0.1}
+                            max={0.8}
+                            step={0.05}
+                            onValueChange={(value) => setMaxPositionSize(value[0])}
+                            className="w-full"
+                        />
+                        <p className="text-xs text-gray-400 mt-1">Max portfolio % per trade</p>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                            RSI Oversold ({rsiOversold})
+                        </label>
+                        <Slider
+                            defaultValue={[rsiOversold]}
+                            value={[rsiOversold]}
+                            min={15}
+                            max={35}
+                            step={1}
+                            onValueChange={(value) => setRsiOversold(value[0])}
+                            className="w-full"
+                        />
+                        <p className="text-xs text-gray-400 mt-1">Buy signal threshold</p>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                            RSI Overbought ({rsiOverbought})
+                        </label>
+                        <Slider
+                            defaultValue={[rsiOverbought]}
+                            value={[rsiOverbought]}
+                            min={50}
+                            max={85}
+                            step={1}
+                            onValueChange={(value) => setRsiOverbought(value[0])}
+                            className="w-full"
+                        />
+                        <p className="text-xs text-gray-400 mt-1">Sell signal threshold</p>
                     </div>
                 </div>
 
@@ -455,7 +619,7 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
                                                         </td>
                                                         <td className="py-3 px-4 text-right">
                                                             <span className={`font-medium ${trade.predicted_change > 0 ? 'text-emerald-400' :
-                                                                    trade.predicted_change < 0 ? 'text-red-400' : 'text-gray-400'
+                                                                trade.predicted_change < 0 ? 'text-red-400' : 'text-gray-400'
                                                                 }`}>
                                                                 {trade.predicted_change > 0 ? '+' : ''}{trade.predicted_change.toFixed(2)}%
                                                             </span>
@@ -498,8 +662,8 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
                                                     <button
                                                         onClick={() => setCurrentPage(page)}
                                                         className={`px-3 py-1 rounded-lg transition-colors ${currentPage === page
-                                                                ? 'bg-emerald-500 text-white'
-                                                                : 'bg-white/10 hover:bg-white/20 text-white'
+                                                            ? 'bg-emerald-500 text-white'
+                                                            : 'bg-white/10 hover:bg-white/20 text-white'
                                                             }`}
                                                     >
                                                         {page}
