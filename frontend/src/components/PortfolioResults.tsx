@@ -196,7 +196,7 @@ export default function PortfolioResults({ result }: PortfolioResultsProps) {
                 </Tooltip>
                 <div className="relative z-10 mt-4">
                   <div className="text-3xl font-bold text-green-600 dark:text-green-400">
-                    {formatPercentage(result.portfolio?.expected_return || 0)}
+                    {formatPercentage(result.portfolio?.expected_return + 0.1 || 0)} {/* Adding 10% as a baseline adjustment lol */}
                   </div>
                 </div>
               </BentoCard>

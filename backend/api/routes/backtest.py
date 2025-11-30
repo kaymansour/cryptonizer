@@ -164,6 +164,8 @@ async def ml_backtest_endpoint(request: MLBacktestRequest):
         print(f"Max position size: {request.max_position_size}")
         print(f"RSI oversold: {request.rsi_oversold}")
         print(f"RSI overbought: {request.rsi_overbought}")
+        print(f"Stop loss: {request.stop_loss_pct}")
+        print(f"Trailing stop: {request.trailing_stop_pct}")
 
         # Validate weights
         total_weight = sum(request.weights.values())
@@ -192,6 +194,8 @@ async def ml_backtest_endpoint(request: MLBacktestRequest):
             max_position_size=request.max_position_size,
             rsi_oversold=request.rsi_oversold,
             rsi_overbought=request.rsi_overbought,
+            stop_loss_pct=request.stop_loss_pct,
+            trailing_stop_pct=request.trailing_stop_pct,
         )
 
         # Run backtest
@@ -330,3 +334,227 @@ async def quick_backtest_endpoint(
     except Exception as e:
         print(f"Error in quick backtest: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Quick backtest failed: {str(e)}")
+
+
+@router.post("/predict-next-candle")
+async def predict_next_candle_endpoint(request: dict):
+    """
+    Enhanced prediction endpoint with intelligent trading recommendations
+    """
+    try:
+        symbols = request.get("symbols", [])
+        interval = request.get("interval", "4h")
+        signal_threshold = request.get("signal_threshold", 2.0)
+        max_position_size = request.get("max_position_size", 0.6)
+        rsi_oversold = request.get("rsi_oversold", 25)
+        rsi_overbought = request.get("rsi_overbought", 60)
+        stop_loss_pct = request.get("stop_loss_pct", 0.03)
+        trailing_stop_pct = request.get("trailing_stop_pct", 0.05)
+
+        print(
+            f"Predicting next candle for {len(symbols)} symbols with intelligent analysis"
+        )
+
+        # Convert symbols to Yahoo Finance format
+        yf_symbols = []
+        for symbol in symbols:
+            if not symbol.endswith("-USD"):
+                yf_symbols.append(f"{symbol.upper()}-USD")
+            else:
+                yf_symbols.append(symbol.upper())
+
+        predictions = {}
+
+        for symbol in yf_symbols:
+            try:
+                # Import predictor
+                import sys
+                import os
+                import yfinance as yf
+                import pandas as pd
+                import numpy as np
+                from datetime import datetime, timedelta
+
+                sys.path.append(
+                    os.path.join(os.path.dirname(__file__), "..", "..", "models")
+                )
+                from intraday_predictor import IntradayPredictor
+
+                # Initialize predictor
+                predictor = IntradayPredictor(
+                    symbol=symbol, interval=interval, lookback_periods=168
+                )
+
+                # Load trained model
+                predictor.load_model()
+
+                # Get recent data - need enough for lookback + feature engineering
+                # For 4h candles: 168 periods = 28 days, but feature engineering drops ~60 rows
+                # So we need ~50-60 days to be safe
+                end_date = datetime.now()
+                days_needed = 60 if interval == "4h" else 30
+                start_date = end_date - timedelta(days=days_needed)
+
+                data = yf.download(
+                    symbol,
+                    start=start_date,
+                    end=end_date,
+                    interval=interval,
+                    progress=False,
+                )
+
+                if data.empty:
+                    print(f"No data returned for {symbol}")
+                    continue
+
+                # Handle different column formats from yfinance
+                if isinstance(data.columns, pd.MultiIndex):
+                    # For MultiIndex like [('Close', 'BTC-USD'), ('High', 'BTC-USD'), ...]
+                    # Get the first level (price type) not the symbol name
+                    data.columns = data.columns.get_level_values(0)
+
+                # Ensure we have the required columns
+                required_cols = ["Close", "High", "Low", "Open", "Volume"]
+                missing_cols = [col for col in required_cols if col not in data.columns]
+                if missing_cols:
+                    print(
+                        f"Error: Missing columns for {symbol}: {missing_cols}. Available: {data.columns.tolist()}"
+                    )
+                    continue
+
+                # Calculate technical indicators
+                # RSI
+                delta = data["Close"].diff()
+                gain = delta.where(delta > 0, 0).rolling(window=14).mean()
+                loss = -delta.where(delta < 0, 0).rolling(window=14).mean()
+                rs = gain / loss
+                data["RSI"] = 100 - (100 / (1 + rs))
+                current_rsi = (
+                    float(data["RSI"].iloc[-1])
+                    if not pd.isna(data["RSI"].iloc[-1])
+                    else 50
+                )
+
+                # SMA
+                data["SMA_20"] = data["Close"].rolling(window=20).mean()
+                data["SMA_50"] = data["Close"].rolling(window=50).mean()
+                sma_20 = (
+                    float(data["SMA_20"].iloc[-1])
+                    if not pd.isna(data["SMA_20"].iloc[-1])
+                    else data["Close"].iloc[-1]
+                )
+                sma_50 = (
+                    float(data["SMA_50"].iloc[-1])
+                    if not pd.isna(data["SMA_50"].iloc[-1])
+                    else data["Close"].iloc[-1]
+                )
+
+                # Trend detection
+                if sma_20 > sma_50 and data["Close"].iloc[-1] > sma_20:
+                    trend = "UPTREND"
+                    trend_strength = ((sma_20 - sma_50) / sma_50) * 100
+                elif sma_20 < sma_50 and data["Close"].iloc[-1] < sma_20:
+                    trend = "DOWNTREND"
+                    trend_strength = ((sma_50 - sma_20) / sma_50) * 100
+                else:
+                    trend = "SIDEWAYS"
+                    trend_strength = 0
+
+                # Make prediction
+                prediction = predictor.predict_next(data)
+                current_price = prediction.get("current_price")
+                predicted_price = prediction.get("predicted_price")
+                predicted_change = prediction.get("predicted_change_percent", 0)
+
+                # Intelligent signal classification
+                signal = "HOLD"
+                position_recommendation = 0.0
+                action_reason = ""
+
+                if predicted_change >= signal_threshold and current_rsi < rsi_oversold:
+                    signal = "STRONG BUY"
+                    position_recommendation = max_position_size
+                    action_reason = f"Strong bullish signal: {predicted_change:+.2f}% prediction + oversold RSI ({current_rsi:.0f})"
+                elif predicted_change >= signal_threshold * 0.5 and trend == "UPTREND":
+                    signal = "BUY"
+                    position_recommendation = max_position_size * 0.7
+                    action_reason = f"Moderate buy: {predicted_change:+.2f}% prediction + uptrend confirmed"
+                elif (
+                    predicted_change <= -signal_threshold
+                    and current_rsi > rsi_overbought
+                ):
+                    signal = "STRONG SELL"
+                    position_recommendation = 1.0  # Close full position
+                    action_reason = f"Strong bearish signal: {predicted_change:+.2f}% prediction + overbought RSI ({current_rsi:.0f})"
+                elif (
+                    predicted_change <= -signal_threshold * 0.5 and trend == "DOWNTREND"
+                ):
+                    signal = "SELL"
+                    position_recommendation = 1.0
+                    action_reason = f"Moderate sell: {predicted_change:+.2f}% prediction + downtrend confirmed"
+                elif current_rsi < rsi_oversold and predicted_change > 0:
+                    signal = "WATCH"
+                    position_recommendation = max_position_size * 0.5
+                    action_reason = f"Oversold opportunity: RSI {current_rsi:.0f}, predicted {predicted_change:+.2f}%"
+                elif current_rsi > rsi_overbought and predicted_change < 0:
+                    signal = "WATCH"
+                    position_recommendation = 0.7
+                    action_reason = f"Overbought risk: RSI {current_rsi:.0f}, predicted {predicted_change:+.2f}%"
+                else:
+                    signal = "HOLD"
+                    position_recommendation = 0.0
+                    action_reason = f"Neutral: {predicted_change:+.2f}% prediction, RSI {current_rsi:.0f}, {trend.lower()}"
+
+                # Calculate risk metrics
+                stop_loss_price = (
+                    current_price * (1 - stop_loss_pct)
+                    if signal in ["BUY", "STRONG BUY"]
+                    else None
+                )
+                take_profit_price = (
+                    current_price * (1 + (stop_loss_pct * 2))
+                    if signal in ["BUY", "STRONG BUY"]
+                    else None
+                )
+
+                predictions[symbol] = {
+                    "current_price": current_price,
+                    "predicted_price": predicted_price,
+                    "predicted_change": predicted_change,
+                    "signal": signal,
+                    "rsi": current_rsi,
+                    "trend": trend,
+                    "trend_strength": round(trend_strength, 2),
+                    "position_recommendation": position_recommendation,
+                    "action_reason": action_reason,
+                    "risk_metrics": {
+                        "stop_loss_price": stop_loss_price,
+                        "take_profit_price": take_profit_price,
+                        "risk_reward_ratio": (
+                            2.0 if signal in ["BUY", "STRONG BUY"] else None
+                        ),
+                    },
+                }
+
+                print(f"✓ {symbol}: {signal} - {action_reason}")
+
+            except Exception as e:
+                print(f"Failed to predict {symbol}: {str(e)}")
+                import traceback
+
+                traceback.print_exc()
+                continue
+
+        return {
+            "success": True,
+            "predictions": predictions,
+            "interval": interval,
+            "signal_threshold": signal_threshold,
+        }
+
+    except Exception as e:
+        print(f"Error in predict next candle: {str(e)}")
+        import traceback
+
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
