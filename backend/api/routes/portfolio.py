@@ -87,6 +87,16 @@ async def optimize_portfolio_lstm(request: PortfolioOptimizationRequest):
     Optimize portfolio with LSTM predictions and weight constraints
     """
     try:
+        print("=" * 80)
+        print("DEBUG: LSTM Portfolio Optimization Request")
+        print("=" * 80)
+        print(f"Symbols: {request.symbols}")
+        print(f"Total Value: {request.total_value}")
+        print(f"Objective: {request.objective}")
+        print(f"Period: {request.period}")
+        print(f"ML Config: {request.ml_config}")
+        print("=" * 80)
+
         # Convert symbols to Yahoo Finance format
         yf_symbols = []
         for symbol in request.symbols:
@@ -94,6 +104,22 @@ async def optimize_portfolio_lstm(request: PortfolioOptimizationRequest):
                 yf_symbols.append(f"{symbol.upper()}-USD")
             else:
                 yf_symbols.append(symbol.upper())
+
+        print(f"Converted symbols: {yf_symbols}")
+
+        # Extract ML config parameters if provided
+        ml_config = request.ml_config or {}
+        print(f"Extracted ML config: {ml_config}")
+
+        # Use ml_config to adjust parameters or use defaults
+        max_weight = 0.60  # Default
+        if ml_config.get("max_position_size"):
+            max_weight = ml_config.get("max_position_size")
+            print(f"Using max_position_size from config: {max_weight}")
+
+        print(
+            f"Calling optimize_crypto_portfolio_with_lstm with max_weight={max_weight}"
+        )
 
         result = optimize_crypto_portfolio_with_lstm(
             symbols=yf_symbols,
@@ -103,12 +129,23 @@ async def optimize_portfolio_lstm(request: PortfolioOptimizationRequest):
             use_lstm=True,
             lstm_weight=0.6,  # 60% LSTM, 40% historical
             min_weight=0.05,  # 5% minimum
-            max_weight=0.60,  # 60% maximum
+            max_weight=max_weight,  # Use from ml_config or default
         )
 
+        print("Optimization completed successfully!")
+        print(f"Result keys: {result.keys()}")
         return {"success": True, **result}
 
     except Exception as e:
+        print("=" * 80)
+        print("ERROR in optimize_portfolio_lstm:")
+        print(f"Error type: {type(e).__name__}")
+        print(f"Error message: {str(e)}")
+        import traceback
+
+        print("Full traceback:")
+        print(traceback.format_exc())
+        print("=" * 80)
         raise HTTPException(status_code=500, detail=str(e))
 
 

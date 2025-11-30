@@ -11,6 +11,7 @@ class PortfolioOptimizationRequest(BaseModel):
     total_value: float = 100000
     objective: str = "max_sharpe"
     period: str = "1y"
+    ml_config: Optional[Dict] = None
 
 
 class EfficientFrontierRequest(BaseModel):
@@ -40,6 +41,7 @@ class StrategyComparisonRequest(BaseModel):
 
 class MLConfigRequest(BaseModel):
     """Optional ML configuration parameters that can be customized by user preferences"""
+
     signal_threshold: float = 2.0
     min_confidence: float = 0.5
     max_position_size: float = 0.6
