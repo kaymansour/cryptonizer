@@ -183,20 +183,48 @@ async def ml_backtest_endpoint(request: MLBacktestRequest):
             else:
                 yf_symbols.append(symbol.upper())
 
-        # Create ML backtester
-        backtester = MLTradingBacktester(
-            symbols=yf_symbols,
-            initial_capital=request.initial_investment,
-            start_date=request.start_date,
-            end_date=request.end_date,
-            interval=request.interval,
-            signal_threshold=request.signal_threshold,
-            max_position_size=request.max_position_size,
-            rsi_oversold=request.rsi_oversold,
-            rsi_overbought=request.rsi_overbought,
-            stop_loss_pct=request.stop_loss_pct,
-            trailing_stop_pct=request.trailing_stop_pct,
-        )
+        # Create ML backtester with user preferences if provided
+        ml_config = request.ml_config
+        if ml_config:
+            print(f"Using custom ML config from user preferences")
+            backtester = MLTradingBacktester(
+                symbols=yf_symbols,
+                initial_capital=request.initial_investment,
+                start_date=request.start_date,
+                end_date=request.end_date,
+                interval=ml_config.interval,
+                signal_threshold=ml_config.signal_threshold,
+                max_position_size=ml_config.max_position_size,
+                rsi_oversold=ml_config.rsi_oversold,
+                rsi_overbought=ml_config.rsi_overbought,
+                stop_loss_pct=ml_config.stop_loss_pct,
+                trailing_stop_pct=ml_config.trailing_stop_pct,
+                use_trend_filter=ml_config.use_trend_filter,
+                use_rsi_filter=ml_config.use_rsi_filter,
+                use_volume_filter=ml_config.use_volume_filter,
+                min_confidence=ml_config.min_confidence,
+                trade_cooldown_periods=ml_config.trade_cooldown_periods,
+                required_confirmations=ml_config.required_confirmations,
+            )
+            # Set take profit levels if backtester supports these attributes
+            if hasattr(backtester, 'take_profit_levels'):
+                backtester.take_profit_levels = ml_config.take_profit_levels
+            if hasattr(backtester, 'take_profit_portions'):
+                backtester.take_profit_portions = ml_config.take_profit_portions
+        else:
+            backtester = MLTradingBacktester(
+                symbols=yf_symbols,
+                initial_capital=request.initial_investment,
+                start_date=request.start_date,
+                end_date=request.end_date,
+                interval=request.interval,
+                signal_threshold=request.signal_threshold,
+                max_position_size=request.max_position_size,
+                rsi_oversold=request.rsi_oversold,
+                rsi_overbought=request.rsi_overbought,
+                stop_loss_pct=request.stop_loss_pct,
+                trailing_stop_pct=request.trailing_stop_pct,
+            )
 
         # Run backtest
         results = backtester.run_backtest()
