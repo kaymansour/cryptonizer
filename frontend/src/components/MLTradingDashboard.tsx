@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
-import { TrendingUp, Target, AlertTriangle, Activity, ArrowUpCircle, ArrowDownCircle, ChevronLeft, ChevronRight, Info, Brain } from "lucide-react";
+import { TrendingUp, Target, AlertTriangle, Activity, ArrowUpCircle, ArrowDownCircle, ChevronLeft, ChevronRight, Info, Brain, RotateCcw } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import MLPredictionChart from "./MLPredictionChart";
 import Select from 'react-select';
@@ -99,17 +99,52 @@ interface NextCandlePrediction {
 }
 
 export default function MLTradingDashboard({ portfolioData }: MLTradingDashboardProps) {
+    // Default values from backend
+    const defaultValues = {
+        interval: "4h",
+        signalThreshold: 2.0,
+        maxPositionSize: 0.6,
+        rsiOversold: 25,
+        rsiOverbought: 60,
+        stopLossPct: 0.03,
+        takeProfitLevels: 0.05,
+    };
+
+    // Load ML config from localStorage if available, otherwise use defaults
+    const loadInitialConfig = () => {
+        try {
+            const storedConfig = localStorage.getItem('mlConfig');
+            if (storedConfig) {
+                const mlConfig = JSON.parse(storedConfig);
+                return {
+                    interval: mlConfig.interval || defaultValues.interval,
+                    signalThreshold: mlConfig.signal_threshold || defaultValues.signalThreshold,
+                    maxPositionSize: mlConfig.max_position_size || defaultValues.maxPositionSize,
+                    rsiOversold: mlConfig.rsi_oversold || defaultValues.rsiOversold,
+                    rsiOverbought: mlConfig.rsi_overbought || defaultValues.rsiOverbought,
+                    stopLossPct: mlConfig.stop_loss_pct || defaultValues.stopLossPct,
+                    takeProfitLevels: mlConfig.trailing_stop_pct || defaultValues.takeProfitLevels,
+                };
+            }
+        } catch (err) {
+            console.error('Error loading ML config:', err);
+        }
+        return defaultValues;
+    };
+
+    const initialConfig = loadInitialConfig();
+
     const [backtestResult, setBacktestResult] = useState<MLBacktestResult | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string>("");
     const [timeperiod, setTimeperiod] = useState("1y");
-    const [interval, setInterval] = useState("4h");
-    const [signalThreshold, setSignalThreshold] = useState(2.0);
-    const [maxPositionSize, setMaxPositionSize] = useState(0.6);
-    const [rsiOversold, setRsiOversold] = useState(25);
-    const [rsiOverbought, setRsiOverbought] = useState(60);
-    const [stopLossPct, setStopLossPct] = useState(0.03);
-    const [takeProfitLevels, setTakeProfitLevels] = useState(0.05);
+    const [interval, setInterval] = useState(initialConfig.interval);
+    const [signalThreshold, setSignalThreshold] = useState(initialConfig.signalThreshold);
+    const [maxPositionSize, setMaxPositionSize] = useState(initialConfig.maxPositionSize);
+    const [rsiOversold, setRsiOversold] = useState(initialConfig.rsiOversold);
+    const [rsiOverbought, setRsiOverbought] = useState(initialConfig.rsiOverbought);
+    const [stopLossPct, setStopLossPct] = useState(initialConfig.stopLossPct);
+    const [takeProfitLevels, setTakeProfitLevels] = useState(initialConfig.takeProfitLevels);
     const [currentPage, setCurrentPage] = useState(1);
     const [tradesPerPage] = useState(10);
     const [nextCandlePrediction, setNextCandlePrediction] = useState<NextCandlePrediction | null>(null);
@@ -127,6 +162,16 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
         { value: "1h", label: "1 Hour" },
         { value: "4h", label: "4 Hours (Recommended)" },
     ];
+
+    const resetToDefaults = () => {
+        setInterval(defaultValues.interval);
+        setSignalThreshold(defaultValues.signalThreshold);
+        setMaxPositionSize(defaultValues.maxPositionSize);
+        setRsiOversold(defaultValues.rsiOversold);
+        setRsiOverbought(defaultValues.rsiOverbought);
+        setStopLossPct(defaultValues.stopLossPct);
+        setTakeProfitLevels(defaultValues.takeProfitLevels);
+    };
 
     const runMLBacktest = useCallback(async () => {
         setLoading(true);
@@ -212,9 +257,24 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
             <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
                 <div className="flex items-center justify-between mb-6">
                     <h3 className="text-xl font-semibold text-white">ML Trading Configuration</h3>
-                    <div className="flex items-center gap-2 text-sm text-gray-300">
-                        <Info className="h-4 w-4" />
-                        <span className="hidden md:inline">Parameters optimized based on your risk tolerance and investment goals</span>
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2 text-sm text-gray-300">
+                            <Info className="h-4 w-4" />
+                            <span className="hidden md:inline">Parameters optimized based on your risk tolerance and investment goals</span>
+                        </div>
+                        <div className="group relative">
+                            <button
+                                onClick={resetToDefaults}
+                                className="flex items-center gap-2 px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded-lg font-medium transition-all border border-blue-500/30 hover:border-blue-500/50"
+                            >
+                                <RotateCcw className="h-4 w-4" />
+                                <span className="hidden sm:inline">Reset to Defaults</span>
+                            </button>
+                            <div className="absolute top-full right-0 mt-2 hidden group-hover:block w-72 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg z-50">
+                                These values are recommended as they have been tested and proven to be effective with reasonable risk tolerance.
+                                <div className="absolute bottom-full right-4 border-4 border-transparent border-b-gray-900"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

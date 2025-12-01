@@ -26,13 +26,16 @@ class CryptoPortfolioOptimizer:
     Cryptocurrency Portfolio Optimizer using Modern Portfolio Theory
     """
 
+    # Class-level cache for loaded models to prevent TensorFlow retracing
+    _model_cache = {}
+
     def __init__(self, symbols: List[str], period: str = "1y"):
         """
         Initialize the portfolio optimizer
 
         Args:
             symbols: List of cryptocurrency symbols (e.g., ['BTC-USD', 'ETH-USD'])
-            period: Time period for historical data (1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max)
+            period: Time period for historical data (1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, ytd, max)
         """
         self.symbols = symbols
         self.period = period
@@ -205,9 +208,17 @@ class CryptoPortfolioOptimizer:
             # Create Efficient Frontier object
             self.ef = EfficientFrontier(self.mu, self.S)
 
-            # Perform optimization based on objective
+            # Perform optimization based on objective with fallback
             if objective == "max_sharpe":
-                weights = self.ef.max_sharpe(risk_free_rate=risk_free_rate)
+                try:
+                    weights = self.ef.max_sharpe(risk_free_rate=risk_free_rate)
+                except (ValueError, OptimizationError) as sharpe_error:
+                    # If max_sharpe fails (e.g., all negative returns), fall back to min_volatility
+                    print(f"⚠️  Max Sharpe failed: {sharpe_error}")
+                    print("📊 Falling back to minimum volatility optimization...")
+                    self.ef = EfficientFrontier(self.mu, self.S)
+                    weights = self.ef.min_volatility()
+                    objective = "min_volatility (fallback)"
             elif objective == "min_volatility":
                 weights = self.ef.min_volatility()
             elif objective == "efficient_return":
@@ -403,6 +414,7 @@ class CryptoPortfolioOptimizer:
     def get_lstm_predictions(self, interval: str = "4h") -> Dict[str, float]:
         """
         Get LSTM predictions for all symbols in the portfolio
+        Uses model caching to prevent TensorFlow retracing warnings
 
         Args:
             interval: Candle interval (should match trained models)
@@ -416,39 +428,61 @@ class CryptoPortfolioOptimizer:
         try:
             sys.path.append(os.path.join(os.path.dirname(__file__), "models"))
             from hybrid_predictor import HybridPredictor
+
             use_hybrid = True
         except ImportError:
             use_hybrid = False
 
         for symbol in self.symbols:
             try:
-                if use_hybrid:
-                    # Use HybridPredictor to automatically select best model
-                    predictor = HybridPredictor(
-                        symbol=symbol, 
-                        interval=interval, 
-                        lookback_periods=168,
-                        auto_select=False  # Use pre-configured model selection
-                    )
-                    
-                    # Check if model exists
-                    if not os.path.exists(predictor.predictor.model_path):
-                        print(f"⚠️ Model not found for {symbol}, using 0% prediction")
-                        predictions[symbol] = 0.0
-                        continue
-                else:
-                    # Fallback to vanilla IntradayPredictor
-                    predictor = IntradayPredictor(
-                        symbol=symbol, interval=interval, lookback_periods=168
-                    )
-                    
-                    if not os.path.exists(predictor.model_path):
-                        print(f"⚠️ Model not found for {symbol}, using 0% prediction")
-                        predictions[symbol] = 0.0
-                        continue
+                # Create cache key
+                cache_key = f"{symbol}_{interval}"
 
-                predictor.load_model()
-                recent_data = predictor.predictor.fetch_intraday_data(days_back=120) if use_hybrid else predictor.fetch_intraday_data(days_back=120)
+                # Check if model is already loaded in cache
+                if cache_key in CryptoPortfolioOptimizer._model_cache:
+                    predictor = CryptoPortfolioOptimizer._model_cache[cache_key]
+                    print(f"📦 Using cached model for {symbol}")
+                else:
+                    # Load model and add to cache
+                    if use_hybrid:
+                        # Use HybridPredictor to automatically select best model
+                        predictor = HybridPredictor(
+                            symbol=symbol,
+                            interval=interval,
+                            lookback_periods=168,
+                            auto_select=False,  # Use pre-configured model selection
+                        )
+
+                        # Check if model exists
+                        if not os.path.exists(predictor.predictor.model_path):
+                            print(
+                                f"⚠️ Model not found for {symbol}, using 0% prediction"
+                            )
+                            predictions[symbol] = 0.0
+                            continue
+                    else:
+                        # Fallback to vanilla IntradayPredictor
+                        predictor = IntradayPredictor(
+                            symbol=symbol, interval=interval, lookback_periods=168
+                        )
+
+                        if not os.path.exists(predictor.model_path):
+                            print(
+                                f"⚠️ Model not found for {symbol}, using 0% prediction"
+                            )
+                            predictions[symbol] = 0.0
+                            continue
+
+                    predictor.load_model()
+                    CryptoPortfolioOptimizer._model_cache[cache_key] = predictor
+                    print(f"✅ Loaded and cached model for {symbol}")
+
+                # Get predictions using cached model
+                recent_data = (
+                    predictor.predictor.fetch_intraday_data(days_back=120)
+                    if use_hybrid
+                    else predictor.fetch_intraday_data(days_back=120)
+                )
                 prediction = predictor.predict_next(recent_data)
                 predictions[symbol] = prediction["predicted_change_percent"]
 
@@ -461,6 +495,15 @@ class CryptoPortfolioOptimizer:
                 predictions[symbol] = 0.0
 
         return predictions
+
+    @classmethod
+    def clear_model_cache(cls):
+        """
+        Clear the model cache to free memory
+        Call this if you need to reload models or free up resources
+        """
+        cls._model_cache.clear()
+        print("🧹 Model cache cleared")
 
     #
     def calculate_expected_returns_with_lstm(
@@ -566,18 +609,58 @@ class CryptoPortfolioOptimizer:
             self.calculate_risk_matrix()
 
         try:
-            # Create Efficient Frontier with weight bounds
+            # Create Efficient Frontier with weight bounds@tf.function
             self.ef = EfficientFrontier(
                 self.mu,
                 self.S,
                 weight_bounds=(min_weight, max_weight),  # Add constraints here!
             )
 
-            # Perform optimization
+            # Perform optimization with fallback strategies
             if objective == "max_sharpe":
-                weights = self.ef.max_sharpe(risk_free_rate=risk_free_rate)
+                try:
+                    weights = self.ef.max_sharpe(risk_free_rate=risk_free_rate)
+                except (ValueError, OptimizationError) as sharpe_error:
+                    # If max_sharpe fails, try different fallback strategies
+                    print(f"⚠️  Max Sharpe failed: {sharpe_error}")
+
+                    # Try min_volatility with original constraints
+                    try:
+                        print("📊 Attempting minimum volatility optimization...")
+                        self.ef = EfficientFrontier(
+                            self.mu,
+                            self.S,
+                            weight_bounds=(min_weight, max_weight),
+                        )
+                        weights = self.ef.min_volatility()
+                        objective = "min_volatility (fallback)"
+                    except (ValueError, OptimizationError) as vol_error:
+                        # If that also fails, relax constraints (remove min_weight)
+                        print(f"⚠️  Min volatility with constraints failed: {vol_error}")
+                        print(
+                            "📊 Relaxing constraints (removing minimum weight requirement)..."
+                        )
+                        self.ef = EfficientFrontier(
+                            self.mu,
+                            self.S,
+                            weight_bounds=(0, 1),  # No minimum weight, max 100%
+                        )
+                        weights = self.ef.min_volatility()
+                        objective = "min_volatility (relaxed constraints)"
             elif objective == "min_volatility":
-                weights = self.ef.min_volatility()
+                try:
+                    weights = self.ef.min_volatility()
+                except OptimizationError as vol_error:
+                    # Relax constraints if min_volatility fails
+                    print(f"⚠️  Min volatility failed: {vol_error}")
+                    print("📊 Relaxing constraints...")
+                    self.ef = EfficientFrontier(
+                        self.mu,
+                        self.S,
+                        weight_bounds=(0, 1),
+                    )
+                    weights = self.ef.min_volatility()
+                    objective = "min_volatility (relaxed constraints)"
             elif objective == "efficient_return":
                 if target_return is None:
                     raise ValueError("target_return required for efficient_return")
@@ -587,7 +670,20 @@ class CryptoPortfolioOptimizer:
                     raise ValueError("target_volatility required for efficient_risk")
                 weights = self.ef.efficient_risk(target_volatility)
             else:
-                weights = self.ef.max_sharpe(risk_free_rate=risk_free_rate)
+                try:
+                    weights = self.ef.max_sharpe(risk_free_rate=risk_free_rate)
+                except (ValueError, OptimizationError):
+                    # Fallback for unknown objectives too
+                    print(
+                        "📊 Falling back to minimum volatility with relaxed constraints..."
+                    )
+                    self.ef = EfficientFrontier(
+                        self.mu,
+                        self.S,
+                        weight_bounds=(0, 1),
+                    )
+                    weights = self.ef.min_volatility()
+                    objective = "min_volatility (relaxed constraints)"
 
             # Clean weights
             cleaned_weights = self.ef.clean_weights()
@@ -649,11 +745,9 @@ def optimize_crypto_portfolio(
 
         # Create Efficient Frontier with weight constraints
         from pypfopt.efficient_frontier import EfficientFrontier
-        
+
         optimizer.ef = EfficientFrontier(
-            optimizer.mu,
-            optimizer.S,
-            weight_bounds=(min_weight, max_weight)
+            optimizer.mu, optimizer.S, weight_bounds=(min_weight, max_weight)
         )
 
         # Optimize portfolio based on objective
@@ -666,10 +760,10 @@ def optimize_crypto_portfolio(
 
         # Clean weights
         cleaned_weights = optimizer.ef.clean_weights()
-        
+
         # Calculate performance
         performance = optimizer.ef.portfolio_performance(verbose=False)
-        
+
         optimization_result = {
             "weights": cleaned_weights,
             "expected_return": performance[0],

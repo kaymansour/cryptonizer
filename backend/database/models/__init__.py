@@ -14,5 +14,11 @@ File structure:
 
 # Import your model modules here as you create them
 from .users import create_users_table
+from .portfolios import create_portfolios_table
+from .investment_preferences import create_investment_preferences_table
 
-__all__ = ["create_users_table"]
+__all__ = [
+    "create_users_table",
+    "create_portfolios_table",
+    "create_investment_preferences_table",
+]
