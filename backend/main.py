@@ -4,7 +4,14 @@ FastAPI server that provides cryptocurrency data from CoinGecko API with caching
 """
 
 from core.config import create_app, print_startup_banner
-from api.routes import coins, portfolio, backtest, debug, clerk_webhook
+from api.routes import (
+    coins,
+    portfolio,
+    backtest,
+    debug,
+    clerk_webhook,
+    saved_portfolios,
+)
 from database.connection import init_database
 
 
@@ -20,6 +27,7 @@ app.include_router(portfolio.router)
 app.include_router(backtest.router)
 app.include_router(debug.router)
 app.include_router(clerk_webhook.router)
+app.include_router(saved_portfolios.router)
 
 
 # Print startup information

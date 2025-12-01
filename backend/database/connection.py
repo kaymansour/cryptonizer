@@ -16,7 +16,7 @@ DB_PATH = os.path.join(os.path.dirname(__file__), "crypto_portfolio.db")
 def get_db_connection() -> sqlite3.Connection:
     """
     Get a connection to the SQLite database
-    
+
     Returns:
         sqlite3.Connection: Database connection with row factory enabled
     """
@@ -30,7 +30,7 @@ def get_db_cursor():
     """
     Context manager for database operations
     Automatically commits and closes connection
-    
+
     Usage:
         with get_db_cursor() as cursor:
             cursor.execute("SELECT * FROM table")
@@ -52,7 +52,7 @@ def get_db_cursor():
 def close_db_connection(conn: sqlite3.Connection):
     """
     Close a database connection
-    
+
     Args:
         conn: SQLite connection to close
     """
@@ -66,11 +66,17 @@ def init_database():
     This will be called on application startup
     """
     # Import all model modules to register their table creation
-    from database.models import create_users_table
-    
-    # Create all tables
+    from database.models.users import create_users_table
+    from database.models.portfolios import create_portfolios_table
+    from database.models.investment_preferences import (
+        create_investment_preferences_table,
+    )
+
+    # Create all tables in order (users first, then portfolios, then preferences)
     create_users_table()
-    
+    create_portfolios_table()
+    create_investment_preferences_table()
+
     print(f"Database initialized at: {DB_PATH}")
     print("✓ All tables created successfully")
 
@@ -78,7 +84,7 @@ def init_database():
 def database_exists() -> bool:
     """
     Check if the database file exists
-    
+
     Returns:
         bool: True if database file exists
     """
@@ -88,7 +94,7 @@ def database_exists() -> bool:
 if __name__ == "__main__":
     # Test database connection
     init_database()
-    
+
     with get_db_cursor() as cursor:
         cursor.execute("SELECT sqlite_version()")
         version = cursor.fetchone()[0]

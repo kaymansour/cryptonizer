@@ -259,10 +259,16 @@ export default function PortfolioOptimizer() {
 
       const data = await response.json();
 
-      // Store ML config in localStorage for backtest page
+      // Store ML config and preferences in localStorage for backtest and save functionality
       if (useLSTM && mlConfig) {
         localStorage.setItem('mlConfig', JSON.stringify(mlConfig));
       }
+
+      // Store user preferences for portfolio saving
+      localStorage.setItem('tradingFrequency', tradingFrequency);
+      localStorage.setItem('lossTolerance', lossTolerance);
+      localStorage.setItem('profitTaking', profitTaking);
+      localStorage.setItem('investmentHorizon', investmentHorizon);
 
       setResult(data);
       setShowQuestions(false);
