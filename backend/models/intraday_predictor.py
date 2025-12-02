@@ -277,8 +277,17 @@ class IntradayPredictor:
         Returns:
             Directional accuracy as percentage (0-100)
         """
-        true_direction = np.sign(y_true - y_prev)
-        pred_direction = np.sign(y_pred - y_prev)
+        true_diff = y_true - y_prev
+        pred_diff = y_pred - y_prev
+        
+        # Filter out cases where true price didn't change (direction is undefined)
+        # Zero price changes are excluded since there's no direction to predict
+        non_zero_mask = true_diff != 0
+        if not np.any(non_zero_mask):
+            return 0.0  # No price movements to evaluate
+        
+        true_direction = np.sign(true_diff[non_zero_mask])
+        pred_direction = np.sign(pred_diff[non_zero_mask])
         return float(np.mean(true_direction == pred_direction) * 100)
 
     def predict_next(self, recent_data: pd.DataFrame) -> Dict:
