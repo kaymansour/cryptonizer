@@ -9,6 +9,8 @@ import pandas as pd
 from datetime import datetime, timedelta
 from keras.models import Sequential, load_model
 from keras.layers import Dense, LSTM, Dropout, Input
+from keras.regularizers import l2
+from keras.callbacks import EarlyStopping
 from sklearn.preprocessing import MinMaxScaler
 import pickle
 import os
@@ -136,6 +138,7 @@ class IntradayPredictor:
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
         Prepare data for LSTM training with multiple features
+        FIXED: Split data BEFORE scaling to prevent data leakage
         """
         # Add technical indicators first
         data = self._add_features(data)
@@ -143,44 +146,64 @@ class IntradayPredictor:
         # Select features for prediction using class constant
         features = data[self.FEATURE_COLUMNS].values
 
-        # Scale the features
-        scaled_data = self.scaler.fit_transform(features)
-
-        # Create sequences
+        # Create sequences BEFORE scaling and splitting
         X, y = [], []
         for i in range(
-            self.lookback_periods, len(scaled_data) - self.prediction_horizon
+            self.lookback_periods, len(features) - self.prediction_horizon
         ):
-            X.append(scaled_data[i - self.lookback_periods : i])
+            X.append(features[i - self.lookback_periods : i])
             # Predict only the close price (first feature)
-            y.append(scaled_data[i + self.prediction_horizon, 0])
+            y.append(features[i + self.prediction_horizon, 0])
 
         X, y = np.array(X), np.array(y)
 
-        # Split into train and test
+        # Split into train and test FIRST
         split_idx = int(len(X) * 0.8)
         X_train, X_test = X[:split_idx], X[split_idx:]
         y_train, y_test = y[:split_idx], y[split_idx:]
 
-        print(f"Training data shape: {X_train.shape}")
-        print(f"Test data shape: {X_test.shape}")
+        # Fit scaler ONLY on training data
+        # Reshape for scaling: (samples * timesteps, features)
+        X_train_reshaped = X_train.reshape(-1, X_train.shape[2])
+        self.scaler.fit(X_train_reshaped)
 
-        return X_train, y_train, X_test, y_test
+        # Transform both train and test
+        X_train_scaled = self.scaler.transform(X_train_reshaped).reshape(X_train.shape)
+        X_test_reshaped = X_test.reshape(-1, X_test.shape[2])
+        X_test_scaled = self.scaler.transform(X_test_reshaped).reshape(X_test.shape)
+
+        # Scale y values (only close price - first feature)
+        y_train_reshaped = y_train.reshape(-1, 1)
+        y_test_reshaped = y_test.reshape(-1, 1)
+        
+        # Create temporary array with all features set to 0 except close price for inverse transform compatibility
+        temp_train = np.zeros((len(y_train), len(self.FEATURE_COLUMNS)))
+        temp_train[:, 0] = y_train
+        temp_test = np.zeros((len(y_test), len(self.FEATURE_COLUMNS)))
+        temp_test[:, 0] = y_test
+        
+        y_train_scaled = self.scaler.transform(temp_train)[:, 0]
+        y_test_scaled = self.scaler.transform(temp_test)[:, 0]
+
+        print(f"Training data shape: {X_train_scaled.shape}")
+        print(f"Test data shape: {X_test_scaled.shape}")
+
+        return X_train_scaled, y_train_scaled, X_test_scaled, y_test_scaled
 
     def build_model(self, input_shape: Tuple) -> Sequential:
         """
-        Build LSTM model for price prediction
+        Build LSTM model for price prediction with regularization
         """
         model = Sequential(
             [
                 Input(shape=input_shape),
-                LSTM(128, return_sequences=True),
+                LSTM(128, return_sequences=True, dropout=0.2, recurrent_dropout=0.2),
                 Dropout(0.2),
-                LSTM(64, return_sequences=True),
+                LSTM(64, return_sequences=True, dropout=0.2, recurrent_dropout=0.2),
                 Dropout(0.2),
-                LSTM(32),
+                LSTM(32, dropout=0.2, recurrent_dropout=0.2),
                 Dropout(0.2),
-                Dense(16, activation="relu"),
+                Dense(16, activation="relu", kernel_regularizer=l2(0.001)),
                 Dense(1),  # Predict next close price
             ]
         )
@@ -190,7 +213,7 @@ class IntradayPredictor:
 
     def train(self, epochs: int = 50, batch_size: int = 32) -> Dict:
         """
-        Train the LSTM model
+        Train the LSTM model with early stopping
         """
         print(f"\n{'='*60}")
         print(f"Training model for {self.symbol} ({self.interval} candles)")
@@ -203,6 +226,14 @@ class IntradayPredictor:
         # Build model
         self.model = self.build_model((X_train.shape[1], X_train.shape[2]))
 
+        # Early stopping callback
+        early_stop = EarlyStopping(
+            monitor='val_loss',
+            patience=10,
+            restore_best_weights=True,
+            verbose=1
+        )
+
         # Train
         history = self.model.fit(
             X_train,
@@ -210,6 +241,7 @@ class IntradayPredictor:
             validation_data=(X_test, y_test),
             epochs=epochs,
             batch_size=batch_size,
+            callbacks=[early_stop],
             verbose=1,
         )
 
@@ -334,6 +366,22 @@ class IntradayPredictor:
         with open(scaler_found, "rb") as f:
             self.scaler = pickle.load(f)
         print(f"✅ Model loaded from {model_found}")
+
+    def calculate_directional_accuracy(self, y_true: np.ndarray, y_pred: np.ndarray, y_prev: np.ndarray) -> float:
+        """
+        Calculate percentage of correctly predicted price directions.
+        
+        Args:
+            y_true: Actual future prices
+            y_pred: Predicted future prices
+            y_prev: Previous prices (to calculate direction from)
+            
+        Returns:
+            Directional accuracy as a percentage (0-100)
+        """
+        true_direction = np.sign(y_true - y_prev)
+        pred_direction = np.sign(y_pred - y_prev)
+        return float(np.mean(true_direction == pred_direction) * 100)
 
 
 def train_all_crypto_models(symbols: List[str], interval: str = "4h"):

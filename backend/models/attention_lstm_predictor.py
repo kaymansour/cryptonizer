@@ -435,20 +435,20 @@ class LightweightAttentionPredictor(IntradayPredictor):
         """
         inputs = Input(shape=input_shape)
 
-        # Single LSTM layer with more units
-        lstm = LSTM(128, return_sequences=True)(inputs)
+        # Single LSTM layer with dropout and recurrent dropout
+        lstm = LSTM(128, return_sequences=True, dropout=0.2, recurrent_dropout=0.2)(inputs)
         lstm = Dropout(0.2)(lstm)
 
         # Simple temporal attention
         attention = TemporalAttentionLayer(use_causal_mask=True)(lstm)
         attention = Add()([lstm, attention])  # Residual
 
-        # Final LSTM to collapse sequence
-        lstm2 = LSTM(64)(attention)
+        # Final LSTM with dropout and recurrent dropout
+        lstm2 = LSTM(64, dropout=0.2, recurrent_dropout=0.2)(attention)
         lstm2 = Dropout(0.2)(lstm2)
 
-        # Output
-        dense = Dense(32, activation="relu")(lstm2)
+        # Output with L2 regularization
+        dense = Dense(32, activation="relu", kernel_regularizer=l2(0.001))(lstm2)
         outputs = Dense(1)(dense)
 
         model = Model(inputs=inputs, outputs=outputs)
