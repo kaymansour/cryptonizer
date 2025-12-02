@@ -8,6 +8,7 @@ import { Progress } from './ui/progress';
 import { Button } from './ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import PredictionsCard from './PredictionsCard';
+import { SavePortfolioData } from '@/lib/api';
 import {
   Tabs,
   TabsList,
@@ -53,6 +54,7 @@ interface OptimizationResult {
 
 interface PortfolioResultsProps {
   result: OptimizationResult;
+  saveData?: SavePortfolioData; // Optional save data with ML config and preferences
 }
 
 const formatPercentage = (value: number) => {
@@ -80,7 +82,7 @@ const getSharpeRating = (sharpe: number) => {
   return { rating: 'Poor', color: 'text-red-600' };
 };
 
-export default function PortfolioResults({ result }: PortfolioResultsProps) {
+export default function PortfolioResults({ result, saveData }: PortfolioResultsProps) {
   const router = useRouter();
 
   // Add safety checks to prevent undefined errors
@@ -108,10 +110,25 @@ export default function PortfolioResults({ result }: PortfolioResultsProps) {
 
   const handleBacktestPortfolio = () => {
     // Store portfolio data in localStorage for the backtest page
+    // Include all optimization data and preferences if available
     const portfolioData = {
       symbols: result.symbols,
       weights: result.portfolio.weights,
       initial_investment: result.allocation?.total_value || 100000,
+      // Include additional data from saveData if available
+      ...(saveData && {
+        expected_return: saveData.expected_return,
+        volatility: saveData.volatility,
+        sharpe_ratio: saveData.sharpe_ratio,
+        objective: saveData.objective,
+        period: saveData.period,
+        allocation: saveData.allocation,
+        trading_frequency: saveData.trading_frequency,
+        loss_tolerance: saveData.loss_tolerance,
+        profit_taking: saveData.profit_taking,
+        investment_horizon: saveData.investment_horizon,
+        ml_config: saveData.ml_config,
+      }),
     };
 
     localStorage.setItem('portfolioData', JSON.stringify(portfolioData));

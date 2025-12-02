@@ -2,17 +2,31 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { ArrowLeft, TrendingUp, BarChart3, PieChart, DollarSign, Brain } from "lucide-react";
+import { ArrowLeft, TrendingUp, BarChart3, PieChart, DollarSign, Brain, Save } from "lucide-react";
 import { BentoCard, BentoGrid } from "@/components/ui/bento-grid";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import StrategyComparison from "@/components/StrategyComparison";
 import MLTradingDashboard from "@/components/MLTradingDashboard";
+import SavePortfolioDialog from "@/components/SavePortfolioDialog";
+import { SavePortfolioData } from "@/lib/api";
 
 interface PortfolioData {
   symbols: string[];
   weights: Record<string, number>;
   initial_investment: number;
+  // Optional fields from optimization
+  expected_return?: number;
+  volatility?: number;
+  sharpe_ratio?: number;
+  objective?: string;
+  period?: string;
+  allocation?: any;
+  trading_frequency?: string;
+  loss_tolerance?: string;
+  profit_taking?: string;
+  investment_horizon?: string;
+  ml_config?: any;
 }
 
 export default function BacktestPage() {
@@ -114,6 +128,28 @@ export default function BacktestPage() {
               <p className="text-muted-foreground">Historical performance analysis and strategy comparison</p>
             </div>
           </div>
+          <SavePortfolioDialog
+            portfolioData={{
+              name: '',
+              symbols: portfolioData.symbols,
+              weights: portfolioData.weights,
+              total_value: portfolioData.initial_investment,
+              expected_return: portfolioData.expected_return,
+              volatility: portfolioData.volatility,
+              sharpe_ratio: portfolioData.sharpe_ratio,
+              objective: portfolioData.objective,
+              period: portfolioData.period,
+              allocation: portfolioData.allocation,
+              trading_frequency: portfolioData.trading_frequency,
+              loss_tolerance: portfolioData.loss_tolerance,
+              profit_taking: portfolioData.profit_taking,
+              investment_horizon: portfolioData.investment_horizon,
+              ml_config: portfolioData.ml_config,
+            }}
+            buttonText="Save Portfolio"
+            buttonVariant="default"
+            buttonClassName="rounded-xl"
+          />
         </div>
 
         {/* Portfolio Summary - Bento Grid */}
