@@ -379,7 +379,7 @@ export default function PortfolioOptimizer() {
             href="#"
             cta=""
             background={
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
+              <div className="absolute inset-0 bg-linear-to-br from-primary/10 to-transparent" />
             }
           >
             <div className="relative z-10 flex flex-col h-full mt-4">
@@ -413,7 +413,7 @@ export default function PortfolioOptimizer() {
             href="#"
             cta=""
             background={
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
+              <div className="absolute inset-0 bg-linear-to-br from-primary/10 to-transparent" />
             }
           >
             <div className="relative z-10 mt-4 space-y-4">
@@ -543,7 +543,7 @@ export default function PortfolioOptimizer() {
             href="#"
             cta=""
             background={
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
+              <div className="absolute inset-0 bg-linear-to-br from-primary/10 to-transparent" />
             }
           >
             <div className="relative z-10 grid gap-2 mt-4">
@@ -576,7 +576,7 @@ export default function PortfolioOptimizer() {
             href="#"
             cta=""
             background={
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
+              <div className="absolute inset-0 bg-linear-to-br from-primary/10 to-transparent" />
             }
           >
             <div className="relative z-10 space-y-4 mt-4">
@@ -618,7 +618,7 @@ export default function PortfolioOptimizer() {
             href="#"
             cta=""
             background={
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
+              <div className="absolute inset-0 bg-linear-to-br from-primary/10 to-transparent" />
             }
           >
             <div className="relative z-10 grid gap-2 mt-4">
@@ -651,7 +651,7 @@ export default function PortfolioOptimizer() {
             href="#"
             cta=""
             background={
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
+              <div className="absolute inset-0 bg-linear-to-br from-primary/10 to-transparent" />
             }
           >
             <div className="relative z-10 grid gap-2 mt-4">
@@ -680,7 +680,7 @@ export default function PortfolioOptimizer() {
             href="#"
             cta=""
             background={
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
+              <div className="absolute inset-0 bg-linear-to-br from-primary/10 to-transparent" />
             }
           >
             <div className="relative z-10 grid gap-2 mt-4">
@@ -709,7 +709,7 @@ export default function PortfolioOptimizer() {
             href="#"
             cta=""
             background={
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
+              <div className="absolute inset-0 bg-linear-to-br from-primary/10 to-transparent" />
             }
           >
             <div className="relative z-10 grid gap-2 mt-4">
@@ -738,7 +738,7 @@ export default function PortfolioOptimizer() {
             href="#"
             cta=""
             background={
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
+              <div className="absolute inset-0 bg-linear-to-br from-primary/10 to-transparent" />
             }
           >
             <div className="relative z-10 grid gap-2 mt-4">
@@ -768,7 +768,7 @@ export default function PortfolioOptimizer() {
               href="#"
               cta=""
               background={
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
+                <div className="absolute inset-0 bg-linear-to-br from-primary/10 to-transparent" />
               }
             >
               <div className="relative z-10 mt-2">

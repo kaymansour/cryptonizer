@@ -534,7 +534,7 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
                         <button
                             onClick={runMLBacktest}
                             disabled={loading}
-                            className="w-full px-6 py-3 bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600 text-white rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed h-fit self-end"
+                            className="w-full px-6 py-3 bg-linear-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600 text-white rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed h-fit self-end"
                         >
                             {loading ? "Running ML Backtest..." : "Run ML Backtest"}
                         </button>
@@ -544,7 +544,7 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
 
             {/* Next Candle Prediction Card - Only show after backtest results */}
             {backtestResult && !loading && (
-                <div className="bg-gradient-to-br from-purple-500/10 to-blue-500/10 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6">
+                <div className="bg-linear-to-br from-purple-500/10 to-blue-500/10 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6">
                     <div className="flex items-center gap-3 mb-6">
                         <Brain className="h-6 w-6 text-purple-400" />
                         <h3 className="text-xl font-semibold text-white">Next Candle Prediction</h3>
@@ -583,7 +583,7 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
                             }
                         }}
                         disabled={predictionLoading}
-                        className="w-full md:w-auto px-6 py-3 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed mb-4"
+                        className="w-full md:w-auto px-6 py-3 bg-linear-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed mb-4"
                     >
                         {predictionLoading ? "Analyzing with your configuration..." : "Predict Next Candle"}
                     </button>
@@ -608,7 +608,7 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
                                 };
 
                                 return (
-                                    <div key={symbol} className={`bg-gradient-to-br ${getSignalColor(pred.signal)} backdrop-blur-sm rounded-xl p-5 border`}>
+                                    <div key={symbol} className={`bg-linear-to-br ${getSignalColor(pred.signal)} backdrop-blur-sm rounded-xl p-5 border`}>
                                         {/* Header */}
                                         <div className="flex items-center justify-between mb-4">
                                             <h4 className="text-white text-lg font-bold">{symbol.replace('-USD', '')}</h4>
@@ -665,7 +665,7 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
                                                 <div className="flex items-center gap-2">
                                                     <div className="flex-1 bg-gray-700 rounded-full h-2">
                                                         <div
-                                                            className="bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full transition-all"
+                                                            className="bg-linear-to-r from-purple-500 to-blue-500 h-2 rounded-full transition-all"
                                                             style={{ width: `${(pred.position_recommendation * 100)}%` }}
                                                         ></div>
                                                     </div>

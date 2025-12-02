@@ -128,7 +128,7 @@ export default function PredictionsCard({ symbols }: PredictionsCardProps) {
                 <Button
                     onClick={fetchPredictions}
                     disabled={loading}
-                    className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-xl h-12"
+                    className="w-full bg-linear-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-xl h-12"
                 >
                     {loading ? (
                         <>

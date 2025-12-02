@@ -55,7 +55,7 @@ const LoadingSkeleton = () => (
               </div>
             </div>
           </div>
-          <div className="absolute transform-gpu group-hover:bg-black/[.03] group-hover:dark:bg-neutral-800/10"></div>
+          <div className="absolute transform-gpu group-hover:bg-black/3 group-hover:dark:bg-neutral-800/10"></div>
         </div>
         <div className="relative col-span-3 flex flex-col justify-between transform-gpu dark:[border:1px_solid_rgba(255,255,255,.1)] lg:col-start-3 lg:col-end-4 lg:row-start-1 lg:row-end-2 border-primary/40 rounded-xl overflow-hidden">
           <div>
@@ -108,7 +108,7 @@ const LoadingSkeleton = () => (
               </div>
             </div>
           </div>
-          <div className="absolute transform-gpu group-hover:bg-black/[.03] group-hover:dark:bg-neutral-800/10"></div>
+          <div className="absolute transform-gpu group-hover:bg-black/3 group-hover:dark:bg-neutral-800/10"></div>
         </div>
         <div className="relative col-span-3 flex flex-col justify-between transform-gpu dark:[border:1px_solid_rgba(255,255,255,.1)] lg:col-start-1 lg:col-end-4 lg:row-start-2 lg:row-end-3 border-primary/40 rounded-xl overflow-hidden">
           <div>
@@ -121,7 +121,7 @@ const LoadingSkeleton = () => (
                 <Skeleton className="w-[112px] max-w-full" />
               </h3>
               <div className="max-w-lg">
-                <Skeleton className="w-[288px] max-w-full" />
+                <Skeleton className="w-2xs max-w-full" />
               </div>
             </div>
             <div className="mt-auto flex-1">
@@ -144,7 +144,7 @@ const LoadingSkeleton = () => (
               </div>
             </div>
           </div>
-          <div className="absolute transform-gpu group-hover:bg-black/[.03] group-hover:dark:bg-neutral-800/10"></div>
+          <div className="absolute transform-gpu group-hover:bg-black/3 group-hover:dark:bg-neutral-800/10"></div>
         </div>
       </div>
     </div>

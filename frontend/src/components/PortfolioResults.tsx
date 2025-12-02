@@ -176,7 +176,7 @@ export default function PortfolioResults({ result, saveData }: PortfolioResultsP
                   href="#"
                   cta=""
                   background={
-                    <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 to-transparent" />
+                    <div className="absolute inset-0 bg-linear-to-br from-green-500/10 to-transparent" />
                   }
                 >
                   <Tooltip>
@@ -205,7 +205,7 @@ export default function PortfolioResults({ result, saveData }: PortfolioResultsP
                   href="#"
                   cta=""
                   background={
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent" />
+                    <div className="absolute inset-0 bg-linear-to-br from-blue-500/10 to-transparent" />
                   }
                 >
                   <Tooltip>
@@ -234,7 +234,7 @@ export default function PortfolioResults({ result, saveData }: PortfolioResultsP
                   href="#"
                   cta=""
                   background={
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent" />
+                    <div className="absolute inset-0 bg-linear-to-br from-purple-500/10 to-transparent" />
                   }
                 >
                   <Tooltip>
@@ -266,7 +266,7 @@ export default function PortfolioResults({ result, saveData }: PortfolioResultsP
                   href="#"
                   cta=""
                   background={
-                    <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
+                    <div className="absolute inset-0 bg-linear-to-br from-primary/10 to-transparent" />
                   }
                 >
                   <Tooltip>
@@ -331,7 +331,7 @@ export default function PortfolioResults({ result, saveData }: PortfolioResultsP
                   href="#"
                   cta=""
                   background={
-                    <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/10 to-transparent" />
+                    <div className="absolute inset-0 bg-linear-to-br from-yellow-500/10 to-transparent" />
                   }
                 >
                   <Tooltip>
@@ -377,7 +377,7 @@ export default function PortfolioResults({ result, saveData }: PortfolioResultsP
                   href="#"
                   cta=""
                   background={
-                    <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
+                    <div className="absolute inset-0 bg-linear-to-br from-primary/10 to-transparent" />
                   }
                 >
                   <Tooltip>
@@ -439,7 +439,7 @@ export default function PortfolioResults({ result, saveData }: PortfolioResultsP
                 href="#"
                 cta=""
                 background={
-                  <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-transparent" />
+                  <div className="absolute inset-0 bg-linear-to-br from-purple-500/10 via-pink-500/10 to-transparent" />
                 }
               >
                 <div className="relative z-10 mt-4">
@@ -460,7 +460,7 @@ export default function PortfolioResults({ result, saveData }: PortfolioResultsP
                 href="#"
                 cta=""
                 background={
-                  <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent" />
+                  <div className="absolute inset-0 bg-linear-to-br from-emerald-500/10 to-transparent" />
                 }
               >
                 <div className="relative z-10 mt-4">

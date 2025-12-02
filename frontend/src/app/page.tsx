@@ -16,7 +16,7 @@ export default function LandingPage() {
           {/* Main Heading */}
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight leading-tight mb-6">
             Optimize Your
-            <span className="block bg-gradient-to-r from-primary via-purple-500 to-pink-500 bg-clip-text text-transparent">
+            <span className="block bg-linear-to-r from-primary via-purple-500 to-pink-500 bg-clip-text text-transparent">
               Crypto Portfolio
             </span>
             with AI
@@ -131,7 +131,7 @@ export default function LandingPage() {
 
       {/* CTA Section */}
       <section className="container mx-auto px-6 py-16 lg:py-24">
-        <div className="max-w-4xl mx-auto bg-gradient-to-r from-primary/10 via-purple-500/10 to-pink-500/10 border border-primary/20 rounded-3xl p-12 text-center">
+        <div className="max-w-4xl mx-auto bg-linear-to-r from-primary/10 via-purple-500/10 to-pink-500/10 border border-primary/20 rounded-3xl p-12 text-center">
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">
             Ready to Optimize Your Portfolio?
           </h2>

@@ -17,7 +17,7 @@ export default function CoinCard({ coin, currency, onViewDetails, isTopGainer }:
   return (
     <div
       className={`relative p-5 rounded-3xl backdrop-blur-2xl border shadow-md transition-all duration-300
-      bg-gradient-to-br from-white/10 to-white/5 dark:from-zinc-800/40 dark:to-zinc-900/20
+      bg-linear-to-br from-white/10 to-white/5 dark:from-zinc-800/40 dark:to-zinc-900/20
       hover:scale-[1.03] hover:shadow-xl hover:border-primary/40`}
     >
 
@@ -97,10 +97,10 @@ export default function CoinCard({ coin, currency, onViewDetails, isTopGainer }:
 
       {/* Button */}
       <div className="mt-5">
-   <button
+      <button
   onClick={() => onViewDetails(coin.id)}
   className="w-full py-2 rounded-xl border bg-white/5 dark:bg-zinc-800/50
-  hover:bg-gradient-to-r hover:from-purple-800/70 hover:to-indigo-900/70
+  hover:bg-linear-to-r hover:from-purple-800/70 hover:to-indigo-900/70
   hover:text-white transition-all duration-300 font-semibold tracking-wide"
 >
   View Details

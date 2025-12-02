@@ -322,7 +322,7 @@ export default function StrategyComparison({ portfolioData }: StrategyComparison
         <>
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-gradient-to-br from-emerald-500/20 to-emerald-600/20 backdrop-blur-xl rounded-2xl border border-emerald-400/30 p-6">
+            <div className="bg-linear-to-br from-emerald-500/20 to-emerald-600/20 backdrop-blur-xl rounded-2xl border border-emerald-400/30 p-6">
               <div className="flex items-center gap-3 mb-2">
                 <Trophy className="h-6 w-6 text-emerald-400" />
                 <h4 className="text-lg font-semibold text-white">Best Overall</h4>
@@ -333,7 +333,7 @@ export default function StrategyComparison({ portfolioData }: StrategyComparison
               <p className="text-emerald-200 text-sm mt-1">Highest risk-adjusted returns</p>
             </div>
 
-            <div className="bg-gradient-to-br from-blue-500/20 to-blue-600/20 backdrop-blur-xl rounded-2xl border border-blue-400/30 p-6">
+            <div className="bg-linear-to-br from-blue-500/20 to-blue-600/20 backdrop-blur-xl rounded-2xl border border-blue-400/30 p-6">
               <div className="flex items-center gap-3 mb-2">
                 <Target className="h-6 w-6 text-blue-400" />
                 <h4 className="text-lg font-semibold text-white">Most Consistent</h4>
@@ -344,7 +344,7 @@ export default function StrategyComparison({ portfolioData }: StrategyComparison
               <p className="text-blue-200 text-sm mt-1">Lowest volatility</p>
             </div>
 
-            <div className="bg-gradient-to-br from-purple-500/20 to-purple-600/20 backdrop-blur-xl rounded-2xl border border-purple-400/30 p-6">
+            <div className="bg-linear-to-br from-purple-500/20 to-purple-600/20 backdrop-blur-xl rounded-2xl border border-purple-400/30 p-6">
               <div className="flex items-center gap-3 mb-2">
                 <BarChart3 className="h-6 w-6 text-purple-400" />
                 <h4 className="text-lg font-semibold text-white">Lowest Risk</h4>

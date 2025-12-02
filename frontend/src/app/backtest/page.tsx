@@ -163,7 +163,7 @@ export default function BacktestPage() {
             href="#"
             cta=""
             background={
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
+              <div className="absolute inset-0 bg-linear-to-br from-primary/10 to-transparent" />
             }
           >
             <div className="relative z-10 mt-4">
@@ -190,7 +190,7 @@ export default function BacktestPage() {
             href="#"
             cta=""
             background={
-              <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 to-transparent" />
+              <div className="absolute inset-0 bg-linear-to-br from-green-500/10 to-transparent" />
             }
           >
             <div className="relative z-10 mt-4">
@@ -209,7 +209,7 @@ export default function BacktestPage() {
             href="#"
             cta=""
             background={
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent" />
+              <div className="absolute inset-0 bg-linear-to-br from-blue-500/10 to-transparent" />
             }
           >
             <div className="relative z-10 mt-4">

@@ -1,9 +1,10 @@
 "use client";
 
 import { Coin } from "@/types/Coin";
-import { convertPrice, formatNumber } from "@/utils/format";
+import { formatNumber } from "@/utils/format";
 import { Line } from "react-chartjs-2";
 import "chart.js/auto";
+import type { ChartOptions, TooltipItem } from "chart.js";
 import { useEffect, useState } from "react";
 import { FiChevronDown, FiChevronUp, FiTrendingUp, FiTrendingDown } from "react-icons/fi";
 import { BentoCard, BentoGrid } from "@/components/ui/bento-grid";
@@ -68,6 +69,7 @@ export default function CoinDetail({ coin, currency }: CoinDetailProps) {
     setImgError(false);
   }, [coin.id]);
 
+  // API already returns prices in the requested currency, so don't re-convert them.
   const currentPrice = coinDetail?.current_price ?? coin.current_price ?? 0;
   const marketCap = coinDetail?.market_cap ?? coin.market_cap ?? 0;
   const volume = coinDetail?.total_volume ?? coin.total_volume ?? 0;
@@ -95,7 +97,7 @@ export default function CoinDetail({ coin, currency }: CoinDetailProps) {
     ],
   };
 
-  const chartOptions = {
+  const chartOptions: ChartOptions<"line"> = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -109,8 +111,8 @@ export default function CoinDetail({ coin, currency }: CoinDetailProps) {
         borderColor: isPositive ? "#10b981" : "#ef4444",
         borderWidth: 1,
         callbacks: {
-          label: function (context: { parsed: { y: number } }) {
-            const value = context.parsed.y;
+          label: function (context: TooltipItem<"line">) {
+            const value = context.parsed.y ?? 0;
             // Format tooltip values based on the currency
             if (currency === "bhd") {
               return `${currencySymbol}${value.toLocaleString(undefined, {
@@ -216,7 +218,7 @@ export default function CoinDetail({ coin, currency }: CoinDetailProps) {
                   onError={() => setImgError(true)}
                 />
               ) : (
-                <div className="h-16 w-16 rounded-full shadow-lg border-2 border-border bg-gradient-to-br from-muted to-muted-foreground/20 flex items-center justify-center">
+                <div className="h-16 w-16 rounded-full shadow-lg border-2 border-border bg-linear-to-br from-muted to-muted-foreground/20 flex items-center justify-center">
                   <span className="text-muted-foreground text-sm font-bold">
                     {coin.symbol?.slice(0, 3).toUpperCase() || 'COIN'}
                   </span>
@@ -257,7 +259,7 @@ export default function CoinDetail({ coin, currency }: CoinDetailProps) {
           <div className="text-right">
             <div className="text-2xl md:text-3xl font-bold text-foreground">
               {currencySymbol}
-              {convertPrice(currentPrice, currency).toLocaleString(undefined, {
+              {currentPrice.toLocaleString(undefined, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: currentPrice < 1 ? 6 : 2,
               })}
@@ -279,7 +281,7 @@ export default function CoinDetail({ coin, currency }: CoinDetailProps) {
             href="#"
             cta=""
             background={
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
+              <div className="absolute inset-0 bg-linear-to-br from-primary/10 to-transparent" />
             }
           >
             <div className="relative z-10 h-80 mt-4">
@@ -302,7 +304,7 @@ export default function CoinDetail({ coin, currency }: CoinDetailProps) {
             href="#"
             cta=""
             background={
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
+              <div className="absolute inset-0 bg-linear-to-br from-primary/10 to-transparent" />
             }
           >
             <div className="relative z-10 space-y-4 mt-4">
@@ -310,14 +312,14 @@ export default function CoinDetail({ coin, currency }: CoinDetailProps) {
                 <span className="text-muted-foreground">Market Cap</span>
                 <span className="font-semibold text-foreground">
                   {currencySymbol}
-                  {formatNumber(convertPrice(marketCap, currency))}
+                  {formatNumber(marketCap)}
                 </span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-border">
                 <span className="text-muted-foreground">24h Volume</span>
                 <span className="font-semibold text-foreground">
                   {currencySymbol}
-                  {formatNumber(convertPrice(volume, currency))}
+                  {formatNumber(volume)}
                 </span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-border">
@@ -348,7 +350,7 @@ export default function CoinDetail({ coin, currency }: CoinDetailProps) {
             href="#"
             cta=""
             background={
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
+              <div className="absolute inset-0 bg-linear-to-br from-primary/10 to-transparent" />
             }
           >
             <div className="relative z-10 mt-4">
