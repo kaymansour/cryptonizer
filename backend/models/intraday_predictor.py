@@ -164,6 +164,8 @@ class IntradayPredictor:
 
         # Fit scaler ONLY on training data
         # Reshape for scaling: (samples * timesteps, features)
+        # The scaler expects 2D input, so we flatten the temporal dimension
+        # to fit the scaler on all timesteps of training sequences
         X_train_reshaped = X_train.reshape(-1, X_train.shape[2])
         self.scaler.fit(X_train_reshaped)
 
@@ -173,7 +175,8 @@ class IntradayPredictor:
         X_test_scaled = self.scaler.transform(X_test_reshaped).reshape(X_test.shape)
 
         # Scale y values using the same scaler (close price is first feature)
-        # Create dummy arrays with close price in the first column
+        # We use dummy arrays because the scaler was fitted on all features,
+        # and we need to scale y (which is only close price) consistently
         y_train_dummy = np.zeros((len(y_train), len(self.FEATURE_COLUMNS)))
         y_train_dummy[:, 0] = y_train
         y_test_dummy = np.zeros((len(y_test), len(self.FEATURE_COLUMNS)))
@@ -382,6 +385,7 @@ class IntradayPredictor:
         pred_change = y_pred - y_prev
         
         # Use a small threshold to avoid treating noise as direction
+        # For financial data, changes < 0.0001% are typically considered noise
         threshold = 1e-6
         
         # Get directions: 1 for up, -1 for down, 0 for no significant change
