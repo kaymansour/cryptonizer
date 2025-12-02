@@ -65,12 +65,31 @@ export default function MLPredictionChart({ predictions, symbol }: MLPredictionC
         predicted: pred.predicted_price,
     }));
 
-    // Calculate prediction accuracy
+    // Calculate prediction accuracy using MAPE (Mean Absolute Percentage Error)
     const accuracy = predictions.length > 0
         ? predictions.reduce((acc, pred) => {
             const error = Math.abs(pred.actual_price - pred.predicted_price);
             const percentError = (error / pred.actual_price) * 100;
             return acc + (100 - percentError);
+        }, 0) / predictions.length
+        : 0;
+
+    // Calculate directional accuracy (more meaningful for trading)
+    const directionalAccuracy = predictions.length > 1
+        ? predictions.slice(0, -1).reduce((acc, pred, idx) => {
+            const nextPred = predictions[idx + 1];
+            const actualDirection = nextPred.actual_price > pred.actual_price ? 1 : -1;
+            const predictedDirection = pred.predicted_price > pred.actual_price ? 1 : -1;
+            return acc + (actualDirection === predictedDirection ? 1 : 0);
+        }, 0) / (predictions.length - 1) * 100
+        : 0;
+
+    // Calculate average prediction error
+    const avgError = predictions.length > 0
+        ? predictions.reduce((acc, pred) => {
+            const error = Math.abs(pred.actual_price - pred.predicted_price);
+            const percentError = (error / pred.actual_price) * 100;
+            return acc + percentError;
         }, 0) / predictions.length
         : 0;
 
@@ -80,9 +99,19 @@ export default function MLPredictionChart({ predictions, symbol }: MLPredictionC
                 <h3 className="text-xl font-semibold text-white">
                     {symbol} - ML Predictions vs Actual Prices
                 </h3>
-                <div className="text-right">
-                    <p className="text-sm text-gray-300">Prediction Accuracy</p>
-                    <p className="text-2xl font-bold text-emerald-400">{accuracy.toFixed(2)}%</p>
+                <div className="text-right space-y-1">
+                    <div>
+                        <p className="text-xs text-gray-400">Price Accuracy (MAPE)</p>
+                        <p className="text-lg font-bold text-emerald-400">{accuracy.toFixed(2)}%</p>
+                    </div>
+                    <div>
+                        <p className="text-xs text-gray-400">Direction Accuracy</p>
+                        <p className="text-lg font-bold text-blue-400">{directionalAccuracy.toFixed(1)}%</p>
+                    </div>
+                    <div>
+                        <p className="text-xs text-gray-400">Avg Error</p>
+                        <p className="text-sm text-gray-300">{avgError.toFixed(2)}%</p>
+                    </div>
                 </div>
             </div>
 
