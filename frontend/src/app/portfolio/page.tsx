@@ -8,6 +8,8 @@ import Select from 'react-select';
 import PortfolioResults from "@/components/PortfolioResults";
 import { AlertDescription } from "@/components/ui/alert";
 import { BentoCard, BentoGrid } from "@/components/ui/bento-grid";
+import SavePortfolioDialog from "@/components/SavePortfolioDialog";
+import { SavePortfolioData } from "@/lib/api";
 
 interface OptimizationResult {
   success: boolean;
@@ -287,6 +289,38 @@ export default function PortfolioOptimizer() {
   };
 
   if (!showQuestions && result) {
+    // Prepare data for saving
+    const saveData: SavePortfolioData = {
+      name: '', // Will be filled in by dialog
+      symbols: result.symbols.map(s => `${s}-USD`),
+      weights: result.portfolio.weights,
+      total_value: result.allocation?.total_value || parseFloat(investmentAmount),
+      expected_return: result.portfolio.expected_return,
+      volatility: result.portfolio.volatility,
+      sharpe_ratio: result.portfolio.sharpe_ratio,
+      objective: result.portfolio.objective,
+      period: timePeriod,
+      allocation: result.allocation,
+      trading_frequency: tradingFrequency,
+      loss_tolerance: lossTolerance,
+      profit_taking: profitTaking,
+      investment_horizon: investmentHorizon,
+      ml_config: useLSTM ? {
+        signal_threshold: 2.0,
+        max_position_size: 0.6,
+        rsi_oversold: 25,
+        rsi_overbought: 60,
+        stop_loss_pct: 0.03,
+        trailing_stop_pct: 0.05,
+        trade_cooldown_periods: 6,
+        take_profit_levels: [0.03, 0.05, 0.08],
+        interval: '4h',
+        use_trend_filter: true,
+        use_rsi_filter: true,
+        use_volume_filter: true,
+      } : undefined,
+    };
+
     return (
       <div className="min-h-screen bg-background py-8">
         <div className="container mx-auto px-4">
@@ -295,15 +329,23 @@ export default function PortfolioOptimizer() {
               <h1 className="text-4xl font-bold text-foreground mb-2">Portfolio Optimization Results</h1>
               <p className="text-muted-foreground">Your optimized cryptocurrency portfolio</p>
             </div>
-            <Button
-              onClick={resetForm}
-              variant="outline"
-              className="rounded-xl"
-            >
-              Create New Portfolio
-            </Button>
+            <div className="flex gap-2">
+              <SavePortfolioDialog
+                portfolioData={saveData}
+                buttonText="Save Portfolio"
+                buttonVariant="default"
+                buttonClassName="rounded-xl"
+              />
+              <Button
+                onClick={resetForm}
+                variant="outline"
+                className="rounded-xl"
+              >
+                Create New Portfolio
+              </Button>
+            </div>
           </div>
-          <PortfolioResults result={result} />
+          <PortfolioResults result={result} saveData={saveData} />
         </div>
       </div>
     );
