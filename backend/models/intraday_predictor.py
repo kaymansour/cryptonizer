@@ -172,18 +172,16 @@ class IntradayPredictor:
         X_test_reshaped = X_test.reshape(-1, X_test.shape[2])
         X_test_scaled = self.scaler.transform(X_test_reshaped).reshape(X_test.shape)
 
-        # Scale y values (only close price - first feature)
-        y_train_reshaped = y_train.reshape(-1, 1)
-        y_test_reshaped = y_test.reshape(-1, 1)
+        # Scale y values using the same scaler (close price is first feature)
+        # Create dummy arrays with close price in the first column
+        y_train_dummy = np.zeros((len(y_train), len(self.FEATURE_COLUMNS)))
+        y_train_dummy[:, 0] = y_train
+        y_test_dummy = np.zeros((len(y_test), len(self.FEATURE_COLUMNS)))
+        y_test_dummy[:, 0] = y_test
         
-        # Create temporary array with all features set to 0 except close price for inverse transform compatibility
-        temp_train = np.zeros((len(y_train), len(self.FEATURE_COLUMNS)))
-        temp_train[:, 0] = y_train
-        temp_test = np.zeros((len(y_test), len(self.FEATURE_COLUMNS)))
-        temp_test[:, 0] = y_test
-        
-        y_train_scaled = self.scaler.transform(temp_train)[:, 0]
-        y_test_scaled = self.scaler.transform(temp_test)[:, 0]
+        # Scale using the fitted scaler and extract first column
+        y_train_scaled = self.scaler.transform(y_train_dummy)[:, 0]
+        y_test_scaled = self.scaler.transform(y_test_dummy)[:, 0]
 
         print(f"Training data shape: {X_train_scaled.shape}")
         print(f"Test data shape: {X_test_scaled.shape}")
@@ -379,9 +377,26 @@ class IntradayPredictor:
         Returns:
             Directional accuracy as a percentage (0-100)
         """
-        true_direction = np.sign(y_true - y_prev)
-        pred_direction = np.sign(y_pred - y_prev)
-        return float(np.mean(true_direction == pred_direction) * 100)
+        # Calculate price changes
+        true_change = y_true - y_prev
+        pred_change = y_pred - y_prev
+        
+        # Use a small threshold to avoid treating noise as direction
+        threshold = 1e-6
+        
+        # Get directions: 1 for up, -1 for down, 0 for no significant change
+        true_direction = np.where(np.abs(true_change) < threshold, 0, np.sign(true_change))
+        pred_direction = np.where(np.abs(pred_change) < threshold, 0, np.sign(pred_change))
+        
+        # Only count cases where there was a significant actual direction change
+        significant_changes = np.abs(true_direction) > 0
+        
+        if np.sum(significant_changes) == 0:
+            return 0.0  # No significant changes to evaluate
+        
+        # Calculate accuracy only on significant changes
+        correct = true_direction[significant_changes] == pred_direction[significant_changes]
+        return float(np.mean(correct) * 100)
 
 
 def train_all_crypto_models(symbols: List[str], interval: str = "4h"):
