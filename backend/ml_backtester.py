@@ -986,28 +986,32 @@ class MLTradingBacktester:
                     signal_data = self.generate_trading_signal(symbol, historical_slice)
                     self.execute_trade(symbol, signal_data, timestamp, current_idx=i)
 
-                    # Log prediction
-                    actual_next_price = signal_data["current_price"]
+                    # Log prediction - CRITICAL FIX: Get actual NEXT candle price, not current
+                    # The model predicts the next candle, so we compare against strictly future data
+                    actual_next_price = None
                     if i < len(timestamps) - 1:
                         next_timestamp = timestamps[i + 1]
-                        next_data = historical_data[symbol][
-                            historical_data[symbol].index <= next_timestamp
+                        # Get data ONLY at the next timestamp (not <= which includes current)
+                        next_candle = historical_data[symbol].loc[
+                            historical_data[symbol].index == next_timestamp
                         ]
-                        if not next_data.empty:
-                            actual_next_price = float(next_data["Close"].iloc[-1])
+                        if not next_candle.empty:
+                            actual_next_price = float(next_candle["Close"].iloc[0])
 
-                    self.predictions_log.append(
-                        {
-                            "timestamp": timestamp,
-                            "symbol": symbol,
-                            "current_price": signal_data["current_price"],
-                            "predicted_price": signal_data["predicted_price"],
-                            "actual_next_price": actual_next_price,
-                            "predicted_change": signal_data["predicted_change"],
-                            "confidence": signal_data["confidence"],
-                            "signal": signal_data["signal"],
-                        }
-                    )
+                    # Only log predictions where we have actual future data to compare
+                    if actual_next_price is not None:
+                        self.predictions_log.append(
+                            {
+                                "timestamp": timestamp,
+                                "symbol": symbol,
+                                "current_price": signal_data["current_price"],
+                                "predicted_price": signal_data["predicted_price"],
+                                "actual_next_price": actual_next_price,
+                                "predicted_change": signal_data["predicted_change"],
+                                "confidence": signal_data["confidence"],
+                                "signal": signal_data["signal"],
+                            }
+                        )
 
                 except Exception as e:
                     print(f"  ⚠️  Error processing {symbol} at {timestamp}: {str(e)}")
