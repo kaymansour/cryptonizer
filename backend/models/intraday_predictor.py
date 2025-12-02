@@ -9,6 +9,8 @@ import pandas as pd
 from datetime import datetime, timedelta
 from keras.models import Sequential, load_model
 from keras.layers import Dense, LSTM, Dropout, Input
+from keras.regularizers import l2
+from keras.callbacks import EarlyStopping
 from sklearn.preprocessing import MinMaxScaler
 import pickle
 import os
@@ -135,7 +137,10 @@ class IntradayPredictor:
         self, data: pd.DataFrame
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
-        Prepare data for LSTM training with multiple features
+        Prepare data for LSTM training with multiple features.
+        
+        IMPORTANT: To prevent data leakage, we split the data FIRST,
+        then fit the scaler ONLY on training data.
         """
         # Add technical indicators first
         data = self._add_features(data)
@@ -143,24 +148,39 @@ class IntradayPredictor:
         # Select features for prediction using class constant
         features = data[self.FEATURE_COLUMNS].values
 
-        # Scale the features
-        scaled_data = self.scaler.fit_transform(features)
+        # CRITICAL FIX: Split data BEFORE scaling to prevent data leakage
+        # We need to account for lookback_periods and prediction_horizon when splitting
+        # to ensure we create the same number of sequences
+        split_idx = int(len(features) * 0.8)
+        train_features = features[:split_idx]
+        test_features = features[split_idx:]
 
-        # Create sequences
-        X, y = [], []
+        # Fit scaler ONLY on training data to prevent data leakage
+        self.scaler.fit(train_features)
+        
+        # Transform both train and test using the scaler fitted on training data only
+        scaled_train = self.scaler.transform(train_features)
+        scaled_test = self.scaler.transform(test_features)
+
+        # Create training sequences
+        X_train, y_train = [], []
         for i in range(
-            self.lookback_periods, len(scaled_data) - self.prediction_horizon
+            self.lookback_periods, len(scaled_train) - self.prediction_horizon
         ):
-            X.append(scaled_data[i - self.lookback_periods : i])
+            X_train.append(scaled_train[i - self.lookback_periods : i])
             # Predict only the close price (first feature)
-            y.append(scaled_data[i + self.prediction_horizon, 0])
+            y_train.append(scaled_train[i + self.prediction_horizon, 0])
 
-        X, y = np.array(X), np.array(y)
+        # Create test sequences
+        X_test, y_test = [], []
+        for i in range(
+            self.lookback_periods, len(scaled_test) - self.prediction_horizon
+        ):
+            X_test.append(scaled_test[i - self.lookback_periods : i])
+            y_test.append(scaled_test[i + self.prediction_horizon, 0])
 
-        # Split into train and test
-        split_idx = int(len(X) * 0.8)
-        X_train, X_test = X[:split_idx], X[split_idx:]
-        y_train, y_test = y[:split_idx], y[split_idx:]
+        X_train, y_train = np.array(X_train), np.array(y_train)
+        X_test, y_test = np.array(X_test), np.array(y_test)
 
         print(f"Training data shape: {X_train.shape}")
         print(f"Test data shape: {X_test.shape}")
@@ -169,18 +189,22 @@ class IntradayPredictor:
 
     def build_model(self, input_shape: Tuple) -> Sequential:
         """
-        Build LSTM model for price prediction
+        Build LSTM model for price prediction with regularization to prevent overfitting.
+        
+        Includes:
+        - recurrent_dropout on LSTM layers to prevent overfitting in recurrent connections
+        - L2 regularization on Dense layers
         """
         model = Sequential(
             [
                 Input(shape=input_shape),
-                LSTM(128, return_sequences=True),
+                LSTM(128, return_sequences=True, dropout=0.2, recurrent_dropout=0.2),
                 Dropout(0.2),
-                LSTM(64, return_sequences=True),
+                LSTM(64, return_sequences=True, dropout=0.2, recurrent_dropout=0.2),
                 Dropout(0.2),
-                LSTM(32),
+                LSTM(32, dropout=0.2, recurrent_dropout=0.2),
                 Dropout(0.2),
-                Dense(16, activation="relu"),
+                Dense(16, activation="relu", kernel_regularizer=l2(0.001)),
                 Dense(1),  # Predict next close price
             ]
         )
@@ -190,7 +214,7 @@ class IntradayPredictor:
 
     def train(self, epochs: int = 50, batch_size: int = 32) -> Dict:
         """
-        Train the LSTM model
+        Train the LSTM model with early stopping to prevent overfitting.
         """
         print(f"\n{'='*60}")
         print(f"Training model for {self.symbol} ({self.interval} candles)")
@@ -203,13 +227,22 @@ class IntradayPredictor:
         # Build model
         self.model = self.build_model((X_train.shape[1], X_train.shape[2]))
 
-        # Train
+        # Early stopping to prevent overfitting
+        early_stop = EarlyStopping(
+            monitor='val_loss',
+            patience=10,
+            restore_best_weights=True,
+            verbose=1
+        )
+
+        # Train with early stopping
         history = self.model.fit(
             X_train,
             y_train,
             validation_data=(X_test, y_test),
             epochs=epochs,
             batch_size=batch_size,
+            callbacks=[early_stop],
             verbose=1,
         )
 
@@ -226,7 +259,27 @@ class IntradayPredictor:
             "test_mae": float(test_mae),
             "training_samples": len(X_train),
             "test_samples": len(X_test),
+            "epochs_trained": len(history.history["loss"]),
         }
+
+    def calculate_directional_accuracy(self, y_true: np.ndarray, y_pred: np.ndarray, y_prev: np.ndarray) -> float:
+        """
+        Calculate percentage of correctly predicted price directions.
+        
+        This is more meaningful for trading than MSE/MAE because it measures
+        how often the model correctly predicts if price will go up or down.
+        
+        Args:
+            y_true: Actual prices
+            y_pred: Predicted prices
+            y_prev: Previous prices (to calculate direction)
+            
+        Returns:
+            Directional accuracy as percentage (0-100)
+        """
+        true_direction = np.sign(y_true - y_prev)
+        pred_direction = np.sign(y_pred - y_prev)
+        return float(np.mean(true_direction == pred_direction) * 100)
 
     def predict_next(self, recent_data: pd.DataFrame) -> Dict:
         """
