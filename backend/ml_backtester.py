@@ -986,28 +986,30 @@ class MLTradingBacktester:
                     signal_data = self.generate_trading_signal(symbol, historical_slice)
                     self.execute_trade(symbol, signal_data, timestamp, current_idx=i)
 
-                    # Log prediction
-                    actual_next_price = signal_data["current_price"]
+                    # Log prediction vs actual ONLY if we have next candle data
                     if i < len(timestamps) - 1:
                         next_timestamp = timestamps[i + 1]
+                        # CRITICAL: Use < not <= to get data BEFORE next timestamp
+                        # We want the close price AT next_timestamp, not after it
                         next_data = historical_data[symbol][
-                            historical_data[symbol].index <= next_timestamp
+                            historical_data[symbol].index == next_timestamp
                         ]
                         if not next_data.empty:
-                            actual_next_price = float(next_data["Close"].iloc[-1])
-
-                    self.predictions_log.append(
-                        {
-                            "timestamp": timestamp,
-                            "symbol": symbol,
-                            "current_price": signal_data["current_price"],
-                            "predicted_price": signal_data["predicted_price"],
-                            "actual_next_price": actual_next_price,
-                            "predicted_change": signal_data["predicted_change"],
-                            "confidence": signal_data["confidence"],
-                            "signal": signal_data["signal"],
-                        }
-                    )
+                            actual_next_price = float(next_data["Close"].iloc[0])
+                            
+                            # Only log if we have valid future data
+                            self.predictions_log.append(
+                                {
+                                    "timestamp": timestamp,
+                                    "symbol": symbol,
+                                    "current_price": signal_data["current_price"],
+                                    "predicted_price": signal_data["predicted_price"],
+                                    "actual_next_price": actual_next_price,
+                                    "predicted_change": signal_data["predicted_change"],
+                                    "confidence": signal_data["confidence"],
+                                    "signal": signal_data["signal"],
+                                }
+                            )
 
                 except Exception as e:
                     print(f"  ⚠️  Error processing {symbol} at {timestamp}: {str(e)}")

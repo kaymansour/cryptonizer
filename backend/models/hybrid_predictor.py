@@ -316,17 +316,17 @@ if __name__ == "__main__":
     # Your portfolio
     portfolio = [
         "BTC-USD",
-        "ETH-USD",
-        "SOL-USD",
-        "AVAX-USD",
-        "LINK-USD",
-        "ADA-USD",
-        "DOT-USD",
-        "POL-USD",
-        "ATOM-USD",
-        "XRP-USD",
-        "BNB-USD",
-        "TRX-USD",
+        # "ETH-USD",
+        # "SOL-USD",
+        # "AVAX-USD",
+        # "LINK-USD",
+        # "ADA-USD",
+        # "DOT-USD",
+        # "POL-USD",
+        # "ATOM-USD",
+        # "XRP-USD",
+        # "BNB-USD",
+        # "TRX-USD",
     ]
 
     print("🚀 Training Hybrid Portfolio with Optimal Model Selection")

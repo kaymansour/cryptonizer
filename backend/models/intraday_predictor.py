@@ -139,6 +139,7 @@ class IntradayPredictor:
         """
         Prepare data for LSTM training with multiple features
         FIXED: Split data BEFORE scaling to prevent data leakage
+        FIXED: Predict returns (% change) instead of absolute prices to avoid autocorrelation
         """
         # Add technical indicators first
         data = self._add_features(data)
@@ -152,8 +153,12 @@ class IntradayPredictor:
             self.lookback_periods, len(features) - self.prediction_horizon
         ):
             X.append(features[i - self.lookback_periods : i])
-            # Predict only the close price (first feature)
-            y.append(features[i + self.prediction_horizon, 0])
+            # Predict PERCENTAGE CHANGE instead of absolute price
+            # This avoids the autocorrelation problem
+            current_price = features[i, 0]  # Close price at current timestep
+            future_price = features[i + self.prediction_horizon, 0]  # Close price at future timestep
+            percentage_change = (future_price - current_price) / current_price
+            y.append(percentage_change)
 
         X, y = np.array(X), np.array(y)
 
@@ -162,38 +167,32 @@ class IntradayPredictor:
         X_train, X_test = X[:split_idx], X[split_idx:]
         y_train, y_test = y[:split_idx], y[split_idx:]
 
-        # Fit scaler ONLY on training data
+        # Fit scaler ONLY on training data for X
         # Reshape for scaling: (samples * timesteps, features)
-        # The scaler expects 2D input, so we flatten the temporal dimension
-        # to fit the scaler on all timesteps of training sequences
         X_train_reshaped = X_train.reshape(-1, X_train.shape[2])
         self.scaler.fit(X_train_reshaped)
 
-        # Transform both train and test
+        # Transform both train and test X
         X_train_scaled = self.scaler.transform(X_train_reshaped).reshape(X_train.shape)
         X_test_reshaped = X_test.reshape(-1, X_test.shape[2])
         X_test_scaled = self.scaler.transform(X_test_reshaped).reshape(X_test.shape)
 
-        # Scale y values using the same scaler (close price is first feature)
-        # We use dummy arrays because the scaler was fitted on all features,
-        # and we need to scale y (which is only close price) consistently
-        y_train_dummy = np.zeros((len(y_train), len(self.FEATURE_COLUMNS)))
-        y_train_dummy[:, 0] = y_train
-        y_test_dummy = np.zeros((len(y_test), len(self.FEATURE_COLUMNS)))
-        y_test_dummy[:, 0] = y_test
-        
-        # Scale using the fitted scaler and extract first column
-        y_train_scaled = self.scaler.transform(y_train_dummy)[:, 0]
-        y_test_scaled = self.scaler.transform(y_test_dummy)[:, 0]
+        # For y (percentage returns), we DON'T scale - they're already normalized
+        # Returns are naturally bounded (typically -10% to +10% for most candles)
+        # and scaling them would lose interpretability
+        y_train_scaled = y_train
+        y_test_scaled = y_test
 
         print(f"Training data shape: {X_train_scaled.shape}")
         print(f"Test data shape: {X_test_scaled.shape}")
+        print(f"Predicting returns (not absolute prices)")
 
         return X_train_scaled, y_train_scaled, X_test_scaled, y_test_scaled
 
     def build_model(self, input_shape: Tuple) -> Sequential:
         """
         Build LSTM model for price prediction with regularization
+        Output: Predicted percentage return (not absolute price)
         """
         model = Sequential(
             [
@@ -205,7 +204,7 @@ class IntradayPredictor:
                 LSTM(32, dropout=0.2, recurrent_dropout=0.2),
                 Dropout(0.2),
                 Dense(16, activation="relu", kernel_regularizer=l2(0.001)),
-                Dense(1),  # Predict next close price
+                Dense(1),  # Output: percentage return (e.g., 0.02 for +2%)
             ]
         )
 
@@ -289,26 +288,29 @@ class IntradayPredictor:
         scaled = self.scaler.transform(features)
         X = scaled.reshape(1, self.lookback_periods, len(self.FEATURE_COLUMNS))
 
-        # Get prediction and inverse transform
-        prediction_scaled = self.model.predict(X, verbose=0)[0][0]
-        dummy = np.zeros((1, len(self.FEATURE_COLUMNS)))
-        dummy[0, 0] = prediction_scaled
-        prediction = self.scaler.inverse_transform(dummy)[0, 0]
-
-        # Calculate predicted change
+        # Get prediction (this is now a percentage return, not a price)
+        predicted_return = self.model.predict(X, verbose=0)[0][0]
+        
+        # Convert return to actual price
         current_price = float(recent_data["Close"].iloc[-1])
-        predicted_change = ((prediction - current_price) / current_price) * 100
+        predicted_price = current_price * (1 + predicted_return)
+        predicted_change = predicted_return * 100  # Convert to percentage
 
         return {
             "current_price": current_price,
-            "predicted_price": float(prediction),
-            "predicted_change_percent": predicted_change,
+            "predicted_price": float(predicted_price),
+            "predicted_change_percent": float(predicted_change),
             "signal": "BUY" if predicted_change > 0.5 else ("SELL" if predicted_change < -0.5 else "HOLD"),
         }
 
     def save_model(self):
         """Save model and scaler with explicit build to ensure Keras 3.x compatibility"""
         os.makedirs("models", exist_ok=True)
+        
+        # DELETE old scaler file if it exists (critical when switching from price to return prediction)
+        if os.path.exists(self.scaler_path):
+            os.remove(self.scaler_path)
+            print(f"🗑️  Deleted old scaler: {self.scaler_path}")
         
         # CRITICAL: Ensure model is fully built before saving in Keras 3.x
         # This prevents "Layer was never built" errors during loading
@@ -324,7 +326,8 @@ class IntradayPredictor:
         self.model.save(self.model_path)
         with open(self.scaler_path, "wb") as f:
             pickle.dump(self.scaler, f)
-        print(f"Model saved to {self.model_path}")
+        print(f"✅ Model saved to {self.model_path}")
+        print(f"✅ Scaler saved to {self.scaler_path}")
 
     def load_model(self):
         """Load pre-trained model and scaler - tries multiple naming conventions"""

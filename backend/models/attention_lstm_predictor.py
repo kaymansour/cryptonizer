@@ -341,7 +341,7 @@ class OptimizedAttentionLSTMPredictor(IntradayPredictor):
         dense1 = Dense(32, activation="relu", kernel_regularizer=l2(0.001), name="output_dense_1")(lstm3)
         dense1 = Dropout(0.2)(dense1)
         dense2 = Dense(16, activation="relu", kernel_regularizer=l2(0.001), name="output_dense_2")(dense1)
-        outputs = Dense(1, name="prediction_output")(dense2)
+        outputs = Dense(1, name="prediction_output")(dense2)  # Output: percentage return
 
         model = Model(inputs=inputs, outputs=outputs)
 
