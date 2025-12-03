@@ -1,0 +1,68 @@
+┏━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)         ┃ Output Shape      ┃   Param # ┃ Connected to       ┃
+┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━┩
+│ input_layer          │ (None, 168, 7)    │         0 │ -                  │
+│ (InputLayer)         │                   │           │                    │
+├──────────────────────┼───────────────────┼───────────┼────────────────────┤
+│ bidirectional        │ (None, 168, 128)  │    36,864 │ input_layer[0][0]  │
+│ (Bidirectional)      │                   │           │                    │
+├──────────────────────┼───────────────────┼───────────┼────────────────────┤
+│ batch_normalization  │ (None, 168, 128)  │       512 │ bidirectional[0][… │
+│ (BatchNormalization) │                   │           │                    │
+├──────────────────────┼───────────────────┼───────────┼────────────────────┤
+│ dropout (Dropout)    │ (None, 168, 128)  │         0 │ batch_normalizati… │
+├──────────────────────┼───────────────────┼───────────┼────────────────────┤
+│ multi_head_attentio… │ (None, 168, 128)  │    65,664 │ dropout[0][0]      │
+│ (MultiHeadAttention… │                   │           │                    │
+├──────────────────────┼───────────────────┼───────────┼────────────────────┤
+│ add (Add)            │ (None, 168, 128)  │         0 │ dropout[0][0],     │
+│                      │                   │           │ multi_head_attent… │
+├──────────────────────┼───────────────────┼───────────┼────────────────────┤
+│ batch_normalization… │ (None, 168, 128)  │       512 │ add[0][0]          │
+│ (BatchNormalization) │                   │           │                    │
+├──────────────────────┼───────────────────┼───────────┼────────────────────┤
+│ dropout_1 (Dropout)  │ (None, 168, 128)  │         0 │ batch_normalizati… │
+├──────────────────────┼───────────────────┼───────────┼────────────────────┤
+│ lstm_1 (LSTM)        │ (None, 168, 64)   │    49,408 │ dropout_1[0][0]    │
+├──────────────────────┼───────────────────┼───────────┼────────────────────┤
+│ batch_normalization… │ (None, 168, 64)   │       256 │ lstm_1[0][0]       │
+│ (BatchNormalization) │                   │           │                    │
+├──────────────────────┼───────────────────┼───────────┼────────────────────┤
+│ dropout_2 (Dropout)  │ (None, 168, 64)   │         0 │ batch_normalizati… │
+├──────────────────────┼───────────────────┼───────────┼────────────────────┤
+│ temporal_attention_… │ (None, 168, 64)   │    12,288 │ dropout_2[0][0]    │
+│ (TemporalAttentionL… │                   │           │                    │
+├──────────────────────┼───────────────────┼───────────┼────────────────────┤
+│ add_1 (Add)          │ (None, 168, 64)   │         0 │ dropout_2[0][0],   │
+│                      │                   │           │ temporal_attentio… │
+├──────────────────────┼───────────────────┼───────────┼────────────────────┤
+│ batch_normalization… │ (None, 168, 64)   │       256 │ add_1[0][0]        │
+│ (BatchNormalization) │                   │           │                    │
+├──────────────────────┼───────────────────┼───────────┼────────────────────┤
+│ lstm_2 (LSTM)        │ (None, 32)        │    12,416 │ batch_normalizati… │
+├──────────────────────┼───────────────────┼───────────┼────────────────────┤
+│ batch_normalization… │ (None, 32)        │       128 │ lstm_2[0][0]       │
+│ (BatchNormalization) │                   │           │                    │
+├──────────────────────┼───────────────────┼───────────┼────────────────────┤
+│ dropout_3 (Dropout)  │ (None, 32)        │         0 │ batch_normalizati… │
+├──────────────────────┼───────────────────┼───────────┼────────────────────┤
+│ output_dense_1       │ (None, 32)        │     1,056 │ dropout_3[0][0]    │
+│ (Dense)              │                   │           │                    │
+├──────────────────────┼───────────────────┼───────────┼────────────────────┤
+│ dropout_4 (Dropout)  │ (None, 32)        │         0 │ output_dense_1[0]… │
+├──────────────────────┼───────────────────┼───────────┼────────────────────┤
+│ output_dense_2       │ (None, 16)        │       528 │ dropout_4[0][0]    │
+│ (Dense)              │                   │           │                    │
+├──────────────────────┼───────────────────┼───────────┼────────────────────┤
+│ prediction_output    │ (None, 1)         │        17 │ output_dense_2[0]… │
+│ (Dense)              │                   │           │                    │
+└──────────────────────┴───────────────────┴───────────┴────────────────────┘
+
+
+Now refresh your browser and you should see a realistic accuracy percentage (typically 45-65%). The fix calculates:
+
+For each pair of consecutive predictions
+Compare the actual price movement (did it go up or down?)
+Compare the predicted price movement (did we predict up or down?)
+Count how many times we got the direction right
+This gives you true directional accuracy, which is what matters for trading!
