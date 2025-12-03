@@ -225,16 +225,25 @@ export default function PortfolioOptimizer() {
 
   const optimizePortfolio = async () => {
     if (selectedSymbols.length < 2) {
-      setError("Please select at least 2 cryptocurrencies for diversification");
+      setError("Please select at least 2 cryptocurrencies");
       return;
     }
     if (!riskTolerance || !investmentGoal) {
-      setError("Please answer all questions to determine the best strategy for you");
+      setError("Please answer all questions before optimizing");
       return;
     }
 
     setIsLoading(true);
     setError("");
+
+    console.log("=== Portfolio Optimization Request ===");
+    console.log("Selected Symbols:", selectedSymbols);
+    console.log("Investment Amount:", investmentAmount);
+    console.log("Risk Tolerance:", riskTolerance);
+    console.log("Investment Goal:", investmentGoal);
+    console.log("Time Period:", timePeriod);
+    console.log("Use LSTM:", useLSTM);
+    console.log("Objective:", getObjectiveFromAnswers());
 
     try {
       const objective = getObjectiveFromAnswers();
@@ -257,9 +266,16 @@ export default function PortfolioOptimizer() {
         }),
       });
 
-      if (!response.ok) throw new Error("Failed to optimize portfolio");
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Optimization failed:");
+        console.error("Status:", response.status);
+        console.error("Error response:", errorText);
+        throw new Error(`Failed to optimize portfolio: ${errorText}`);
+      }
 
       const data = await response.json();
+      console.log("Optimization Response:", data);
 
       // Store ML config and preferences in localStorage for backtest and save functionality
       if (useLSTM && mlConfig) {
