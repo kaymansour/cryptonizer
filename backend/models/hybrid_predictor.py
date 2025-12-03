@@ -3,6 +3,7 @@ Hybrid Model Predictor - Automatically selects best model per cryptocurrency
 Uses market characteristics to determine optimal architecture
 """
 
+import argparse
 import os
 import numpy as np
 import pandas as pd
@@ -138,14 +139,33 @@ class HybridPredictor:
             print(f"   Defaulting to vanilla LSTM")
             return "vanilla"
 
-    def train(self, epochs: int = 100, batch_size: int = 32) -> Dict:
-        """Train the selected model"""
+    def train(
+        self,
+        epochs: int = 100,
+        batch_size: int = 32,
+        learning_rate: float = 0.0002,
+        patience: int = 15,
+    ) -> Dict:
+        """
+        Train the selected model with configurable hyperparameters
+
+        Args:
+            epochs: Maximum number of training epochs
+            batch_size: Batch size for training
+            learning_rate: Learning rate for optimizer
+            patience: Early stopping patience
+        """
         print(f"\n{'='*70}")
         print(f"HYBRID TRAINING: {self.symbol}")
         print(f"Selected Architecture: {self.selected_model}")
         print(f"{'='*70}\n")
 
-        result = self.predictor.train(epochs=epochs, batch_size=batch_size)
+        result = self.predictor.train(
+            epochs=epochs,
+            batch_size=batch_size,
+            learning_rate=learning_rate,
+            patience=patience,
+        )
         result["model_type"] = self.selected_model
 
         return result
@@ -258,11 +278,37 @@ class EnsemblePredictor:
         }
 
 
-def train_hybrid_portfolio(symbols: list, interval: str = "4h", epochs: int = 100):
+def train_hybrid_portfolio(
+    symbols: list,
+    interval: str = "4h",
+    epochs: int = 100,
+    batch_size: int = 32,
+    learning_rate: float = 0.0002,
+    patience: int = 15,
+):
     """
     Train hybrid models for a portfolio of cryptocurrencies
     Automatically selects best architecture for each
+
+    Args:
+        symbols: List of cryptocurrency symbols
+        interval: Candle interval
+        epochs: Maximum training epochs
+        batch_size: Batch size for training
+        learning_rate: Learning rate for optimizer
+        patience: Early stopping patience
     """
+    print(f"\n{'='*80}")
+    print("HYBRID PORTFOLIO TRAINING CONFIGURATION")
+    print(f"{'='*80}")
+    print(f"Symbols: {symbols}")
+    print(f"Interval: {interval}")
+    print(f"Epochs: {epochs}")
+    print(f"Batch Size: {batch_size}")
+    print(f"Learning Rate: {learning_rate}")
+    print(f"Patience: {patience}")
+    print(f"{'='*80}\n")
+
     results = {}
 
     for symbol in symbols:
@@ -277,12 +323,19 @@ def train_hybrid_portfolio(symbols: list, interval: str = "4h", epochs: int = 10
                 auto_select=False,  # Use pre-configured selections
             )
 
-            result = predictor.train(epochs=epochs, batch_size=32)
+            result = predictor.train(
+                epochs=epochs,
+                batch_size=batch_size,
+                learning_rate=learning_rate,
+                patience=patience,
+            )
             results[symbol] = {
                 "success": True,
                 "model_type": result["model_type"],
                 "test_loss": result["test_loss"],
                 "test_mae": result["test_mae"],
+                "epochs_trained": result.get("epochs_trained", "N/A"),
+                "overfit_ratio": result.get("final_overfit_ratio", "N/A"),
             }
 
             print(f"\n✅ {symbol} training complete")
@@ -295,43 +348,107 @@ def train_hybrid_portfolio(symbols: list, interval: str = "4h", epochs: int = 10
             results[symbol] = {"success": False, "error": str(e)}
 
     # Summary
-    print(f"\n{'='*70}")
+    print(f"\n{'='*80}")
     print("TRAINING SUMMARY")
-    print(f"{'='*70}")
-    print(f"\n{'Symbol':<15} {'Model':<25} {'MSE':<15} {'MAE':<15}")
-    print("-" * 70)
+    print(f"{'='*80}")
+    print(
+        f"\n{'Symbol':<12} {'Model':<15} {'MSE':<12} {'MAE':<12} {'Epochs':<8} {'Overfit':<8}"
+    )
+    print("-" * 80)
 
     for symbol, result in results.items():
         if result["success"]:
+            epochs_str = str(result.get("epochs_trained", "N/A"))
+            overfit_str = (
+                f"{result.get('overfit_ratio', 'N/A'):.2f}"
+                if isinstance(result.get("overfit_ratio"), float)
+                else str(result.get("overfit_ratio", "N/A"))
+            )
             print(
-                f"{symbol:<15} {result['model_type']:<25} {result['test_loss']:<15.6f} {result['test_mae']:<15.6f}"
+                f"{symbol:<12} {result['model_type']:<15} {result['test_loss']:<12.6f} {result['test_mae']:<12.6f} {epochs_str:<8} {overfit_str:<8}"
             )
         else:
-            print(f"{symbol:<15} {'FAILED':<25}")
+            print(f"{symbol:<12} {'FAILED':<15}")
 
     return results
 
 
 if __name__ == "__main__":
-    # Your portfolio
-    portfolio = [
-        "BTC-USD",
-        # "ETH-USD",
-        # "SOL-USD",
-        # "AVAX-USD",
-        # "LINK-USD",
-        # "ADA-USD",
-        # "DOT-USD",
-        # "POL-USD",
-        # "ATOM-USD",
-        # "XRP-USD",
-        # "BNB-USD",
-        # "TRX-USD",
-    ]
+    parser = argparse.ArgumentParser(
+        description="Train Hybrid models for cryptocurrency prediction"
+    )
+    parser.add_argument(
+        "--symbols",
+        type=str,
+        nargs="+",
+        default=["BTC-USD"],
+        help="Cryptocurrency symbols to train (e.g., BTC-USD ETH-USD)",
+    )
+    parser.add_argument(
+        "--interval", type=str, default="4h", help="Candle interval (1h, 4h, etc.)"
+    )
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=100,
+        help="Maximum number of training epochs (default: 100)",
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=32,
+        help="Batch size for training (default: 32)",
+    )
+    parser.add_argument(
+        "--learning-rate",
+        type=float,
+        default=0.0002,
+        help="Learning rate for optimizer (default: 0.0002)",
+    )
+    parser.add_argument(
+        "--patience", type=int, default=15, help="Early stopping patience (default: 15)"
+    )
+    parser.add_argument(
+        "--all", action="store_true", help="Train all default cryptocurrencies"
+    )
+
+    args = parser.parse_args()
+
+    if args.all:
+        symbols = [
+            "BTC-USD",
+            "ETH-USD",
+            "SOL-USD",
+            "AVAX-USD",
+            "LINK-USD",
+            "ADA-USD",
+            "DOT-USD",
+            "ATOM-USD",
+            "XRP-USD",
+            "BNB-USD",
+            "TRX-USD",
+        ]
+    else:
+        symbols = args.symbols
 
     print("🚀 Training Hybrid Portfolio with Optimal Model Selection")
-    print("=" * 70)
+    print("=" * 80)
 
-    results = train_hybrid_portfolio(portfolio, interval="4h", epochs=100)
+    results = train_hybrid_portfolio(
+        symbols=symbols,
+        interval=args.interval,
+        epochs=args.epochs,
+        batch_size=args.batch_size,
+        learning_rate=args.learning_rate,
+        patience=args.patience,
+    )
 
     print("\n✅ Portfolio training complete!")
+    print(f"\nUsage examples:")
+    print(
+        f"  python hybrid_predictor.py --symbols BTC-USD ETH-USD --epochs 100 --learning-rate 0.0001"
+    )
+    print(f"  python hybrid_predictor.py --all --epochs 50 --batch-size 64")
+    print(
+        f"  python hybrid_predictor.py --symbols SOL-USD --learning-rate 0.0005 --patience 20"
+    )

@@ -3,6 +3,7 @@ Optimized Attention-LSTM Cryptocurrency Price Predictor
 Enhanced LSTM with multi-head attention mechanism for improved temporal pattern recognition
 """
 
+import argparse
 import numpy as np
 import pandas as pd
 from typing import Dict, List, Tuple
@@ -20,11 +21,12 @@ from keras.layers import (
     Add,
 )
 from keras.regularizers import l2
-from keras.callbacks import EarlyStopping, ReduceLROnPlateau
+from keras.callbacks import EarlyStopping, ReduceLROnPlateau, Callback
+from keras.optimizers import Adam
 from keras import backend as K
 import tensorflow as tf
 
-from intraday_predictor import IntradayPredictor
+from intraday_predictor import IntradayPredictor, TrainingLogger
 
 
 @tf.keras.utils.register_keras_serializable(package="CustomLayers")
@@ -41,7 +43,7 @@ class MultiHeadAttentionLayer(Layer):
         self.num_heads = num_heads
         self.key_dim = key_dim
         self.dropout_rate = dropout_rate
-        
+
         # Initialize sub-layers in __init__ instead of build()
         # This ensures they are properly tracked for serialization
         self.query_dense = None
@@ -56,38 +58,28 @@ class MultiHeadAttentionLayer(Layer):
 
         # Create Dense layers with unique names
         self.query_dense = Dense(
-            self.num_heads * self.key_dim, 
-            use_bias=False, 
-            name=f"{self.name}_query"
+            self.num_heads * self.key_dim, use_bias=False, name=f"{self.name}_query"
         )
         self.key_dense = Dense(
-            self.num_heads * self.key_dim, 
-            use_bias=False, 
-            name=f"{self.name}_key"
+            self.num_heads * self.key_dim, use_bias=False, name=f"{self.name}_key"
         )
         self.value_dense = Dense(
-            self.num_heads * self.key_dim, 
-            use_bias=False, 
-            name=f"{self.name}_value"
+            self.num_heads * self.key_dim, use_bias=False, name=f"{self.name}_value"
         )
-        self.output_dense = Dense(
-            self.features, 
-            name=f"{self.name}_output"
-        )
-        self.attention_dropout = Dropout(
-            self.dropout_rate, 
-            name=f"{self.name}_dropout"
-        )
-        
+        self.output_dense = Dense(self.features, name=f"{self.name}_output")
+        self.attention_dropout = Dropout(self.dropout_rate, name=f"{self.name}_dropout")
+
         # Explicitly build the Dense layers
         self.query_dense.build(input_shape)
         self.key_dense.build(input_shape)
         self.value_dense.build(input_shape)
-        self.output_dense.build((input_shape[0], input_shape[1], self.num_heads * self.key_dim))
+        self.output_dense.build(
+            (input_shape[0], input_shape[1], self.num_heads * self.key_dim)
+        )
 
         # Store input shape for serialization
         self._build_input_shape = input_shape
-        
+
         super(MultiHeadAttentionLayer, self).build(input_shape)
 
     def call(self, inputs, training=None):
@@ -156,7 +148,7 @@ class MultiHeadAttentionLayer(Layer):
 
     def get_build_config(self):
         return {"input_shape": self._build_input_shape}
-    
+
     def build_from_config(self, config):
         self.build(config["input_shape"])
 
@@ -175,7 +167,7 @@ class TemporalAttentionLayer(Layer):
     def __init__(self, use_causal_mask: bool = True, **kwargs):
         super(TemporalAttentionLayer, self).__init__(**kwargs)
         self.use_causal_mask = use_causal_mask
-        
+
         # Initialize weight attributes
         self.W_query = None
         self.W_key = None
@@ -205,7 +197,7 @@ class TemporalAttentionLayer(Layer):
 
         # Store input shape for serialization
         self._build_input_shape = input_shape
-        
+
         super(TemporalAttentionLayer, self).build(input_shape)
 
     def call(self, inputs):
@@ -241,7 +233,7 @@ class TemporalAttentionLayer(Layer):
 
     def get_build_config(self):
         return {"input_shape": self._build_input_shape}
-    
+
     def build_from_config(self, config):
         self.build(config["input_shape"])
 
@@ -280,7 +272,7 @@ class OptimizedAttentionLSTMPredictor(IntradayPredictor):
         self.model_path = f"models/{symbol}_{interval}_optimized_attention.keras"
         self.scaler_path = f"models/{symbol}_{interval}_optimized_attention_scaler.pkl"
 
-    def build_model(self, input_shape: Tuple) -> Model:
+    def build_model(self, input_shape: Tuple, learning_rate: float = 0.0002) -> Model:
         """
         Build Optimized Attention-LSTM model
 
@@ -289,6 +281,10 @@ class OptimizedAttentionLSTMPredictor(IntradayPredictor):
         - Multi-head attention with causal masking
         - Residual connections
         - Gradual dimension reduction
+
+        Args:
+            input_shape: Shape of input data (timesteps, features)
+            learning_rate: Learning rate for Adam optimizer (default: 0.0002)
         """
         inputs = Input(shape=input_shape)
 
@@ -338,51 +334,87 @@ class OptimizedAttentionLSTMPredictor(IntradayPredictor):
 
         # === Output Block ===
         # Explicitly build Dense layers with defined input shape
-        dense1 = Dense(32, activation="relu", kernel_regularizer=l2(0.001), name="output_dense_1")(lstm3)
+        dense1 = Dense(
+            32, activation="relu", kernel_regularizer=l2(0.001), name="output_dense_1"
+        )(lstm3)
         dense1 = Dropout(0.2)(dense1)
-        dense2 = Dense(16, activation="relu", kernel_regularizer=l2(0.001), name="output_dense_2")(dense1)
-        outputs = Dense(1, name="prediction_output")(dense2)  # Output: percentage return
+        dense2 = Dense(
+            16, activation="relu", kernel_regularizer=l2(0.001), name="output_dense_2"
+        )(dense1)
+        outputs = Dense(1, name="prediction_output")(
+            dense2
+        )  # Output: percentage return
 
         model = Model(inputs=inputs, outputs=outputs)
 
-        # Use a lower learning rate for attention models
-        from keras.optimizers import Adam
-
-        optimizer = Adam(learning_rate=0.0005)
-
+        optimizer = Adam(learning_rate=learning_rate)
         model.compile(optimizer=optimizer, loss="mse", metrics=["mae"])
+        print(f"Attention model compiled with learning rate: {learning_rate}")
 
         return model
 
-    def train(self, epochs: int = 100, batch_size: int = 32) -> Dict:
+    def train(
+        self,
+        epochs: int = 100,
+        batch_size: int = 32,
+        learning_rate: float = 0.0002,
+        patience: int = 15,
+    ) -> Dict:
         """
-        Train with early stopping and learning rate scheduling
+        Train with early stopping, learning rate scheduling, and detailed logging
+
+        Args:
+            epochs: Maximum number of training epochs
+            batch_size: Batch size for training
+            learning_rate: Initial learning rate for Adam optimizer
+            patience: Early stopping patience (epochs without improvement)
         """
-        print(f"\n{'='*60}")
+        print(f"\n{'='*80}")
         print(f"Training OPTIMIZED Attention-LSTM for {self.symbol} ({self.interval})")
-        print(f"{'='*60}")
+        print(f"{'='*80}")
+        print(f"Hyperparameters:")
+        print(f"  - Epochs: {epochs}")
+        print(f"  - Batch Size: {batch_size}")
+        print(f"  - Learning Rate: {learning_rate}")
+        print(f"  - Early Stop Patience: {patience}")
+        print(f"  - Attention Heads: {self.num_attention_heads}")
+        print(f"  - Bidirectional: {self.use_bidirectional}")
+        print(f"{'='*80}\n")
 
         # Fetch and prepare data
         data = self.fetch_intraday_data()
         X_train, y_train, X_test, y_test = self.prepare_training_data(data)
 
-        # Build model
-        self.model = self.build_model((X_train.shape[1], X_train.shape[2]))
+        # Build model with configurable learning rate
+        self.model = self.build_model(
+            (X_train.shape[1], X_train.shape[2]), learning_rate=learning_rate
+        )
 
         # Print model summary
         self.model.summary()
 
         # Callbacks for better training
+        training_logger = TrainingLogger(symbol=self.symbol)
+
         callbacks = [
             EarlyStopping(
-                monitor="val_loss", patience=15, restore_best_weights=True, verbose=1
+                monitor="val_loss",
+                patience=patience,
+                restore_best_weights=True,
+                verbose=1,
             ),
             ReduceLROnPlateau(
                 monitor="val_loss", factor=0.5, patience=5, min_lr=0.00001, verbose=1
             ),
+            training_logger,
         ]
 
-        # Train with more epochs but early stopping
+        print(
+            f"\n{'Epoch':>5} | {'Train Loss':>12} | {'Val Loss':>12} | {'Train MAE':>12} | {'Val MAE':>12} | {'Ratio':>6}"
+        )
+        print("-" * 80)
+
+        # Train with verbose=0 since we have custom logging
         history = self.model.fit(
             X_train,
             y_train,
@@ -390,13 +422,48 @@ class OptimizedAttentionLSTMPredictor(IntradayPredictor):
             epochs=epochs,
             batch_size=batch_size,
             callbacks=callbacks,
-            verbose=1,
+            verbose=0,  # Disabled default logging, using custom logger
         )
+
+        # Training summary
+        print(f"\n{'='*80}")
+        print("TRAINING SUMMARY")
+        print(f"{'='*80}")
+
+        epochs_trained = len(history.history["loss"])
+        final_train_loss = history.history["loss"][-1]
+        final_val_loss = history.history["val_loss"][-1]
+        best_val_loss = min(history.history["val_loss"])
+        best_epoch = history.history["val_loss"].index(best_val_loss) + 1
+
+        print(f"Total Epochs Trained: {epochs_trained}")
+        print(f"Best Validation Loss: {best_val_loss:.6f} (Epoch {best_epoch})")
+        print(f"Final Train Loss: {final_train_loss:.6f}")
+        print(f"Final Val Loss: {final_val_loss:.6f}")
+
+        # Check for overfitting
+        overfit_ratio = final_val_loss / final_train_loss if final_train_loss > 0 else 1
+        if overfit_ratio > 1.5:
+            print(
+                f"\n⚠️  WARNING: Model may be OVERFITTING (Val/Train ratio: {overfit_ratio:.2f})"
+            )
+            print("   Consider: Lower learning rate, more regularization, or more data")
+        elif overfit_ratio < 0.9:
+            print(
+                f"\n⚠️  WARNING: Model may be UNDERFITTING (Val/Train ratio: {overfit_ratio:.2f})"
+            )
+            print(
+                "   Consider: Higher learning rate, more epochs, or more complex model"
+            )
+        else:
+            print(
+                f"\n✅ Model appears to be learning well (Val/Train ratio: {overfit_ratio:.2f})"
+            )
 
         # Evaluate
         test_loss, test_mae = self.model.evaluate(X_test, y_test, verbose=0)
-        print(f"\nTest Loss (MSE): {test_loss:.6f}")
-        print(f"Test MAE: {test_mae:.6f}")
+        print(f"\nFinal Test Loss (MSE): {test_loss:.6f}")
+        print(f"Final Test MAE: {test_mae:.6f}")
 
         # Save model and scaler
         self.save_model()
@@ -406,7 +473,10 @@ class OptimizedAttentionLSTMPredictor(IntradayPredictor):
             "test_mae": float(test_mae),
             "training_samples": len(X_train),
             "test_samples": len(X_test),
-            "epochs_trained": len(history.history["loss"]),
+            "epochs_trained": epochs_trained,
+            "best_val_loss": float(best_val_loss),
+            "best_epoch": best_epoch,
+            "final_overfit_ratio": float(overfit_ratio),
         }
 
 
@@ -436,7 +506,9 @@ class LightweightAttentionPredictor(IntradayPredictor):
         inputs = Input(shape=input_shape)
 
         # Single LSTM layer with dropout and recurrent dropout
-        lstm = LSTM(128, return_sequences=True, dropout=0.2, recurrent_dropout=0.2)(inputs)
+        lstm = LSTM(128, return_sequences=True, dropout=0.2, recurrent_dropout=0.2)(
+            inputs
+        )
         lstm = Dropout(0.2)(lstm)
 
         # Simple temporal attention
@@ -458,7 +530,11 @@ class LightweightAttentionPredictor(IntradayPredictor):
 
 
 def compare_all_models(
-    symbol: str, interval: str = "4h", epochs: int = 100, batch_size: int = 32
+    symbol: str,
+    interval: str = "4h",
+    epochs: int = 100,
+    batch_size: int = 32,
+    learning_rate: float = 0.0002,
 ) -> Dict:
     """
     Compare all three model architectures on the same data
@@ -485,6 +561,7 @@ def compare_all_models(
         f.write(f"{'='*70}\n")
         f.write(f"MODEL COMPARISON: {symbol} ({interval} candles)\n")
         f.write(f"Training Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"Learning Rate: {learning_rate}\n")
         f.write(f"{'='*70}\n\n")
 
         # 1.  Vanilla LSTM
@@ -493,13 +570,21 @@ def compare_all_models(
         f.flush()
 
         vanilla = IntradayPredictor(symbol=symbol, interval=interval)
-        results["vanilla"] = vanilla.train(epochs=epochs, batch_size=batch_size)
+        results["vanilla"] = vanilla.train(
+            epochs=epochs, batch_size=batch_size, learning_rate=learning_rate
+        )
 
         f.write(f"✅ Vanilla LSTM Complete:\n")
         f.write(f"   Test Loss (MSE): {results['vanilla']['test_loss']:.6f}\n")
         f.write(f"   Test MAE: {results['vanilla']['test_mae']:.6f}\n")
         f.write(f"   Training Samples: {results['vanilla']['training_samples']}\n")
-        f.write(f"   Test Samples: {results['vanilla']['test_samples']}\n\n")
+        f.write(f"   Test Samples: {results['vanilla']['test_samples']}\n")
+        f.write(
+            f"   Epochs Trained: {results['vanilla'].get('epochs_trained', 'N/A')}\n"
+        )
+        f.write(
+            f"   Overfit Ratio: {results['vanilla'].get('final_overfit_ratio', 'N/A')}\n\n"
+        )
         f.flush()
 
         print("\n" + "-" * 70 + "\n")
@@ -527,14 +612,19 @@ def compare_all_models(
         f.flush()
 
         optimized = OptimizedAttentionLSTMPredictor(symbol=symbol, interval=interval)
-        results["optimized"] = optimized.train(epochs=epochs, batch_size=batch_size)
+        results["optimized"] = optimized.train(
+            epochs=epochs, batch_size=batch_size, learning_rate=learning_rate
+        )
 
         f.write(f"✅ Optimized Attention Complete:\n")
         f.write(f"   Test Loss (MSE): {results['optimized']['test_loss']:.6f}\n")
         f.write(f"   Test MAE: {results['optimized']['test_mae']:.6f}\n")
         f.write(f"   Training Samples: {results['optimized']['training_samples']}\n")
         f.write(f"   Test Samples: {results['optimized']['test_samples']}\n")
-        f.write(f"   Epochs Trained: {results['optimized']['epochs_trained']}\n\n")
+        f.write(f"   Epochs Trained: {results['optimized']['epochs_trained']}\n")
+        f.write(
+            f"   Overfit Ratio: {results['optimized'].get('final_overfit_ratio', 'N/A')}\n\n"
+        )
         f.flush()
 
         # Print comparison
@@ -578,18 +668,103 @@ def compare_all_models(
 
 
 if __name__ == "__main__":
-    # Test on BTC and ETH
-    for symbol in [
-        "BTC-USD",
-        "ETH-USD",
-        "ADA-USD",
-        "SOL-USD",
-        "DOT-USD",
-        "MATIC-USD",
-        "AVAX-USD",
-        "LINK-USD",
-        "ATOM-USD",
-        "XRP-USD",
-    ]:
-        results = compare_all_models(symbol, interval="4h", epochs=100, batch_size=32)
-        print("\n" + "=" * 70 + "\n")
+    parser = argparse.ArgumentParser(
+        description="Train Attention-LSTM models for cryptocurrency prediction"
+    )
+    parser.add_argument(
+        "--symbols",
+        type=str,
+        nargs="+",
+        default=["BTC-USD"],
+        help="Cryptocurrency symbols to train (e.g., BTC-USD ETH-USD)",
+    )
+    parser.add_argument(
+        "--interval", type=str, default="4h", help="Candle interval (1h, 4h, etc.)"
+    )
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=100,
+        help="Maximum number of training epochs (default: 100)",
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=32,
+        help="Batch size for training (default: 32)",
+    )
+    parser.add_argument(
+        "--learning-rate",
+        type=float,
+        default=0.0002,
+        help="Learning rate for optimizer (default: 0.0002)",
+    )
+    parser.add_argument(
+        "--patience", type=int, default=15, help="Early stopping patience (default: 15)"
+    )
+    parser.add_argument(
+        "--compare",
+        action="store_true",
+        help="Run comparison between vanilla and attention models",
+    )
+    parser.add_argument(
+        "--all", action="store_true", help="Train all default cryptocurrencies"
+    )
+
+    args = parser.parse_args()
+
+    if args.all:
+        symbols = [
+            "BTC-USD",
+            "ETH-USD",
+            "ADA-USD",
+            "SOL-USD",
+            "DOT-USD",
+            "MATIC-USD",
+            "AVAX-USD",
+            "LINK-USD",
+            "ATOM-USD",
+            "XRP-USD",
+        ]
+    else:
+        symbols = args.symbols
+
+    if args.compare:
+        # Run comparison for each symbol
+        for symbol in symbols:
+            results = compare_all_models(
+                symbol,
+                interval=args.interval,
+                epochs=args.epochs,
+                batch_size=args.batch_size,
+            )
+            print("\n" + "=" * 70 + "\n")
+    else:
+        # Train only Optimized Attention model
+        print("🚀 Training Optimized Attention-LSTM Models")
+        print("=" * 80)
+
+        for symbol in symbols:
+            print(f"\n🔷 Training {symbol}...")
+            predictor = OptimizedAttentionLSTMPredictor(
+                symbol=symbol, interval=args.interval
+            )
+            result = predictor.train(
+                epochs=args.epochs,
+                batch_size=args.batch_size,
+                learning_rate=args.learning_rate,
+                patience=args.patience,
+            )
+            print(
+                f"✅ {symbol} complete: MSE={result['test_loss']:.6f}, MAE={result['test_mae']:.6f}"
+            )
+
+    print("\n✅ Training complete!")
+    print(f"\nUsage examples:")
+    print(
+        f"  python attention_lstm_predictor.py --symbols BTC-USD ETH-USD --epochs 100 --learning-rate 0.0001"
+    )
+    print(f"  python attention_lstm_predictor.py --all --compare")
+    print(
+        f"  python attention_lstm_predictor.py --symbols SOL-USD --learning-rate 0.0005 --patience 20"
+    )

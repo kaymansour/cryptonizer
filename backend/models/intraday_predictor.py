@@ -3,6 +3,7 @@ Intraday Cryptocurrency Price Predictor using LSTM
 Trains models on 1h or 4h candle data for short-term trading signals
 """
 
+import argparse
 import yfinance as yf
 import numpy as np
 import pandas as pd
@@ -10,11 +11,37 @@ from datetime import datetime, timedelta
 from keras.models import Sequential, load_model
 from keras.layers import Dense, LSTM, Dropout, Input
 from keras.regularizers import l2
-from keras.callbacks import EarlyStopping
+from keras.callbacks import EarlyStopping, Callback
+from keras.optimizers import Adam
 from sklearn.preprocessing import MinMaxScaler
 import pickle
 import os
 from typing import Dict, List, Tuple, Optional
+
+
+class TrainingLogger(Callback):
+    """Custom callback to log training progress per epoch"""
+
+    def __init__(self, symbol: str = ""):
+        super().__init__()
+        self.symbol = symbol
+
+    def on_epoch_end(self, epoch, logs=None):
+        logs = logs or {}
+        train_loss = logs.get("loss", 0)
+        val_loss = logs.get("val_loss", 0)
+        train_mae = logs.get("mae", 0)
+        val_mae = logs.get("val_mae", 0)
+
+        # Calculate if model is overfitting (train much better than val)
+        overfit_ratio = val_loss / train_loss if train_loss > 0 else 1
+        overfit_warning = " ⚠️ OVERFITTING" if overfit_ratio > 1.5 else ""
+
+        print(
+            f"Epoch {epoch + 1:3d} | Train Loss: {train_loss:.6f} | Val Loss: {val_loss:.6f} | "
+            f"Train MAE: {train_mae:.6f} | Val MAE: {val_mae:.6f} | "
+            f"Ratio: {overfit_ratio:.2f}{overfit_warning}"
+        )
 
 
 class IntradayPredictor:
@@ -77,23 +104,31 @@ class IntradayPredictor:
                 raise ValueError(f"No data retrieved for {self.symbol}")
 
             print(f"✅ Retrieved {len(data)} {self.interval} candles")
-            
+
             # Verify the interval by checking time differences
             if len(data) > 1:
                 time_diff = data.index[1] - data.index[0]
-                print(f"✅ Verified interval: First candle time difference = {time_diff}")
-                
+                print(
+                    f"✅ Verified interval: First candle time difference = {time_diff}"
+                )
+
                 # Calculate expected candles for verification
                 days_diff = (end_date - start_date).days
                 if self.interval == "4h":
                     expected_candles = days_diff * 6  # 6 candles per day for 4h
-                    print(f"   Expected ~{expected_candles} candles for {days_diff} days at 4h interval")
+                    print(
+                        f"   Expected ~{expected_candles} candles for {days_diff} days at 4h interval"
+                    )
                 elif self.interval == "1h":
                     expected_candles = days_diff * 24  # 24 candles per day for 1h
-                    print(f"   Expected ~{expected_candles} candles for {days_diff} days at 1h interval")
+                    print(
+                        f"   Expected ~{expected_candles} candles for {days_diff} days at 1h interval"
+                    )
                 elif self.interval == "1d":
                     expected_candles = days_diff  # 1 candle per day
-                    print(f"   Expected ~{expected_candles} candles for {days_diff} days at 1d interval")
+                    print(
+                        f"   Expected ~{expected_candles} candles for {days_diff} days at 1d interval"
+                    )
 
             # Return raw data - features will be added when needed
             return data
@@ -149,14 +184,14 @@ class IntradayPredictor:
 
         # Create sequences BEFORE scaling and splitting
         X, y = [], []
-        for i in range(
-            self.lookback_periods, len(features) - self.prediction_horizon
-        ):
+        for i in range(self.lookback_periods, len(features) - self.prediction_horizon):
             X.append(features[i - self.lookback_periods : i])
             # Predict PERCENTAGE CHANGE instead of absolute price
             # This avoids the autocorrelation problem
             current_price = features[i, 0]  # Close price at current timestep
-            future_price = features[i + self.prediction_horizon, 0]  # Close price at future timestep
+            future_price = features[
+                i + self.prediction_horizon, 0
+            ]  # Close price at future timestep
             percentage_change = (future_price - current_price) / current_price
             y.append(percentage_change)
 
@@ -189,10 +224,16 @@ class IntradayPredictor:
 
         return X_train_scaled, y_train_scaled, X_test_scaled, y_test_scaled
 
-    def build_model(self, input_shape: Tuple) -> Sequential:
+    def build_model(
+        self, input_shape: Tuple, learning_rate: float = 0.0002
+    ) -> Sequential:
         """
         Build LSTM model for price prediction with regularization
         Output: Predicted percentage return (not absolute price)
+
+        Args:
+            input_shape: Shape of input data (timesteps, features)
+            learning_rate: Learning rate for Adam optimizer (default: 0.0002)
         """
         model = Sequential(
             [
@@ -208,47 +249,108 @@ class IntradayPredictor:
             ]
         )
 
-        model.compile(optimizer="adam", loss="mse", metrics=["mae"])
+        optimizer = Adam(learning_rate=learning_rate)
+        model.compile(optimizer=optimizer, loss="mse", metrics=["mae"])
+        print(f"Model compiled with learning rate: {learning_rate}")
         return model
 
-    def train(self, epochs: int = 50, batch_size: int = 32) -> Dict:
+    def train(
+        self,
+        epochs: int = 50,
+        batch_size: int = 32,
+        learning_rate: float = 0.0002,
+        patience: int = 10,
+    ) -> Dict:
         """
-        Train the LSTM model with early stopping
+        Train the LSTM model with early stopping and detailed logging
+
+        Args:
+            epochs: Maximum number of training epochs
+            batch_size: Batch size for training
+            learning_rate: Learning rate for Adam optimizer
+            patience: Early stopping patience (epochs without improvement)
         """
-        print(f"\n{'='*60}")
+        print(f"\n{'='*80}")
         print(f"Training model for {self.symbol} ({self.interval} candles)")
-        print(f"{'='*60}")
+        print(f"{'='*80}")
+        print(f"Hyperparameters:")
+        print(f"  - Epochs: {epochs}")
+        print(f"  - Batch Size: {batch_size}")
+        print(f"  - Learning Rate: {learning_rate}")
+        print(f"  - Early Stop Patience: {patience}")
+        print(f"{'='*80}\n")
 
         # Fetch and prepare data
         data = self.fetch_intraday_data()
         X_train, y_train, X_test, y_test = self.prepare_training_data(data)
 
-        # Build model
-        self.model = self.build_model((X_train.shape[1], X_train.shape[2]))
-
-        # Early stopping callback
-        early_stop = EarlyStopping(
-            monitor='val_loss',
-            patience=10,
-            restore_best_weights=True,
-            verbose=1
+        # Build model with configurable learning rate
+        self.model = self.build_model(
+            (X_train.shape[1], X_train.shape[2]), learning_rate=learning_rate
         )
 
-        # Train
+        # Callbacks
+        early_stop = EarlyStopping(
+            monitor="val_loss", patience=patience, restore_best_weights=True, verbose=1
+        )
+
+        training_logger = TrainingLogger(symbol=self.symbol)
+
+        print(
+            f"\n{'Epoch':>5} | {'Train Loss':>12} | {'Val Loss':>12} | {'Train MAE':>12} | {'Val MAE':>12} | {'Ratio':>6}"
+        )
+        print("-" * 80)
+
+        # Train with verbose=0 since we have custom logging
         history = self.model.fit(
             X_train,
             y_train,
             validation_data=(X_test, y_test),
             epochs=epochs,
             batch_size=batch_size,
-            callbacks=[early_stop],
-            verbose=1,
+            callbacks=[early_stop, training_logger],
+            verbose=0,  # Disabled default logging, using custom logger
         )
+
+        # Training summary
+        print(f"\n{'='*80}")
+        print("TRAINING SUMMARY")
+        print(f"{'='*80}")
+
+        epochs_trained = len(history.history["loss"])
+        final_train_loss = history.history["loss"][-1]
+        final_val_loss = history.history["val_loss"][-1]
+        best_val_loss = min(history.history["val_loss"])
+        best_epoch = history.history["val_loss"].index(best_val_loss) + 1
+
+        print(f"Total Epochs Trained: {epochs_trained}")
+        print(f"Best Validation Loss: {best_val_loss:.6f} (Epoch {best_epoch})")
+        print(f"Final Train Loss: {final_train_loss:.6f}")
+        print(f"Final Val Loss: {final_val_loss:.6f}")
+
+        # Check for overfitting
+        overfit_ratio = final_val_loss / final_train_loss if final_train_loss > 0 else 1
+        if overfit_ratio > 1.5:
+            print(
+                f"\n⚠️  WARNING: Model may be OVERFITTING (Val/Train ratio: {overfit_ratio:.2f})"
+            )
+            print("   Consider: Lower learning rate, more regularization, or more data")
+        elif overfit_ratio < 0.9:
+            print(
+                f"\n⚠️  WARNING: Model may be UNDERFITTING (Val/Train ratio: {overfit_ratio:.2f})"
+            )
+            print(
+                "   Consider: Higher learning rate, more epochs, or more complex model"
+            )
+        else:
+            print(
+                f"\n✅ Model appears to be learning well (Val/Train ratio: {overfit_ratio:.2f})"
+            )
 
         # Evaluate
         test_loss, test_mae = self.model.evaluate(X_test, y_test, verbose=0)
-        print(f"\nTest Loss (MSE): {test_loss:.6f}")
-        print(f"Test MAE: {test_mae:.6f}")
+        print(f"\nFinal Test Loss (MSE): {test_loss:.6f}")
+        print(f"Final Test MAE: {test_mae:.6f}")
 
         # Save model and scaler
         self.save_model()
@@ -258,6 +360,10 @@ class IntradayPredictor:
             "test_mae": float(test_mae),
             "training_samples": len(X_train),
             "test_samples": len(X_test),
+            "epochs_trained": epochs_trained,
+            "best_val_loss": float(best_val_loss),
+            "best_epoch": best_epoch,
+            "final_overfit_ratio": float(overfit_ratio),
         }
 
     def predict_next(self, recent_data: pd.DataFrame) -> Dict:
@@ -284,13 +390,15 @@ class IntradayPredictor:
             )
 
         # Prepare and scale features
-        features = recent_data[self.FEATURE_COLUMNS].iloc[-self.lookback_periods :].values
+        features = (
+            recent_data[self.FEATURE_COLUMNS].iloc[-self.lookback_periods :].values
+        )
         scaled = self.scaler.transform(features)
         X = scaled.reshape(1, self.lookback_periods, len(self.FEATURE_COLUMNS))
 
         # Get prediction (this is now a percentage return, not a price)
         predicted_return = self.model.predict(X, verbose=0)[0][0]
-        
+
         # Convert return to actual price
         current_price = float(recent_data["Close"].iloc[-1])
         predicted_price = current_price * (1 + predicted_return)
@@ -300,18 +408,22 @@ class IntradayPredictor:
             "current_price": current_price,
             "predicted_price": float(predicted_price),
             "predicted_change_percent": float(predicted_change),
-            "signal": "BUY" if predicted_change > 0.5 else ("SELL" if predicted_change < -0.5 else "HOLD"),
+            "signal": (
+                "BUY"
+                if predicted_change > 0.5
+                else ("SELL" if predicted_change < -0.5 else "HOLD")
+            ),
         }
 
     def save_model(self):
         """Save model and scaler with explicit build to ensure Keras 3.x compatibility"""
         os.makedirs("models", exist_ok=True)
-        
+
         # DELETE old scaler file if it exists (critical when switching from price to return prediction)
         if os.path.exists(self.scaler_path):
             os.remove(self.scaler_path)
             print(f"🗑️  Deleted old scaler: {self.scaler_path}")
-        
+
         # CRITICAL: Ensure model is fully built before saving in Keras 3.x
         # This prevents "Layer was never built" errors during loading
         if not self.model.built:
@@ -322,7 +434,7 @@ class IntradayPredictor:
                 # Get from first layer
                 input_shape = self.model.layers[0].input_shape
             self.model.build(input_shape)
-        
+
         self.model.save(self.model_path)
         with open(self.scaler_path, "wb") as f:
             pickle.dump(self.scaler, f)
@@ -336,86 +448,129 @@ class IntradayPredictor:
             f"models/{self.symbol}_{self.interval}_optimized_attention.keras",  # Try optimized attention first
             f"models/{self.symbol}_{self.interval}_predictor.keras",  # Then standard predictor
         ]
-        
+
         scaler_paths_to_try = [
             f"models/{self.symbol}_{self.interval}_optimized_attention_scaler.pkl",
             f"models/{self.symbol}_{self.interval}_scaler.pkl",
         ]
-        
+
         # Find which model exists
         model_found = None
         scaler_found = None
-        
+
         for model_path, scaler_path in zip(model_paths_to_try, scaler_paths_to_try):
             if os.path.exists(model_path) and os.path.exists(scaler_path):
                 model_found = model_path
                 scaler_found = scaler_path
                 break
-        
+
         if not model_found:
             raise FileNotFoundError(f"Model not found. Tried: {model_paths_to_try}")
 
         # Import custom layers for models that use them
         try:
-            from attention_lstm_predictor import MultiHeadAttentionLayer, TemporalAttentionLayer
+            from attention_lstm_predictor import (
+                MultiHeadAttentionLayer,
+                TemporalAttentionLayer,
+            )
+
             custom_objects = {
-                'MultiHeadAttentionLayer': MultiHeadAttentionLayer,
-                'TemporalAttentionLayer': TemporalAttentionLayer
+                "MultiHeadAttentionLayer": MultiHeadAttentionLayer,
+                "TemporalAttentionLayer": TemporalAttentionLayer,
             }
             self.model = load_model(model_found, custom_objects=custom_objects)
         except ImportError:
             # Vanilla LSTM doesn't need custom layers
             self.model = load_model(model_found)
-        
+
         with open(scaler_found, "rb") as f:
             self.scaler = pickle.load(f)
         print(f"✅ Model loaded from {model_found}")
 
-    def calculate_directional_accuracy(self, y_true: np.ndarray, y_pred: np.ndarray, y_prev: np.ndarray) -> float:
+    def calculate_directional_accuracy(
+        self, y_true: np.ndarray, y_pred: np.ndarray, y_prev: np.ndarray
+    ) -> float:
         """
         Calculate percentage of correctly predicted price directions.
-        
+
         Args:
             y_true: Actual future prices
             y_pred: Predicted future prices
             y_prev: Previous prices (to calculate direction from)
-            
+
         Returns:
             Directional accuracy as a percentage (0-100)
         """
         # Calculate price changes
         true_change = y_true - y_prev
         pred_change = y_pred - y_prev
-        
+
         # Use a small threshold to avoid treating noise as direction
         # For financial data, changes < 0.0001% are typically considered noise
         threshold = 1e-6
-        
+
         # Get directions: 1 for up, -1 for down, 0 for no significant change
-        true_direction = np.where(np.abs(true_change) < threshold, 0, np.sign(true_change))
-        pred_direction = np.where(np.abs(pred_change) < threshold, 0, np.sign(pred_change))
-        
+        true_direction = np.where(
+            np.abs(true_change) < threshold, 0, np.sign(true_change)
+        )
+        pred_direction = np.where(
+            np.abs(pred_change) < threshold, 0, np.sign(pred_change)
+        )
+
         # Only count cases where there was a significant actual direction change
         significant_changes = np.abs(true_direction) > 0
-        
+
         if np.sum(significant_changes) == 0:
             return 0.0  # No significant changes to evaluate
-        
+
         # Calculate accuracy only on significant changes
-        correct = true_direction[significant_changes] == pred_direction[significant_changes]
+        correct = (
+            true_direction[significant_changes] == pred_direction[significant_changes]
+        )
         return float(np.mean(correct) * 100)
 
 
-def train_all_crypto_models(symbols: List[str], interval: str = "4h"):
+def train_all_crypto_models(
+    symbols: List[str],
+    interval: str = "4h",
+    epochs: int = 50,
+    batch_size: int = 32,
+    learning_rate: float = 0.0002,
+    patience: int = 10,
+):
     """
     Train models for all specified cryptocurrencies
+
+    Args:
+        symbols: List of cryptocurrency symbols to train
+        interval: Candle interval (1h, 4h, etc.)
+        epochs: Maximum number of training epochs
+        batch_size: Batch size for training
+        learning_rate: Learning rate for optimizer
+        patience: Early stopping patience
     """
     results = {}
+
+    print(f"\n{'='*80}")
+    print("BATCH TRAINING CONFIGURATION")
+    print(f"{'='*80}")
+    print(f"Symbols: {symbols}")
+    print(f"Interval: {interval}")
+    print(f"Epochs: {epochs}")
+    print(f"Batch Size: {batch_size}")
+    print(f"Learning Rate: {learning_rate}")
+    print(f"Early Stop Patience: {patience}")
+    print(f"{'='*80}\n")
 
     for symbol in symbols:
         try:
             predictor = IntradayPredictor(symbol=symbol, interval=interval)
-            result = predictor.train(epochs=50, batch_size=32)
+            result = predictor.train(
+                epochs=epochs,
+                batch_size=batch_size,
+                learning_rate=learning_rate,
+                patience=patience,
+            )
             results[symbol] = result
             print(f"✅ {symbol} training complete")
         except Exception as e:
@@ -426,30 +581,92 @@ def train_all_crypto_models(symbols: List[str], interval: str = "4h"):
 
 
 if __name__ == "__main__":
-    # Example: Train BTC model on 4h candles
-    symbols = [
-        "BTC-USD",
-        "ETH-USD",
-        "ADA-USD",
-        "SOL-USD",
-        "DOT-USD",
-        "MATIC-USD",
-        "AVAX-USD",
-        "LINK-USD",
-        "ATOM-USD",
-        "XRP-USD",
-    ]
+    parser = argparse.ArgumentParser(
+        description="Train LSTM models for cryptocurrency prediction"
+    )
+    parser.add_argument(
+        "--symbols",
+        type=str,
+        nargs="+",
+        default=["BTC-USD"],
+        help="Cryptocurrency symbols to train (e.g., BTC-USD ETH-USD)",
+    )
+    parser.add_argument(
+        "--interval", type=str, default="4h", help="Candle interval (1h, 4h, etc.)"
+    )
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=50,
+        help="Maximum number of training epochs (default: 50)",
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=32,
+        help="Batch size for training (default: 32)",
+    )
+    parser.add_argument(
+        "--learning-rate",
+        type=float,
+        default=0.0002,
+        help="Learning rate for optimizer (default: 0.0002)",
+    )
+    parser.add_argument(
+        "--patience", type=int, default=10, help="Early stopping patience (default: 10)"
+    )
+    parser.add_argument(
+        "--all", action="store_true", help="Train all default cryptocurrencies"
+    )
 
-    print("Training intraday prediction models...")
-    results = train_all_crypto_models(symbols, interval="4h")
+    args = parser.parse_args()
 
-    print("\n" + "=" * 60)
-    print("TRAINING SUMMARY")
-    print("=" * 60)
+    if args.all:
+        symbols = [
+            "BTC-USD",
+            "ETH-USD",
+            "ADA-USD",
+            "SOL-USD",
+            "DOT-USD",
+            "MATIC-USD",
+            "AVAX-USD",
+            "LINK-USD",
+            "ATOM-USD",
+            "XRP-USD",
+        ]
+    else:
+        symbols = args.symbols
+
+    print("🚀 Training Intraday Prediction Models")
+    print("=" * 80)
+
+    results = train_all_crypto_models(
+        symbols=symbols,
+        interval=args.interval,
+        epochs=args.epochs,
+        batch_size=args.batch_size,
+        learning_rate=args.learning_rate,
+        patience=args.patience,
+    )
+
+    print("\n" + "=" * 80)
+    print("FINAL TRAINING SUMMARY")
+    print("=" * 80)
     for symbol, result in results.items():
         if "error" not in result:
             print(
-                f"{symbol}: MSE={result['test_loss']:.6f}, MAE={result['test_mae']:.6f}"
+                f"{symbol}: MSE={result['test_loss']:.6f}, MAE={result['test_mae']:.6f}, "
+                f"Epochs={result.get('epochs_trained', 'N/A')}"
             )
         else:
             print(f"{symbol}: FAILED - {result['error']}")
+
+    print("\n✅ Training complete!")
+    print(f"\nUsage examples:")
+    print(
+        f"  python intraday_predictor.py --symbols BTC-USD ETH-USD --epochs 100 --learning-rate 0.0001"
+    )
+    print(f"  python intraday_predictor.py --all --epochs 50 --batch-size 64")
+    print(
+        f"  python intraday_predictor.py --symbols SOL-USD --learning-rate 0.0005 --patience 15"
+    )
