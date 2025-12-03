@@ -51,62 +51,90 @@ class CryptoPortfolioOptimizer:
         Returns:
             DataFrame with historical prices
         """
+        print(f"   [fetch_price_data] Downloading data for {len(self.symbols)} symbols")
+        print(f"   [fetch_price_data] Period: {self.period}")
+        
         try:
             # Download price data
+            print(f"   [fetch_price_data] Calling yf.download...")
             data = yf.download(self.symbols, period=self.period, progress=False)
+            print(f"   [fetch_price_data] Download complete. Data shape: {data.shape}")
+            print(f"   [fetch_price_data] Data columns: {data.columns.tolist() if hasattr(data.columns, 'tolist') else data.columns}")
 
             # Handle different data structures based on number of symbols
             if len(self.symbols) == 1:
+                print(f"   [fetch_price_data] Processing single symbol data...")
                 # Single symbol case - yfinance still returns MultiIndex columns
                 if isinstance(data.columns, pd.MultiIndex):
+                    print(f"   [fetch_price_data] MultiIndex columns detected")
                     # MultiIndex columns for single symbol
                     if "Close" in data.columns.get_level_values(0):
                         self.price_data = data["Close"]
+                        print(f"   [fetch_price_data] Using 'Close' column")
                     else:
                         # Fallback to first price column
                         first_price_col = data.columns[0]
                         self.price_data = data[first_price_col]
+                        print(f"   [fetch_price_data] Using first column: {first_price_col}")
                 else:
                     # Regular columns (shouldn't happen with yfinance)
+                    print(f"   [fetch_price_data] Regular columns detected")
                     self.price_data = data
 
                 # Ensure it's a DataFrame with proper column name
                 if isinstance(self.price_data, pd.Series):
+                    print(f"   [fetch_price_data] Converting Series to DataFrame")
                     self.price_data = pd.DataFrame({self.symbols[0]: self.price_data})
                 elif (
                     isinstance(self.price_data, pd.DataFrame)
                     and len(self.price_data.columns) == 1
                 ):
                     # Rename column to symbol name
+                    print(f"   [fetch_price_data] Renaming single column to {self.symbols[0]}")
                     self.price_data.columns = [self.symbols[0]]
             else:
+                print(f"   [fetch_price_data] Processing multiple symbols data...")
                 # Multiple symbols case
                 if isinstance(data.columns, pd.MultiIndex):
+                    print(f"   [fetch_price_data] MultiIndex columns detected")
                     # MultiIndex columns (multiple symbols)
                     if "Adj Close" in data.columns.get_level_values(0):
                         self.price_data = data["Adj Close"]
+                        print(f"   [fetch_price_data] Using 'Adj Close' column")
                     else:
                         self.price_data = data["Close"]
+                        print(f"   [fetch_price_data] Using 'Close' column")
                 else:
                     # Single level columns
+                    print(f"   [fetch_price_data] Single level columns detected")
                     self.price_data = data
 
             # Ensure we have a DataFrame
             if not isinstance(self.price_data, pd.DataFrame):
+                print(f"   [fetch_price_data] Converting to DataFrame")
                 self.price_data = pd.DataFrame(self.price_data)
 
+            print(f"   [fetch_price_data] Price data shape before dropna: {self.price_data.shape}")
+            print(f"   [fetch_price_data] Columns: {self.price_data.columns.tolist()}")
+            
             # Remove any symbols with insufficient data
             self.price_data = self.price_data.dropna(
                 axis=1, thresh=len(self.price_data) * 0.8
             )
+            
+            print(f"   [fetch_price_data] Price data shape after dropna: {self.price_data.shape}")
+            print(f"   [fetch_price_data] Columns after dropna: {self.price_data.columns.tolist()}")
 
             # Update symbols list to only include valid ones
             self.symbols = list(self.price_data.columns)
 
-            print(f"Fetched data for {len(self.symbols)} symbols: {self.symbols}")
+            print(f"   [fetch_price_data] ✓ Fetched data for {len(self.symbols)} symbols: {self.symbols}")
             return self.price_data
 
         except Exception as e:
+            print(f"   [fetch_price_data] ✗ ERROR: {type(e).__name__}: {str(e)}")
+            import traceback
+            traceback.print_exc()
             raise Exception(f"Error fetching price data: {str(e)}")
 
     def calculate_expected_returns(
@@ -124,22 +152,35 @@ class CryptoPortfolioOptimizer:
         Returns:
             Series of expected returns
         """
+        print(f"   [calculate_expected_returns] Method: {method}")
+        
         if self.price_data is None:
+            print(f"   [calculate_expected_returns] Price data is None, fetching...")
             self.fetch_price_data()
 
+        print(f"   [calculate_expected_returns] Price data shape: {self.price_data.shape}")
+        print(f"   [calculate_expected_returns] Price data columns: {self.price_data.columns.tolist()}")
+        
         try:
             if method == "mean_historical_return":
+                print(f"   [calculate_expected_returns] Using mean_historical_return")
                 self.mu = expected_returns.mean_historical_return(self.price_data)
             elif method == "ema_historical_return":
+                print(f"   [calculate_expected_returns] Using ema_historical_return")
                 self.mu = expected_returns.ema_historical_return(self.price_data)
             elif method == "capm_return":
+                print(f"   [calculate_expected_returns] Using capm_return")
                 self.mu = expected_returns.capm_return(self.price_data)
             else:
                 raise ValueError(f"Unknown method: {method}")
 
+            print(f"   [calculate_expected_returns] ✓ Expected returns calculated: {self.mu}")
             return self.mu
 
         except Exception as e:
+            print(f"   [calculate_expected_returns] ✗ ERROR: {type(e).__name__}: {str(e)}")
+            import traceback
+            traceback.print_exc()
             raise Exception(f"Error calculating expected returns: {str(e)}")
 
     def calculate_risk_matrix(self, method: str = "sample_cov") -> pd.DataFrame:
@@ -156,24 +197,37 @@ class CryptoPortfolioOptimizer:
         Returns:
             Covariance matrix
         """
+        print(f"   [calculate_risk_matrix] Method: {method}")
+        
         if self.price_data is None:
+            print(f"   [calculate_risk_matrix] Price data is None, fetching...")
             self.fetch_price_data()
 
+        print(f"   [calculate_risk_matrix] Price data shape: {self.price_data.shape}")
+        
         try:
             if method == "sample_cov":
+                print(f"   [calculate_risk_matrix] Using sample_cov")
                 self.S = risk_models.sample_cov(self.price_data)
             elif method == "semicovariance":
+                print(f"   [calculate_risk_matrix] Using semicovariance")
                 self.S = risk_models.semicovariance(self.price_data)
             elif method == "exp_cov":
+                print(f"   [calculate_risk_matrix] Using exp_cov")
                 self.S = risk_models.exp_cov(self.price_data)
             elif method == "ledoit_wolf":
+                print(f"   [calculate_risk_matrix] Using ledoit_wolf")
                 self.S = risk_models.CovarianceShrinkage(self.price_data).ledoit_wolf()
             else:
                 raise ValueError(f"Unknown method: {method}")
 
+            print(f"   [calculate_risk_matrix] ✓ Risk matrix calculated, shape: {self.S.shape}")
             return self.S
 
         except Exception as e:
+            print(f"   [calculate_risk_matrix] ✗ ERROR: {type(e).__name__}: {str(e)}")
+            import traceback
+            traceback.print_exc()
             raise Exception(f"Error calculating risk matrix: {str(e)}")
 
     def optimize_portfolio(
@@ -261,13 +315,14 @@ class CryptoPortfolioOptimizer:
             raise Exception(f"Error optimizing portfolio: {str(e)}")
 
     def calculate_efficient_frontier(
-        self, num_portfolios: int = 100
+        self, num_portfolios: int = 100, risk_free_rate: float = 0.02
     ) -> Tuple[List[float], List[float]]:
         """
         Calculate the efficient frontier
 
         Args:
             num_portfolios: Number of portfolios to calculate along the frontier
+            risk_free_rate: Risk-free rate for Sharpe ratio calculations
 
         Returns:
             Tuple of (volatilities, returns) for the efficient frontier
@@ -290,7 +345,7 @@ class CryptoPortfolioOptimizer:
                 try:
                     ef_copy = EfficientFrontier(self.mu, self.S)
                     ef_copy.efficient_return(target_ret)
-                    performance = ef_copy.portfolio_performance(verbose=False)
+                    performance = ef_copy.portfolio_performance(verbose=False, risk_free_rate=risk_free_rate)
                     returns.append(performance[0])
                     volatilities.append(performance[1])
                 except:
@@ -734,36 +789,101 @@ def optimize_crypto_portfolio(
     Returns:
         Complete optimization results
     """
+    print(f"\n{'='*60}")
+    print(f"OPTIMIZE_CRYPTO_PORTFOLIO FUNCTION")
+    print(f"{'='*60}")
+    print(f"Parameters:")
+    print(f"  Symbols: {symbols}")
+    print(f"  Total Value: ${total_value:,.2f}")
+    print(f"  Objective: {objective}")
+    print(f"  Period: {period}")
+    print(f"  Min Weight: {min_weight}")
+    print(f"  Max Weight: {max_weight}")
+    
     try:
         # Initialize optimizer
+        print(f"\n1. Initializing CryptoPortfolioOptimizer...")
         optimizer = CryptoPortfolioOptimizer(symbols, period)
+        print(f"   ✓ Optimizer initialized")
 
         # Fetch data and calculate inputs
+        print(f"\n2. Fetching price data...")
         optimizer.fetch_price_data()
+        print(f"   ✓ Price data fetched")
+        
+        print(f"\n3. Calculating expected returns...")
         optimizer.calculate_expected_returns()
+        print(f"   ✓ Expected returns calculated")
+        print(f"   Expected returns (mu): {optimizer.mu}")
+        
+        print(f"\n4. Calculating risk matrix...")
         optimizer.calculate_risk_matrix()
+        print(f"   ✓ Risk matrix calculated")
+        print(f"   Covariance matrix shape: {optimizer.S.shape}")
+
+        # Check expected returns
+        print(f"\n5. Checking expected returns vs risk-free rate...")
+        risk_free_rate = 0.02  # Default 2% risk-free rate
+        print(f"   Expected returns: {optimizer.mu.to_dict()}")
+        print(f"   Risk-free rate: {risk_free_rate:.2%}")
+        
+        # Check if any asset exceeds risk-free rate
+        max_return = optimizer.mu.max()
+        print(f"   Maximum expected return: {max_return:.2%}")
+        
+        if max_return <= risk_free_rate and objective == "max_sharpe":
+            print(f"   ⚠ Warning: All returns below risk-free rate!")
+            print(f"   Switching to min_volatility objective as fallback...")
+            objective = "min_volatility"
 
         # Create Efficient Frontier with weight constraints
         from pypfopt.efficient_frontier import EfficientFrontier
 
+        print(f"\n6. Creating Efficient Frontier...")
+        print(f"   Using risk-free rate: {risk_free_rate:.2%}")
         optimizer.ef = EfficientFrontier(
-            optimizer.mu, optimizer.S, weight_bounds=(min_weight, max_weight)
+            optimizer.mu, 
+            optimizer.S, 
+            weight_bounds=(min_weight, max_weight)
         )
+        # Set a lower risk-free rate to handle bear markets
+        optimizer.ef._risk_free_rate = risk_free_rate
+        print(f"   ✓ Efficient Frontier created")
 
         # Optimize portfolio based on objective
-        if objective == "max_sharpe":
-            optimizer.ef.max_sharpe()
-        elif objective == "min_volatility":
+        print(f"\n7. Running optimization (objective: {objective})...")
+        try:
+            if objective == "max_sharpe":
+                optimizer.ef.max_sharpe(risk_free_rate=risk_free_rate)
+            elif objective == "min_volatility":
+                optimizer.ef.min_volatility()
+            else:
+                optimizer.ef.max_sharpe(risk_free_rate=risk_free_rate)
+            print(f"   ✓ Optimization completed")
+        except ValueError as e:
+            print(f"   ⚠ Max Sharpe failed: {str(e)}")
+            print(f"   Falling back to min_volatility...")
+            optimizer.ef = EfficientFrontier(
+                optimizer.mu, optimizer.S, weight_bounds=(min_weight, max_weight)
+            )
             optimizer.ef.min_volatility()
-        else:
-            optimizer.ef.max_sharpe()
+            objective = "min_volatility"
+            print(f"   ✓ Fallback optimization completed")
 
         # Clean weights
+        print(f"\n8. Cleaning weights...")
         cleaned_weights = optimizer.ef.clean_weights()
+        print(f"   ✓ Weights cleaned: {cleaned_weights}")
 
         # Calculate performance
-        performance = optimizer.ef.portfolio_performance(verbose=False)
+        print(f"\n9. Calculating portfolio performance...")
+        performance = optimizer.ef.portfolio_performance(verbose=False, risk_free_rate=risk_free_rate)
+        print(f"   ✓ Performance calculated:")
+        print(f"     Expected Return: {performance[0]:.2%}")
+        print(f"     Volatility: {performance[1]:.2%}")
+        print(f"     Sharpe Ratio: {performance[2]:.2f}")
 
+        print(f"\n10. Preparing optimization result...")
         optimization_result = {
             "weights": cleaned_weights,
             "expected_return": performance[0],
@@ -772,19 +892,27 @@ def optimize_crypto_portfolio(
             "objective": objective,
             "constraints": {"min_weight": min_weight, "max_weight": max_weight},
         }
+        print(f"   ✓ Optimization result prepared")
 
         # Calculate fractional allocation (cryptocurrencies support fractional shares)
+        print(f"\n11. Calculating discrete allocation...")
         allocation_result = optimizer.discrete_allocation(
             total_value, optimization_result["weights"], fractional=True
         )
+        print(f"   ✓ Allocation calculated: {allocation_result}")
 
         # Get comprehensive metrics
+        print(f"\n12. Getting portfolio metrics...")
         metrics = optimizer.get_portfolio_metrics(optimization_result["weights"])
+        print(f"   ✓ Metrics calculated")
 
         # Calculate efficient frontier
-        volatilities, returns = optimizer.calculate_efficient_frontier()
+        print(f"\n13. Calculating efficient frontier...")
+        volatilities, returns = optimizer.calculate_efficient_frontier(risk_free_rate=risk_free_rate)
+        print(f"   ✓ Efficient frontier calculated ({len(volatilities)} points)")
 
-        return {
+        print(f"\n14. Preparing final result...")
+        final_result = {
             "optimization": optimization_result,
             "allocation": allocation_result,
             "metrics": metrics,
@@ -792,8 +920,19 @@ def optimize_crypto_portfolio(
             "symbols": optimizer.symbols,
             "period": period,
         }
+        
+        print(f"   ✓ Final result prepared successfully")
+        print(f"{'='*60}\n")
+        return final_result
 
     except Exception as e:
+        print(f"\n✗ ERROR in optimize_crypto_portfolio:")
+        print(f"  Error Type: {type(e).__name__}")
+        print(f"  Error Message: {str(e)}")
+        import traceback
+        print(f"  Full Traceback:")
+        traceback.print_exc()
+        print(f"{'='*60}\n")
         raise Exception(f"Portfolio optimization failed: {str(e)}")
 
 
@@ -850,8 +989,9 @@ def optimize_crypto_portfolio_with_lstm(
         # Get metrics
         metrics = optimizer.get_portfolio_metrics(optimization_result["weights"])
 
-        # Calculate efficient frontier
-        volatilities, returns = optimizer.calculate_efficient_frontier()
+        # Calculate efficient frontier with risk-free rate
+        risk_free_rate = 0.02
+        volatilities, returns = optimizer.calculate_efficient_frontier(risk_free_rate=risk_free_rate)
 
         return {
             "portfolio": optimization_result,  # Changed from "optimization" to match frontend

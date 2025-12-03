@@ -32,6 +32,16 @@ async def optimize_portfolio(request: PortfolioOptimizationRequest):
     """
     Optimize a cryptocurrency portfolio using Modern Portfolio Theory
     """
+    print("\n" + "="*60)
+    print("MPT PORTFOLIO OPTIMIZATION REQUEST")
+    print("="*60)
+    print(f"Request received:")
+    print(f"  Symbols: {request.symbols}")
+    print(f"  Total Value: ${request.total_value:,.2f}")
+    print(f"  Objective: {request.objective}")
+    print(f"  Period: {request.period}")
+    print(f"  ML Config: {request.ml_config}")
+    
     try:
         # Convert symbols to Yahoo Finance format (add -USD suffix if not present)
         yf_symbols = []
@@ -40,8 +50,17 @@ async def optimize_portfolio(request: PortfolioOptimizationRequest):
                 yf_symbols.append(f"{symbol.upper()}-USD")
             else:
                 yf_symbols.append(symbol.upper())
+        
+        print(f"\nConverted symbols to Yahoo Finance format:")
+        print(f"  {yf_symbols}")
 
         # Perform portfolio optimization
+        print(f"\nCalling optimize_crypto_portfolio...")
+        print(f"  Symbols: {yf_symbols}")
+        print(f"  Total Value: {request.total_value}")
+        print(f"  Objective: {request.objective}")
+        print(f"  Period: {request.period}")
+        
         result = optimize_crypto_portfolio(
             symbols=yf_symbols,
             total_value=request.total_value,
@@ -50,9 +69,20 @@ async def optimize_portfolio(request: PortfolioOptimizationRequest):
             min_weight=0.05,  # 5% minimum per asset
             max_weight=0.60,  # 60% maximum per asset
         )
+        
+        print(f"\n✓ Optimization completed successfully")
+        print(f"  Expected Return: {result['optimization']['expected_return']:.2%}")
+        print(f"  Volatility: {result['optimization']['volatility']:.2%}")
+        print(f"  Sharpe Ratio: {result['optimization']['sharpe_ratio']:.2f}")
+
+        print(f"\n✓ Optimization completed successfully")
+        print(f"  Expected Return: {result['optimization']['expected_return']:.2%}")
+        print(f"  Volatility: {result['optimization']['volatility']:.2%}")
+        print(f"  Sharpe Ratio: {result['optimization']['sharpe_ratio']:.2f}")
 
         # Format response for frontend
-        return {
+        print(f"\nFormatting response for frontend...")
+        response_data = {
             "success": True,
             "portfolio": {
                 "expected_return": result["optimization"]["expected_return"],
@@ -74,8 +104,19 @@ async def optimize_portfolio(request: PortfolioOptimizationRequest):
             "symbols": result["symbols"],
             "period": request.period,
         }
+        
+        print(f"✓ Response formatted successfully")
+        print("="*60 + "\n")
+        return response_data
 
     except Exception as e:
+        print(f"\n✗ ERROR in optimize_portfolio:")
+        print(f"  Error Type: {type(e).__name__}")
+        print(f"  Error Message: {str(e)}")
+        import traceback
+        print(f"  Traceback:")
+        traceback.print_exc()
+        print("="*60 + "\n")
         raise HTTPException(
             status_code=500, detail=f"Portfolio optimization failed: {str(e)}"
         )
