@@ -750,13 +750,31 @@ def optimize_crypto_portfolio(
             optimizer.mu, optimizer.S, weight_bounds=(min_weight, max_weight)
         )
 
-        # Optimize portfolio based on objective
+        # Optimize portfolio based on objective with fallback
         if objective == "max_sharpe":
-            optimizer.ef.max_sharpe()
+            try:
+                optimizer.ef.max_sharpe()
+            except (ValueError, OptimizationError) as sharpe_error:
+                # If max_sharpe fails (e.g., all negative returns), fall back to min_volatility
+                print(f"⚠️  Max Sharpe failed: {sharpe_error}")
+                print("📊 Falling back to minimum volatility optimization...")
+                optimizer.ef = EfficientFrontier(
+                    optimizer.mu, optimizer.S, weight_bounds=(min_weight, max_weight)
+                )
+                optimizer.ef.min_volatility()
+                objective = "min_volatility (fallback)"
         elif objective == "min_volatility":
             optimizer.ef.min_volatility()
         else:
-            optimizer.ef.max_sharpe()
+            try:
+                optimizer.ef.max_sharpe()
+            except (ValueError, OptimizationError):
+                print("📊 Falling back to minimum volatility optimization...")
+                optimizer.ef = EfficientFrontier(
+                    optimizer.mu, optimizer.S, weight_bounds=(min_weight, max_weight)
+                )
+                optimizer.ef.min_volatility()
+                objective = "min_volatility (fallback)"
 
         # Clean weights
         cleaned_weights = optimizer.ef.clean_weights()
