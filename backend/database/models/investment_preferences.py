@@ -26,7 +26,7 @@ def create_investment_preferences_table():
     - loss_tolerance: low/medium/high
     - profit_taking: quick/balanced/patient
     - investment_horizon: short/medium/long
-    - signal_threshold: ML signal threshold (default 2.0)
+    - signal_threshold: ML signal threshold (default 1.5)
     - max_position_size: Maximum position size (default 0.6)
     - rsi_oversold: RSI oversold level (default 25)
     - rsi_overbought: RSI overbought level (default 60)

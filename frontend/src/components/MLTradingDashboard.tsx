@@ -1,10 +1,13 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
-import { TrendingUp, Target, AlertTriangle, Activity, ArrowUpCircle, ArrowDownCircle, ChevronLeft, ChevronRight, Info, Brain, RotateCcw } from "lucide-react";
+import { TrendingUp, Target, AlertTriangle, Activity, ArrowUpCircle, ArrowDownCircle, ChevronLeft, ChevronRight, Info, Brain, RotateCcw, Save, Check } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
+import { Tooltip as RadixTooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import MLPredictionChart from "./MLPredictionChart";
 import Select from 'react-select';
+import { useUser } from "@clerk/nextjs";
+import { saveMLBacktestResult } from "@/lib/api";
 
 interface PortfolioData {
     symbols: string[];
@@ -99,15 +102,15 @@ interface NextCandlePrediction {
 }
 
 export default function MLTradingDashboard({ portfolioData }: MLTradingDashboardProps) {
-    // Default values from backend
+    // Default values from backend (ml_backtester.py)
     const defaultValues = {
-        interval: "4h",
-        signalThreshold: 2.0,
+        interval: "1d",  // Daily candles for better accuracy
+        signalThreshold: 1.5,  // Lowered from 2.0% to allow more stable assets
         maxPositionSize: 0.6,
         rsiOversold: 25,
         rsiOverbought: 60,
         stopLossPct: 0.03,
-        takeProfitLevels: 0.05,
+        takeProfitLevels: 0.05,  // trailing_stop_pct in backend
     };
 
     // Load ML config from localStorage if available, otherwise use defaults
@@ -134,8 +137,11 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
 
     const initialConfig = loadInitialConfig();
 
+    const { user, isSignedIn } = useUser();
     const [backtestResult, setBacktestResult] = useState<MLBacktestResult | null>(null);
     const [loading, setLoading] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [saveSuccess, setSaveSuccess] = useState(false);
     const [error, setError] = useState<string>("");
     const [timeperiod, setTimeperiod] = useState("1y");
     const [interval, setInterval] = useState(initialConfig.interval);
@@ -159,8 +165,9 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
     ], []);
 
     const intervalOptions = [
+        { value: "1d", label: "1 Day (Recommended)" },
+        { value: "4h", label: "4 Hours" },
         { value: "1h", label: "1 Hour" },
-        { value: "4h", label: "4 Hours (Recommended)" },
     ];
 
     const resetToDefaults = () => {
@@ -214,6 +221,7 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
             console.log("ML backtest result:", data);
             setBacktestResult(data);
             setCurrentPage(1); // Reset to first page on new results
+            setSaveSuccess(false); // Reset save success when new results arrive
         } catch (err) {
             console.error("ML Backtest error:", err);
             setError(err instanceof Error ? err.message : "Failed to run ML backtest. Please make sure the backend is running and ML models are trained.");
@@ -221,6 +229,76 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
             setLoading(false);
         }
     }, [portfolioData, timeperiod, interval, signalThreshold, maxPositionSize, rsiOversold, rsiOverbought, stopLossPct, takeProfitLevels, timeperiods]);
+
+    const saveBacktestResults = useCallback(async () => {
+        if (!backtestResult || !isSignedIn || !user) {
+            return;
+        }
+
+        setSaving(true);
+        setSaveSuccess(false);
+
+        try {
+            const selectedPeriod = timeperiods.find(p => p.value === timeperiod);
+            const endDate = new Date();
+            const startDate = new Date(endDate.getTime() - (selectedPeriod?.days || 365) * 24 * 60 * 60 * 1000);
+
+            // Generate a name based on portfolio and timestamp
+            const portfolioName = portfolioData.symbols.map(s => s.replace('-USD', '')).join(', ');
+            const timestamp = new Date().toLocaleString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            const name = `ML Backtest: ${portfolioName} (${timestamp})`;
+
+            const saveData = {
+                name,
+                symbols: portfolioData.symbols,
+                weights: portfolioData.weights,
+                initial_investment: portfolioData.initial_investment,
+                // Backtest results
+                final_value: backtestResult.summary.final_value,
+                total_return: backtestResult.summary.total_return,
+                annualized_return: backtestResult.summary.annualized_return,
+                sharpe_ratio: backtestResult.summary.sharpe_ratio,
+                max_drawdown: backtestResult.summary.max_drawdown,
+                total_trades: backtestResult.summary.total_trades,
+                win_rate: backtestResult.summary.win_rate,
+                // Trading stats from backtest_results
+                buy_trades: backtestResult.backtest_results?.trading_stats?.buy_trades,
+                sell_trades: backtestResult.backtest_results?.trading_stats?.sell_trades,
+                // Symbol results (predictions by symbol)
+                symbol_results: backtestResult.backtest_results?.predictions_by_symbol,
+                // Trade history
+                trade_history: backtestResult.backtest_results?.trade_history,
+                // ML Configuration
+                interval,
+                signal_threshold: signalThreshold,
+                max_position_size: maxPositionSize,
+                rsi_oversold: rsiOversold,
+                rsi_overbought: rsiOverbought,
+                stop_loss_pct: stopLossPct,
+                trailing_stop_pct: takeProfitLevels,
+                // Time period
+                start_date: startDate.toISOString().split('T')[0],
+                end_date: endDate.toISOString().split('T')[0],
+                backtest_period: timeperiod,
+            };
+
+            await saveMLBacktestResult(saveData, user.id);
+            setSaveSuccess(true);
+
+            // Reset success message after 3 seconds
+            setTimeout(() => setSaveSuccess(false), 3000);
+        } catch (err) {
+            console.error("Save backtest error:", err);
+            setError(err instanceof Error ? err.message : "Failed to save backtest results.");
+        } finally {
+            setSaving(false);
+        }
+    }, [backtestResult, isSignedIn, user, portfolioData, timeperiod, timeperiods, interval, signalThreshold, maxPositionSize, rsiOversold, rsiOverbought, stopLossPct, takeProfitLevels]);
 
     const formatCurrency = (value: number | undefined | null) => {
         if (value === undefined || value === null || isNaN(value)) {
@@ -265,7 +343,8 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
                         <div className="group relative">
                             <button
                                 onClick={resetToDefaults}
-                                className="flex items-center gap-2 px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded-lg font-medium transition-all border border-blue-500/30 hover:border-blue-500/50"
+                                disabled={loading}
+                                className="flex items-center gap-2 px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded-lg font-medium transition-all border border-blue-500/30 hover:border-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 <RotateCcw className="h-4 w-4" />
                                 <span className="hidden sm:inline">Reset to Defaults</span>
@@ -286,6 +365,7 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
                             value={timeperiods.find(p => p.value === timeperiod)}
                             onChange={(option) => option && setTimeperiod(option.value)}
                             options={timeperiods}
+                            isDisabled={loading}
                             className="react-select-container"
                             classNamePrefix="react-select"
                             styles={{
@@ -357,6 +437,7 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
                             value={intervalOptions.find(opt => opt.value === interval)}
                             onChange={(option) => option && setInterval(option.value)}
                             options={intervalOptions}
+                            isDisabled={loading}
                             className="react-select-container"
                             classNamePrefix="react-select"
                             styles={{
@@ -431,6 +512,7 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
                             max={10.0}
                             step={0.1}
                             onValueChange={(value) => setSignalThreshold(value[0])}
+                            disabled={loading}
                             className="w-full"
                         />
                         <p className="text-xs text-gray-400 mt-1">Min % change to trigger trade</p>
@@ -452,6 +534,7 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
                             max={0.8}
                             step={0.05}
                             onValueChange={(value) => setMaxPositionSize(value[0])}
+                            disabled={loading}
                             className="w-full"
                         />
                     </div>
@@ -470,6 +553,7 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
                             max={0.10}
                             step={0.005}
                             onValueChange={(value) => setStopLossPct(value[0])}
+                            disabled={loading}
                             className="w-full"
                         />
                     </div>
@@ -488,6 +572,7 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
                             max={0.20}
                             step={0.01}
                             onValueChange={(value) => setTakeProfitLevels(value[0])}
+                            disabled={loading}
                             className="w-full"
                         />
                     </div>
@@ -508,6 +593,7 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
                             max={35}
                             step={1}
                             onValueChange={(value) => setRsiOversold(value[0])}
+                            disabled={loading}
                             className="w-full"
                         />
                     </div>
@@ -526,18 +612,61 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
                             max={85}
                             step={1}
                             onValueChange={(value) => setRsiOverbought(value[0])}
+                            disabled={loading}
                             className="w-full"
                         />
                     </div>
 
-                    <div className="flex items-center">
+                    <div className="flex items-center gap-3">
                         <button
                             onClick={runMLBacktest}
                             disabled={loading}
-                            className="w-full px-6 py-3 bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600 text-white rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed h-fit self-end"
+                            className="flex-1 px-6 py-3 bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600 text-white rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed h-fit self-end"
                         >
                             {loading ? "Running ML Backtest..." : "Run ML Backtest"}
                         </button>
+
+                        <RadixTooltip>
+                            <TooltipTrigger asChild>
+                                <span className="inline-block">
+                                    <button
+                                        onClick={saveBacktestResults}
+                                        disabled={!backtestResult || loading || saving || !isSignedIn}
+                                        className={`px-6 py-3 rounded-xl font-semibold transition-all h-fit self-end flex items-center gap-2 ${saveSuccess
+                                                ? 'bg-emerald-500 text-white'
+                                                : backtestResult && isSignedIn
+                                                    ? 'bg-purple-500/80 hover:bg-purple-500 text-white'
+                                                    : 'bg-gray-500/50 text-gray-400 cursor-not-allowed'
+                                            } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                    >
+                                        {saving ? (
+                                            <>
+                                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                                                Saving...
+                                            </>
+                                        ) : saveSuccess ? (
+                                            <>
+                                                <Check className="h-4 w-4" />
+                                                Saved!
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Save className="h-4 w-4" />
+                                                Save Results
+                                            </>
+                                        )}
+                                    </button>
+                                </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" className="max-w-xs">
+                                {!isSignedIn
+                                    ? "Sign in to save your backtest results"
+                                    : !backtestResult
+                                        ? "Run the ML backtest first to generate results that can be saved"
+                                        : "Save these backtest results to your account for future reference"
+                                }
+                            </TooltipContent>
+                        </RadixTooltip>
                     </div>
                 </div>
             </div>

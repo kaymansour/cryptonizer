@@ -257,13 +257,14 @@ class OptimizedAttentionLSTMPredictor(IntradayPredictor):
     def __init__(
         self,
         symbol: str,
-        interval: str = "4h",
-        lookback_periods: int = 168,
+        interval: str = "1d",  # Daily candles for better trend detection
+        lookback_periods: int = 60,  # 60 days (~2 months) of daily data
         prediction_horizon: int = 1,
         num_attention_heads: int = 4,
         use_bidirectional: bool = True,
+        use_csv: bool = True,  # Use CSV data instead of API
     ):
-        super().__init__(symbol, interval, lookback_periods, prediction_horizon)
+        super().__init__(symbol, interval, lookback_periods, prediction_horizon, use_csv)
 
         self.num_attention_heads = num_attention_heads
         self.use_bidirectional = use_bidirectional
@@ -441,24 +442,48 @@ class OptimizedAttentionLSTMPredictor(IntradayPredictor):
         print(f"Final Train Loss: {final_train_loss:.6f}")
         print(f"Final Val Loss: {final_val_loss:.6f}")
 
-        # Check for overfitting
+        # Enhanced overfitting detection metrics
         overfit_ratio = final_val_loss / final_train_loss if final_train_loss > 0 else 1
+        
+        # 1. Validation degradation: how much val_loss increased from best
+        val_degradation = final_val_loss / best_val_loss if best_val_loss > 0 else 1
+        
+        # 2. Loss trajectory: is val_loss trending up in recent epochs?
+        recent_val_losses = history.history["val_loss"][-10:] if epochs_trained >= 10 else history.history["val_loss"]
+        is_val_increasing = recent_val_losses[-1] > recent_val_losses[0] if len(recent_val_losses) > 1 else False
+        
+        # 3. Absolute gap between train and val loss
+        absolute_gap = final_val_loss - final_train_loss
+        
+        print(f"\n📊 OVERFITTING ANALYSIS:")
+        print(f"   Val/Train Ratio: {overfit_ratio:.3f}")
+        print(f"   Val Degradation: {val_degradation:.3f} (final/best, ideal: 1.0)")
+        print(f"   Absolute Gap: {absolute_gap:.6f} (val - train)")
+        print(f"   Val Trending Up: {'⚠️ YES' if is_val_increasing else '✅ NO'}")
+        
+        # Improved overfitting evaluation that accounts for dropout effects
+        # Note: Val < Train is NORMAL with dropout (dropout is off during validation)
         if overfit_ratio > 1.5:
-            print(
-                f"\n⚠️  WARNING: Model may be OVERFITTING (Val/Train ratio: {overfit_ratio:.2f})"
-            )
+            print(f"\n⚠️  WARNING: Model may be OVERFITTING (Val/Train ratio: {overfit_ratio:.2f})")
             print("   Consider: Lower learning rate, more regularization, or more data")
-        elif overfit_ratio < 0.9:
-            print(
-                f"\n⚠️  WARNING: Model may be UNDERFITTING (Val/Train ratio: {overfit_ratio:.2f})"
-            )
-            print(
-                "   Consider: Higher learning rate, more epochs, or more complex model"
-            )
+        elif overfit_ratio < 0.6 and val_degradation > 1.2:
+            # Only warn if val loss is also degrading significantly
+            print(f"\n⚠️  WARNING: Unusual training dynamics (Val/Train ratio: {overfit_ratio:.2f})")
+            print("   This may indicate data leakage or distribution issues")
+        elif overfit_ratio < 1.0:
+            # This is actually normal with dropout!
+            print(f"\n✅ Model generalizing well (Val/Train ratio: {overfit_ratio:.2f})")
+            print("   (Val < Train is normal due to dropout being off during validation)")
         else:
-            print(
-                f"\n✅ Model appears to be learning well (Val/Train ratio: {overfit_ratio:.2f})"
-            )
+            print(f"\n✅ Model appears to be learning well (Val/Train ratio: {overfit_ratio:.2f})")
+        
+        # Additional check: is validation loss stable at the end?
+        if val_degradation > 1.1:
+            print(f"   ⚠️  Note: Val loss degraded {((val_degradation-1)*100):.1f}% from best")
+        
+        # Check for val loss trending up (potential overfitting starting)
+        if is_val_increasing and epochs_trained > 15:
+            print(f"   ⚠️  Note: Val loss trending upward in recent epochs")
 
         # Evaluate
         test_loss, test_mae = self.model.evaluate(X_test, y_test, verbose=0)
@@ -477,6 +502,9 @@ class OptimizedAttentionLSTMPredictor(IntradayPredictor):
             "best_val_loss": float(best_val_loss),
             "best_epoch": best_epoch,
             "final_overfit_ratio": float(overfit_ratio),
+            "val_degradation": float(val_degradation),
+            "absolute_gap": float(absolute_gap),
+            "val_trending_up": is_val_increasing,
         }
 
 
@@ -489,11 +517,12 @@ class LightweightAttentionPredictor(IntradayPredictor):
     def __init__(
         self,
         symbol: str,
-        interval: str = "4h",
-        lookback_periods: int = 168,
+        interval: str = "1d",  # Daily candles for better trend detection
+        lookback_periods: int = 60,  # 60 days (~2 months) of daily data
         prediction_horizon: int = 1,
+        use_csv: bool = True,  # Use CSV data instead of API
     ):
-        super().__init__(symbol, interval, lookback_periods, prediction_horizon)
+        super().__init__(symbol, interval, lookback_periods, prediction_horizon, use_csv)
         self.model_path = f"models/{symbol}_{interval}_lightweight_attention.keras"
         self.scaler_path = (
             f"models/{symbol}_{interval}_lightweight_attention_scaler.pkl"
@@ -531,10 +560,11 @@ class LightweightAttentionPredictor(IntradayPredictor):
 
 def compare_all_models(
     symbol: str,
-    interval: str = "4h",
+    interval: str = "1d",
     epochs: int = 100,
     batch_size: int = 32,
     learning_rate: float = 0.0002,
+    use_csv: bool = True,
 ) -> Dict:
     """
     Compare all three model architectures on the same data
@@ -679,7 +709,7 @@ if __name__ == "__main__":
         help="Cryptocurrency symbols to train (e.g., BTC-USD ETH-USD)",
     )
     parser.add_argument(
-        "--interval", type=str, default="4h", help="Candle interval (1h, 4h, etc.)"
+        "--interval", type=str, default="1d", help="Candle interval (1d recommended, 4h, 1h)"
     )
     parser.add_argument(
         "--epochs",

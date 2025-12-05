@@ -38,23 +38,26 @@ class HybridPredictor:
     def __init__(
         self,
         symbol: str,
-        interval: str = "4h",
-        lookback_periods: int = 168,
+        interval: str = "1d",  # Daily candles for better accuracy
+        lookback_periods: int = 60,  # 60 days (~2 months) of daily data
         auto_select: bool = True,
+        use_csv: bool = True,  # Use CSV data instead of API
     ):
         """
         Initialize hybrid predictor
 
         Args:
             symbol: Crypto symbol (e.g., 'BTC-USD')
-            interval: Candle interval
+            interval: Candle interval (1d recommended)
             lookback_periods: Lookback window
             auto_select: If True, automatically select best model based on market cap
+            use_csv: Use CSV data instead of yfinance API
         """
         self.symbol = symbol
         self.interval = interval
         self.lookback_periods = lookback_periods
         self.auto_select = auto_select
+        self.use_csv = use_csv
         self.predictor = None
         self.selected_model = None
 
@@ -78,6 +81,7 @@ class HybridPredictor:
                 symbol=self.symbol,
                 interval=self.interval,
                 lookback_periods=self.lookback_periods,
+                use_csv=self.use_csv,
             )
             self.selected_model = "Optimized Attention-LSTM"
         else:
@@ -85,6 +89,7 @@ class HybridPredictor:
                 symbol=self.symbol,
                 interval=self.interval,
                 lookback_periods=self.lookback_periods,
+                use_csv=self.use_csv,
             )
             self.selected_model = "Vanilla LSTM"
 
@@ -194,24 +199,28 @@ class EnsemblePredictor:
     def __init__(
         self,
         symbol: str,
-        interval: str = "4h",
-        lookback_periods: int = 168,
+        interval: str = "1d",  # Daily candles for better accuracy
+        lookback_periods: int = 60,  # 60 days (~2 months) of daily data
+        use_csv: bool = True,  # Use CSV data instead of API
     ):
         self.symbol = symbol
         self.interval = interval
         self.lookback_periods = lookback_periods
+        self.use_csv = use_csv
 
         # Initialize both models
         self.vanilla = IntradayPredictor(
             symbol=symbol,
             interval=interval,
             lookback_periods=lookback_periods,
+            use_csv=use_csv,
         )
 
         self.attention = OptimizedAttentionLSTMPredictor(
             symbol=symbol,
             interval=interval,
             lookback_periods=lookback_periods,
+            use_csv=use_csv,
         )
 
         # Load pre-trained models
@@ -280,11 +289,12 @@ class EnsemblePredictor:
 
 def train_hybrid_portfolio(
     symbols: list,
-    interval: str = "4h",
+    interval: str = "1d",  # Daily candles for better accuracy
     epochs: int = 100,
     batch_size: int = 32,
     learning_rate: float = 0.0002,
     patience: int = 15,
+    use_csv: bool = True,  # Use CSV data instead of API
 ):
     """
     Train hybrid models for a portfolio of cryptocurrencies
@@ -292,17 +302,19 @@ def train_hybrid_portfolio(
 
     Args:
         symbols: List of cryptocurrency symbols
-        interval: Candle interval
+        interval: Candle interval (1d recommended)
         epochs: Maximum training epochs
         batch_size: Batch size for training
         learning_rate: Learning rate for optimizer
         patience: Early stopping patience
+        use_csv: Use CSV data instead of yfinance API
     """
     print(f"\n{'='*80}")
     print("HYBRID PORTFOLIO TRAINING CONFIGURATION")
     print(f"{'='*80}")
     print(f"Symbols: {symbols}")
     print(f"Interval: {interval}")
+    print(f"Data Source: {'CSV file' if use_csv else 'yfinance API'}")
     print(f"Epochs: {epochs}")
     print(f"Batch Size: {batch_size}")
     print(f"Learning Rate: {learning_rate}")
@@ -321,6 +333,7 @@ def train_hybrid_portfolio(
                 symbol=symbol,
                 interval=interval,
                 auto_select=False,  # Use pre-configured selections
+                use_csv=use_csv,
             )
 
             result = predictor.train(
@@ -385,7 +398,10 @@ if __name__ == "__main__":
         help="Cryptocurrency symbols to train (e.g., BTC-USD ETH-USD)",
     )
     parser.add_argument(
-        "--interval", type=str, default="4h", help="Candle interval (1h, 4h, etc.)"
+        "--interval",
+        type=str,
+        default="1d",
+        help="Candle interval (1d recommended, 4h, 1h)",
     )
     parser.add_argument(
         "--epochs",
@@ -432,6 +448,7 @@ if __name__ == "__main__":
         symbols = args.symbols
 
     print("🚀 Training Hybrid Portfolio with Optimal Model Selection")
+    print("Using daily (1d) candles with CSV data source")
     print("=" * 80)
 
     results = train_hybrid_portfolio(
@@ -441,6 +458,7 @@ if __name__ == "__main__":
         batch_size=args.batch_size,
         learning_rate=args.learning_rate,
         patience=args.patience,
+        use_csv=True,  # Always use CSV for training
     )
 
     print("\n✅ Portfolio training complete!")

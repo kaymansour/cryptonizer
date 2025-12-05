@@ -107,7 +107,7 @@ async def save_portfolio(
                 take_profit_levels=ml_config.get(
                     "take_profit_levels", [0.03, 0.05, 0.08]
                 ),
-                interval=ml_config.get("interval", "4h"),
+                interval=ml_config.get("interval", "1d"),  # Daily candles by default
                 use_trend_filter=ml_config.get("use_trend_filter", True),
                 use_rsi_filter=ml_config.get("use_rsi_filter", True),
                 use_volume_filter=ml_config.get("use_volume_filter", True),

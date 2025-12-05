@@ -1,6 +1,9 @@
 """
-Intraday Cryptocurrency Price Predictor using LSTM
-Trains models on 1h or 4h candle data for short-term trading signals
+Cryptocurrency Price Predictor using LSTM
+Trains models on daily (1d) candle data for trading signals
+
+Data Source: Pre-downloaded CSV with 11+ years of historical data
+Interval: Daily (1d) candles for better trend detection
 """
 
 import argparse
@@ -16,7 +19,20 @@ from keras.optimizers import Adam
 from sklearn.preprocessing import MinMaxScaler
 import pickle
 import os
+import sys
 from typing import Dict, List, Tuple, Optional
+
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Import CSV data loader
+try:
+    from services.csv_data_loader import get_symbol_data, get_available_symbols
+
+    CSV_DATA_AVAILABLE = True
+except ImportError:
+    CSV_DATA_AVAILABLE = False
+    print("⚠️  CSV data loader not available, using yfinance API")
 
 
 class TrainingLogger(Callback):
@@ -63,27 +79,31 @@ class IntradayPredictor:
     def __init__(
         self,
         symbol: str,
-        interval: str = "4h",  # "1h" or "4h"
-        lookback_periods: int = 168,  # 1 week of hourly data
+        interval: str = "1d",  # Daily candles (1d) - primary interval
+        lookback_periods: int = 60,  # 60 days (~2 months) of daily data
         prediction_horizon: int = 1,  # Predict next candle
+        use_csv: bool = True,  # Use CSV data instead of API
     ):
         self.symbol = symbol
         self.interval = interval
         self.lookback_periods = lookback_periods
         self.prediction_horizon = prediction_horizon
+        self.use_csv = use_csv and CSV_DATA_AVAILABLE
         self.model = None
         self.scaler = MinMaxScaler(feature_range=(0, 1))
         self.model_path = f"models/{symbol}_{interval}_predictor.keras"
         self.scaler_path = f"models/{symbol}_{interval}_scaler.pkl"
 
-    def fetch_intraday_data(self, days_back: int = 730) -> pd.DataFrame:
+    def fetch_intraday_data(self, days_back: int = 2000) -> pd.DataFrame:
         """
-        Fetch intraday price data
+        Fetch price data from CSV or yfinance API
 
-        Note: yfinance limitations:
-        - 1h interval: max 730 days
-        - 4h interval: max 730 days
-        - 1m interval: max 60 days
+        CSV data: Up to 11+ years of daily data (preferred)
+        yfinance API: Limited to ~2 years for intraday intervals
+
+        Args:
+            days_back: Number of days of historical data to fetch
+                      Default: 2000 (use more data from CSV for better training)
         """
         try:
             end_date = datetime.now()
@@ -92,13 +112,22 @@ class IntradayPredictor:
             print(f"Fetching {self.interval} data for {self.symbol}...")
             print(f"Period: {start_date.date()} to {end_date.date()}")
 
-            data = yf.download(
-                self.symbol,
-                start=start_date,
-                end=end_date,
-                interval=self.interval,
-                progress=False,
-            )
+            # Use CSV data if available (preferred for 1d interval)
+            if self.use_csv and self.interval == "1d":
+                print("📂 Using CSV data source (faster, more data)")
+                data = get_symbol_data(
+                    self.symbol, start_date=start_date, end_date=end_date
+                )
+            else:
+                # Fall back to yfinance API for non-daily intervals
+                print("🌐 Using yfinance API")
+                data = yf.download(
+                    self.symbol,
+                    start=start_date,
+                    end=end_date,
+                    interval=self.interval,
+                    progress=False,
+                )
 
             if data.empty:
                 raise ValueError(f"No data retrieved for {self.symbol}")
@@ -328,24 +357,48 @@ class IntradayPredictor:
         print(f"Final Train Loss: {final_train_loss:.6f}")
         print(f"Final Val Loss: {final_val_loss:.6f}")
 
-        # Check for overfitting
+        # Enhanced overfitting detection metrics
         overfit_ratio = final_val_loss / final_train_loss if final_train_loss > 0 else 1
+        
+        # 1. Validation degradation: how much val_loss increased from best
+        val_degradation = final_val_loss / best_val_loss if best_val_loss > 0 else 1
+        
+        # 2. Loss trajectory: is val_loss trending up in recent epochs?
+        recent_val_losses = history.history["val_loss"][-10:] if epochs_trained >= 10 else history.history["val_loss"]
+        is_val_increasing = recent_val_losses[-1] > recent_val_losses[0] if len(recent_val_losses) > 1 else False
+        
+        # 3. Absolute gap between train and val loss
+        absolute_gap = final_val_loss - final_train_loss
+        
+        print(f"\n📊 OVERFITTING ANALYSIS:")
+        print(f"   Val/Train Ratio: {overfit_ratio:.3f}")
+        print(f"   Val Degradation: {val_degradation:.3f} (final/best, ideal: 1.0)")
+        print(f"   Absolute Gap: {absolute_gap:.6f} (val - train)")
+        print(f"   Val Trending Up: {'⚠️ YES' if is_val_increasing else '✅ NO'}")
+        
+        # Improved overfitting evaluation that accounts for dropout effects
+        # Note: Val < Train is NORMAL with dropout (dropout is off during validation)
         if overfit_ratio > 1.5:
-            print(
-                f"\n⚠️  WARNING: Model may be OVERFITTING (Val/Train ratio: {overfit_ratio:.2f})"
-            )
+            print(f"\n⚠️  WARNING: Model may be OVERFITTING (Val/Train ratio: {overfit_ratio:.2f})")
             print("   Consider: Lower learning rate, more regularization, or more data")
-        elif overfit_ratio < 0.9:
-            print(
-                f"\n⚠️  WARNING: Model may be UNDERFITTING (Val/Train ratio: {overfit_ratio:.2f})"
-            )
-            print(
-                "   Consider: Higher learning rate, more epochs, or more complex model"
-            )
+        elif overfit_ratio < 0.6 and val_degradation > 1.2:
+            # Only warn if val loss is also degrading significantly
+            print(f"\n⚠️  WARNING: Unusual training dynamics (Val/Train ratio: {overfit_ratio:.2f})")
+            print("   This may indicate data leakage or distribution issues")
+        elif overfit_ratio < 1.0:
+            # This is actually normal with dropout!
+            print(f"\n✅ Model generalizing well (Val/Train ratio: {overfit_ratio:.2f})")
+            print("   (Val < Train is normal due to dropout being off during validation)")
         else:
-            print(
-                f"\n✅ Model appears to be learning well (Val/Train ratio: {overfit_ratio:.2f})"
-            )
+            print(f"\n✅ Model appears to be learning well (Val/Train ratio: {overfit_ratio:.2f})")
+        
+        # Additional check: is validation loss stable at the end?
+        if val_degradation > 1.1:
+            print(f"   ⚠️  Note: Val loss degraded {((val_degradation-1)*100):.1f}% from best")
+        
+        # Check for val loss trending up (potential overfitting starting)
+        if is_val_increasing and epochs_trained > 15:
+            print(f"   ⚠️  Note: Val loss trending upward in recent epochs")
 
         # Evaluate
         test_loss, test_mae = self.model.evaluate(X_test, y_test, verbose=0)
@@ -364,6 +417,9 @@ class IntradayPredictor:
             "best_val_loss": float(best_val_loss),
             "best_epoch": best_epoch,
             "final_overfit_ratio": float(overfit_ratio),
+            "val_degradation": float(val_degradation),
+            "absolute_gap": float(absolute_gap),
+            "val_trending_up": is_val_increasing,
         }
 
     def predict_next(self, recent_data: pd.DataFrame) -> Dict:
@@ -532,22 +588,24 @@ class IntradayPredictor:
 
 def train_all_crypto_models(
     symbols: List[str],
-    interval: str = "4h",
+    interval: str = "1d",
     epochs: int = 50,
     batch_size: int = 32,
     learning_rate: float = 0.0002,
     patience: int = 10,
+    use_csv: bool = True,
 ):
     """
     Train models for all specified cryptocurrencies
 
     Args:
         symbols: List of cryptocurrency symbols to train
-        interval: Candle interval (1h, 4h, etc.)
+        interval: Candle interval (1d recommended for best results)
         epochs: Maximum number of training epochs
         batch_size: Batch size for training
         learning_rate: Learning rate for optimizer
         patience: Early stopping patience
+        use_csv: Use CSV data instead of yfinance API
     """
     results = {}
 
@@ -556,6 +614,7 @@ def train_all_crypto_models(
     print(f"{'='*80}")
     print(f"Symbols: {symbols}")
     print(f"Interval: {interval}")
+    print(f"Data Source: {'CSV file' if use_csv else 'yfinance API'}")
     print(f"Epochs: {epochs}")
     print(f"Batch Size: {batch_size}")
     print(f"Learning Rate: {learning_rate}")
@@ -564,7 +623,9 @@ def train_all_crypto_models(
 
     for symbol in symbols:
         try:
-            predictor = IntradayPredictor(symbol=symbol, interval=interval)
+            predictor = IntradayPredictor(
+                symbol=symbol, interval=interval, use_csv=use_csv
+            )
             result = predictor.train(
                 epochs=epochs,
                 batch_size=batch_size,
@@ -592,7 +653,10 @@ if __name__ == "__main__":
         help="Cryptocurrency symbols to train (e.g., BTC-USD ETH-USD)",
     )
     parser.add_argument(
-        "--interval", type=str, default="4h", help="Candle interval (1h, 4h, etc.)"
+        "--interval",
+        type=str,
+        default="1d",
+        help="Candle interval (1d recommended, 4h, 1h)",
     )
     parser.add_argument(
         "--epochs",
@@ -618,6 +682,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--all", action="store_true", help="Train all default cryptocurrencies"
     )
+    parser.add_argument(
+        "--use-api", action="store_true", help="Use yfinance API instead of CSV data"
+    )
 
     args = parser.parse_args()
 
@@ -637,7 +704,11 @@ if __name__ == "__main__":
     else:
         symbols = args.symbols
 
-    print("🚀 Training Intraday Prediction Models")
+    print("🚀 Training Daily Prediction Models")
+    print("=" * 80)
+    print(
+        f"Data source: {'yfinance API' if args.use_api else 'CSV file (faster, more data)'}"
+    )
     print("=" * 80)
 
     results = train_all_crypto_models(
@@ -647,6 +718,7 @@ if __name__ == "__main__":
         batch_size=args.batch_size,
         learning_rate=args.learning_rate,
         patience=args.patience,
+        use_csv=not args.use_api,
     )
 
     print("\n" + "=" * 80)
@@ -663,10 +735,8 @@ if __name__ == "__main__":
 
     print("\n✅ Training complete!")
     print(f"\nUsage examples:")
-    print(
-        f"  python intraday_predictor.py --symbols BTC-USD ETH-USD --epochs 100 --learning-rate 0.0001"
-    )
+    print(f"  python intraday_predictor.py --symbols BTC-USD ETH-USD --epochs 100")
     print(f"  python intraday_predictor.py --all --epochs 50 --batch-size 64")
     print(
-        f"  python intraday_predictor.py --symbols SOL-USD --learning-rate 0.0005 --patience 15"
+        f"  python intraday_predictor.py --symbols SOL-USD --use-api  # Force yfinance API"
     )
