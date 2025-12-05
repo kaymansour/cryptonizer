@@ -22,7 +22,7 @@ export default function Header() {
           {[
             { href: "/dashboard", label: "Home" },
             { href: "/portfolio", label: "Portfolio" },
-            { href: "/chatbot", label: "AI Agent" },
+            { href: "/saved", label: "Saved Results" },
           ].map((link) => (
             <Link
               key={link.href}
