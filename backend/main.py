@@ -11,6 +11,7 @@ from api.routes import (
     debug,
     clerk_webhook,
     saved_portfolios,
+    ml_backtest_results,
 )
 from database.connection import init_database
 
@@ -28,6 +29,7 @@ app.include_router(backtest.router)
 app.include_router(debug.router)
 app.include_router(clerk_webhook.router)
 app.include_router(saved_portfolios.router)
+app.include_router(ml_backtest_results.router)
 
 
 # Print startup information

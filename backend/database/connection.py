@@ -71,11 +71,13 @@ def init_database():
     from database.models.investment_preferences import (
         create_investment_preferences_table,
     )
+    from database.models.ml_backtest_results import create_ml_backtest_results_table
 
-    # Create all tables in order (users first, then portfolios, then preferences)
+    # Create all tables in order (users first, then portfolios, then preferences, then ml backtest results)
     create_users_table()
     create_portfolios_table()
     create_investment_preferences_table()
+    create_ml_backtest_results_table()
 
     print(f"Database initialized at: {DB_PATH}")
     print("✓ All tables created successfully")

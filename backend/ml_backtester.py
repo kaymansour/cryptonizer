@@ -1,6 +1,7 @@
 """
 ML-Driven Trading Backtester - Enhanced Version
 Uses trained LSTM models with multi-factor signal confirmation
+Data Source: Pre-downloaded CSV with 11+ years of historical data
 """
 
 import yfinance as yf
@@ -16,6 +17,12 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "models"))
 
 from intraday_predictor import IntradayPredictor
 
+# Import CSV data loader
+try:
+    from services.csv_data_loader import get_symbol_data, CSV_DATA_AVAILABLE
+except ImportError:
+    CSV_DATA_AVAILABLE = False
+
 warnings.filterwarnings("ignore")
 
 
@@ -30,8 +37,8 @@ class MLTradingBacktester:
         initial_capital: float,
         start_date: str,
         end_date: str,
-        interval: str = "4h",
-        signal_threshold: float = 2.0,  # Increased from 1.0%
+        interval: str = "1d",  # Daily candles for better trend detection
+        signal_threshold: float = 1.5,  # Lowered from 2.0% to allow more stable assets
         max_position_size: float = 0.6,  # Increased from 0.3
         transaction_cost: float = 0,
         # New parameters for enhanced strategy
@@ -40,23 +47,24 @@ class MLTradingBacktester:
         use_volume_filter: bool = True,
         rsi_oversold: float = 25,
         rsi_overbought: float = 60,
-        min_confidence: float = 0.5,  # Increased from 0.3
+        min_confidence: float = 0.35,  # Lowered from 0.5 to allow more trades
         trailing_stop_pct: float = 0.05,  # 5% trailing stop
         # NEW parameters for improved strategy
         stop_loss_pct: float = 0.03,  # 3% stop loss from entry
         trade_cooldown_periods: int = 6,  # 6 candles between trades
         required_confirmations: int = 2,  # Need 2 consecutive signals
+        use_csv: bool = True,  # Use CSV data instead of API
     ):
         self.symbols = symbols
         self.initial_capital = initial_capital
         self.current_capital = initial_capital
 
+        # Keep dates timezone-naive to match CSV data format
         start_dt = pd.to_datetime(start_date)
         end_dt = pd.to_datetime(end_date)
-        self.start_date = (
-            start_dt if start_dt.tz is not None else start_dt.tz_localize("UTC")
-        )
-        self.end_date = end_dt if end_dt.tz is not None else end_dt.tz_localize("UTC")
+        # Remove timezone info if present (CSV data is tz-naive)
+        self.start_date = start_dt.tz_localize(None) if start_dt.tz is not None else start_dt
+        self.end_date = end_dt.tz_localize(None) if end_dt.tz is not None else end_dt
 
         self.interval = interval
         self.signal_threshold = signal_threshold
@@ -76,6 +84,9 @@ class MLTradingBacktester:
         self.stop_loss_pct = stop_loss_pct
         self.trade_cooldown_periods = trade_cooldown_periods
         self.required_confirmations = required_confirmations
+
+        # Data source configuration
+        self.use_csv = use_csv and CSV_DATA_AVAILABLE
 
         # Portfolio state
         self.positions = {symbol: 0.0 for symbol in symbols}
@@ -100,6 +111,21 @@ class MLTradingBacktester:
         self.trade_history = []
         self.predictions_log = []
         self.realized_pnl = []  # Track actual P&L per trade
+        
+        # DEBUG: Signal statistics per symbol
+        self.signal_stats = {symbol: {
+            "total_signals": 0,
+            "raw_buy": 0,
+            "raw_sell": 0,
+            "raw_hold": 0,
+            "final_buy": 0,
+            "final_sell": 0,
+            "final_hold": 0,
+            "blocked_by_confidence": 0,
+            "blocked_by_downtrend": 0,
+            "blocked_by_confirmation": 0,
+            "avg_pred_change": [],
+        } for symbol in symbols}
 
         # ML predictors
         self.predictors = {}
@@ -111,10 +137,17 @@ class MLTradingBacktester:
 
         for symbol in self.symbols:
             try:
+                # Use 60 lookback periods for daily data, 168 for hourly
+                lookback = (
+                    60
+                    if self.interval == "1d"
+                    else (168 if self.interval == "1h" else 42)
+                )
                 predictor = IntradayPredictor(
                     symbol=symbol,
                     interval=self.interval,
-                    lookback_periods=168 if self.interval == "1h" else 42,
+                    lookback_periods=lookback,
+                    use_csv=self.use_csv,
                 )
                 predictor.load_model()
                 self.predictors[symbol] = predictor
@@ -127,10 +160,11 @@ class MLTradingBacktester:
                 self.predictors[symbol] = None
 
     def fetch_historical_data(self) -> Dict[str, pd.DataFrame]:
-        """Fetch intraday historical data for backtesting"""
+        """Fetch historical data for backtesting from CSV or yfinance"""
         print(f"\n{'='*60}")
         print(f"Fetching {self.interval} data for backtesting")
-        print(f"Period: {self.start_date. date()} to {self.end_date.date()}")
+        print(f"Data source: {'CSV file' if self.use_csv else 'yfinance API'}")
+        print(f"Period: {self.start_date.date()} to {self.end_date.date()}")
         print(f"{'='*60}")
 
         historical_data = {}
@@ -138,14 +172,24 @@ class MLTradingBacktester:
         for symbol in self.symbols:
             try:
                 print(f"Fetching {symbol}...")
-                extra_days = 60  # More buffer for indicators
-                data = yf.download(
-                    symbol,
-                    start=self.start_date - timedelta(days=extra_days),
-                    end=self.end_date,
-                    interval=self.interval,
-                    progress=False,
-                )
+                extra_days = 120  # More buffer for indicators (especially daily data)
+
+                # Use CSV data if available and interval is 1d
+                if self.use_csv and self.interval == "1d":
+                    data = get_symbol_data(
+                        symbol,
+                        start_date=self.start_date - timedelta(days=extra_days),
+                        end_date=self.end_date,
+                    )
+                else:
+                    # Fall back to yfinance API
+                    data = yf.download(
+                        symbol,
+                        start=self.start_date - timedelta(days=extra_days),
+                        end=self.end_date,
+                        interval=self.interval,
+                        progress=False,
+                    )
 
                 if data.empty:
                     raise ValueError(f"No data for {symbol}")
@@ -312,9 +356,16 @@ class MLTradingBacktester:
             return "HOLD"
 
         if all(s == "BUY" for s in recent):
+            if symbol in self.signal_stats:
+                self.signal_stats[symbol]["final_buy"] += 1
             return "BUY"
         elif all(s == "SELL" for s in recent):
+            if symbol in self.signal_stats:
+                self.signal_stats[symbol]["final_sell"] += 1
             return "SELL"
+        
+        if symbol in self.signal_stats:
+            self.signal_stats[symbol]["final_hold"] += 1
         return "HOLD"
 
     def _get_major_trend(self, data: pd.DataFrame) -> int:
@@ -392,6 +443,9 @@ class MLTradingBacktester:
                 bb_position=bb_position,
             )
 
+            # Get major trend for logging
+            major_trend = self._get_major_trend(historical_slice) if len(historical_slice) >= 100 else 0
+
             # Determine raw signal with confirmation
             raw_signal = self._determine_signal(
                 predicted_change=predicted_change,
@@ -403,10 +457,17 @@ class MLTradingBacktester:
                 current_position=self.positions[symbol],
                 current_price=current_price,
                 historical_data=historical_slice,
+                symbol=symbol,  # Pass symbol for stats tracking
             )
 
             # NEW: Apply signal confirmation (require consecutive same signals)
             signal = self._check_signal_confirmation(symbol, raw_signal)
+
+            # DEBUG LOGGING: Log when raw_signal differs from final signal or when BUY signals happen
+            if raw_signal != signal or raw_signal == "BUY":
+                print(f"  [DEBUG] {symbol}: pred_change={predicted_change:+.2f}%, conf={confidence:.2f}, "
+                      f"rsi={rsi:.1f}, trend={trend}, major_trend={major_trend}, "
+                      f"raw={raw_signal} -> final={signal}")
 
             return {
                 "signal": signal,
@@ -418,6 +479,8 @@ class MLTradingBacktester:
                 "trend": trend,
                 "volume_ratio": volume_ratio,
                 "adx": adx,
+                "raw_signal": raw_signal,  # Add raw signal for debugging
+                "major_trend": major_trend,  # Add major trend for debugging
             }
 
         except Exception as e:
@@ -440,10 +503,17 @@ class MLTradingBacktester:
         score = 0.0
         max_score = 0.0
 
-        # 1. ML Prediction strength (0-0.35)
-        pred_strength = min(abs(predicted_change) / 5.0, 1.0)  # Cap at 5%
-        score += pred_strength * 0.35
-        max_score += 0.35
+        # 1. ML Prediction strength (0-0.25) - reduced weight, lower threshold
+        # Use 2% as full strength instead of 5% to account for stable assets like BTC
+        pred_strength = min(abs(predicted_change) / 2.0, 1.0)  # Cap at 2%
+        score += pred_strength * 0.25
+        max_score += 0.25
+        
+        # 1b. Bonus for having ANY directional prediction (0-0.10)
+        # This ensures even small predictions contribute to confidence
+        if abs(predicted_change) > 0.5:  # At least 0.5% prediction
+            score += 0.10
+        max_score += 0.10
 
         # 2.  Trend alignment (0-0.25)
         if predicted_change > 0 and trend == 1:
@@ -496,23 +566,37 @@ class MLTradingBacktester:
         current_position: float,
         current_price: float,
         historical_data: pd.DataFrame = None,
+        symbol: str = None,  # NEW: Add symbol for stats tracking
     ) -> str:
         """
         Determine trading signal with multi-factor confirmation
         """
+        # Track stats if symbol provided
+        if symbol and symbol in self.signal_stats:
+            self.signal_stats[symbol]["total_signals"] += 1
+            self.signal_stats[symbol]["avg_pred_change"].append(predicted_change)
+
         # Check minimum confidence threshold
         if confidence < self.min_confidence:
+            if symbol and symbol in self.signal_stats:
+                self.signal_stats[symbol]["blocked_by_confidence"] += 1
             return "HOLD"
 
-        # NEW: Get major trend and block buys in downtrends
+        # Get major trend (informational, not blocking)
         major_trend = 0
         if historical_data is not None:
             major_trend = self._get_major_trend(historical_data)
 
         # Strong BUY conditions
         if predicted_change > self.signal_threshold:
-            # NEW: Block buys in strong downtrends
+            # In strong downtrends, require higher predicted change (not complete block)
+            effective_threshold = self.signal_threshold
             if major_trend == -1:
+                effective_threshold = self.signal_threshold * 1.5  # 50% higher threshold
+            
+            if predicted_change <= effective_threshold:
+                if symbol and symbol in self.signal_stats:
+                    self.signal_stats[symbol]["blocked_by_downtrend"] += 1
                 return "HOLD"
 
             buy_confirmations = 0
@@ -540,7 +624,13 @@ class MLTradingBacktester:
 
             # Need at least 2 confirmations to buy
             if buy_confirmations >= 2:
+                if symbol and symbol in self.signal_stats:
+                    self.signal_stats[symbol]["raw_buy"] += 1
                 return "BUY"
+            else:
+                # Log why BUY was not generated
+                if symbol and symbol in self.signal_stats:
+                    self.signal_stats[symbol]["blocked_by_confirmation"] += 1
 
         # Strong SELL conditions
         elif predicted_change < -self.signal_threshold:
@@ -565,16 +655,20 @@ class MLTradingBacktester:
                 sell_confirmations += 1
 
             if sell_confirmations >= 2:
+                if symbol and symbol in self.signal_stats:
+                    self.signal_stats[symbol]["raw_sell"] += 1
                 return "SELL"
 
         # Check for RSI extremes (mean reversion opportunities)
-        # NEW: Only allow oversold bounce if not in strong downtrend
+        # Allow oversold bounce even in downtrends if RSI is very low (extreme oversold)
         if (
             rsi < 25
             and predicted_change > 0
             and current_position == 0
-            and major_trend != -1
         ):
+            # Extra caution in downtrends - require very strong oversold
+            if major_trend == -1 and rsi > 20:
+                return "HOLD"
             return "BUY"  # Oversold bounce
         elif rsi > 75 and current_position > 0:
             return "SELL"  # Overbought, take profit
@@ -996,7 +1090,7 @@ class MLTradingBacktester:
                         ]
                         if not next_data.empty:
                             actual_next_price = float(next_data["Close"].iloc[0])
-                            
+
                             # Only log if we have valid future data
                             self.predictions_log.append(
                                 {
@@ -1033,6 +1127,26 @@ class MLTradingBacktester:
                     "positions": self.positions.copy(),
                 }
             )
+
+        # DEBUG: Print signal statistics summary
+        print(f"\n{'='*60}")
+        print(f"📊 SIGNAL STATISTICS SUMMARY")
+        print(f"{'='*60}")
+        for symbol in self.symbols:
+            stats = self.signal_stats[symbol]
+            avg_pred = sum(stats["avg_pred_change"]) / len(stats["avg_pred_change"]) if stats["avg_pred_change"] else 0
+            print(f"\n🔹 {symbol}:")
+            print(f"   Total signal evaluations: {stats['total_signals']}")
+            print(f"   Avg predicted change: {avg_pred:+.2f}%")
+            print(f"   Raw BUY signals: {stats['raw_buy']}")
+            print(f"   Raw SELL signals: {stats['raw_sell']}")
+            print(f"   Final BUY signals (confirmed): {stats['final_buy']}")
+            print(f"   Final SELL signals (confirmed): {stats['final_sell']}")
+            print(f"   --- Blocked by ---")
+            print(f"   Low confidence (<{self.min_confidence}): {stats['blocked_by_confidence']}")
+            print(f"   Downtrend filter: {stats['blocked_by_downtrend']}")
+            print(f"   Failed confirmations: {stats['blocked_by_confirmation']}")
+        print(f"\n{'='*60}")
 
         return self._calculate_performance_metrics()
 
@@ -1199,12 +1313,15 @@ def ml_backtest_portfolio(
     initial_capital: float = 100000,
     start_date: str = None,
     end_date: str = None,
-    interval: str = "4h",
-    signal_threshold: float = 2.0,  # Updated from 1.0 to 2.0
+    interval: str = "1d",  # Daily candles (1d) for better results
+    signal_threshold: float = 2.0,
+    use_csv: bool = True,  # Use CSV data instead of API
 ) -> Dict:
     """Convenience function to run ML-driven backtest"""
     if start_date is None:
-        start_date = (datetime.now() - timedelta(days=90)).strftime("%Y-%m-%d")
+        start_date = (datetime.now() - timedelta(days=365)).strftime(
+            "%Y-%m-%d"
+        )  # 1 year default for daily
     if end_date is None:
         end_date = datetime.now().strftime("%Y-%m-%d")
 
@@ -1215,6 +1332,7 @@ def ml_backtest_portfolio(
         end_date=end_date,
         interval=interval,
         signal_threshold=signal_threshold,
+        use_csv=use_csv,
     )
 
     return backtester.run_backtest()
@@ -1223,16 +1341,19 @@ def ml_backtest_portfolio(
 if __name__ == "__main__":
     print("Enhanced ML-Driven Trading Backtest Demo")
     print("=" * 60)
+    print("Using daily (1d) candles with CSV data source")
+    print("=" * 60)
 
     symbols = ["BTC-USD", "ETH-USD"]
 
     backtester = MLTradingBacktester(
         symbols=symbols,
         initial_capital=100000,
-        start_date="2024-06-01",
+        start_date="2024-01-01",  # Longer period for daily data
         end_date="2024-11-29",
-        interval="4h",
-        signal_threshold=2.0,  # Updated from 1.0 to 2.0
+        interval="1d",  # Daily candles
+        signal_threshold=2.0,
+        use_csv=True,  # Use CSV data
     )
 
     results = backtester.run_backtest()
