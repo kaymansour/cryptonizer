@@ -234,6 +234,10 @@ export default function PortfolioOptimizer() {
       setError("Please answer all questions before optimizing");
       return;
     }
+    if (parseFloat(investmentAmount) < 1000) {
+      setError("Minimum investment amount is $1,000");
+      return;
+    }
 
     setIsLoading(true);
     setError("");
@@ -621,7 +625,7 @@ export default function PortfolioOptimizer() {
                 className="text-lg w-full rounded-xl h-12"
               />
               <div className="grid grid-cols-3 gap-2">
-                {[50000, 100000, 250000].map((amount) => (
+                {[10000, 50000, 100000].map((amount) => (
                   <Button
                     key={amount}
                     onClick={() => setInvestmentAmount(amount.toString())}
@@ -633,6 +637,9 @@ export default function PortfolioOptimizer() {
                   </Button>
                 ))}
               </div>
+              <p className="text-xs text-muted-foreground text-center">
+                Minimum: $1,000
+              </p>
             </div>
           </BentoCard>
 
