@@ -11,7 +11,7 @@ A sophisticated portfolio optimization and backtesting platform that combines **
   - **Maximum Sharpe Ratio**: Optimize for best risk-adjusted returns
   - **Minimum Volatility**: Conservative approach focused on stability
 - **10+ Cryptocurrencies**: Support for BTC, ETH, BNB, ADA, SOL, DOT, AVAX, LINK, ATOM, XRP, and TRX
-- **Flexible Time Horizons**: Analyze portfolios over 3 months, 6 months, 1 year, or 2 years
+- **Flexible Time Horizons**: Analyze portfolios over 6 months, 1 year, or 2 years
 
 ### AI-Powered Trading & Backtesting
 - **LSTM Neural Networks**: Attention-based LSTM models trained on historical price data and technical indicators
@@ -130,11 +130,6 @@ npm run dev
 
 The frontend will be available at `http://localhost:3000`
 
-### Start the Backend Development Server
-```bash
-cd /home/ayoub/senior/backend && source venv/bin/activate && uvicorn main:app --reload --host 0.0.0.0 --port 8000
-```
-
 ## 📊 Usage Guide
 
 ### 1. Create an Optimized Portfolio
@@ -153,7 +148,7 @@ cd /home/ayoub/senior/backend && source venv/bin/activate && uvicorn main:app --
 ### 3. Backtest Your Strategy
 1. Navigate to the **Historical Backtest** tab
 2. Configure backtest parameters:
-   - Time period (3 months to 2 years)
+   - Time period (6 months to 2 years)
    - Candle interval (4-hour or daily)
    - ML signal threshold and risk management settings
 3. Run the backtest and compare against benchmark strategies
