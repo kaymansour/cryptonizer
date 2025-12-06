@@ -82,7 +82,6 @@ async def compare_strategies_endpoint(request: StrategyComparisonRequest):
     try:
         print(f"Comparing strategies for {len(request.symbols)} symbols")
         print(f"Period: {request.start_date} to {request.end_date}")
-        print(f"Optimized weights: {request.optimized_weights}")
 
         # Validate optimized weights
         total_weight = sum(request.optimized_weights.values())
@@ -117,7 +116,6 @@ async def compare_strategies_endpoint(request: StrategyComparisonRequest):
         )
 
         print(f"Strategy comparison completed successfully")
-        print(f"Compared {len(comparison_results['comparison_summary'])} strategies")
 
         # Find best performing strategy
         best_strategy = max(

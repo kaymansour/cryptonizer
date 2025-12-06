@@ -63,7 +63,9 @@ class MLTradingBacktester:
         start_dt = pd.to_datetime(start_date)
         end_dt = pd.to_datetime(end_date)
         # Remove timezone info if present (CSV data is tz-naive)
-        self.start_date = start_dt.tz_localize(None) if start_dt.tz is not None else start_dt
+        self.start_date = (
+            start_dt.tz_localize(None) if start_dt.tz is not None else start_dt
+        )
         self.end_date = end_dt.tz_localize(None) if end_dt.tz is not None else end_dt
 
         self.interval = interval
@@ -111,21 +113,24 @@ class MLTradingBacktester:
         self.trade_history = []
         self.predictions_log = []
         self.realized_pnl = []  # Track actual P&L per trade
-        
+
         # DEBUG: Signal statistics per symbol
-        self.signal_stats = {symbol: {
-            "total_signals": 0,
-            "raw_buy": 0,
-            "raw_sell": 0,
-            "raw_hold": 0,
-            "final_buy": 0,
-            "final_sell": 0,
-            "final_hold": 0,
-            "blocked_by_confidence": 0,
-            "blocked_by_downtrend": 0,
-            "blocked_by_confirmation": 0,
-            "avg_pred_change": [],
-        } for symbol in symbols}
+        self.signal_stats = {
+            symbol: {
+                "total_signals": 0,
+                "raw_buy": 0,
+                "raw_sell": 0,
+                "raw_hold": 0,
+                "final_buy": 0,
+                "final_sell": 0,
+                "final_hold": 0,
+                "blocked_by_confidence": 0,
+                "blocked_by_downtrend": 0,
+                "blocked_by_confirmation": 0,
+                "avg_pred_change": [],
+            }
+            for symbol in symbols
+        }
 
         # ML predictors
         self.predictors = {}
@@ -363,7 +368,7 @@ class MLTradingBacktester:
             if symbol in self.signal_stats:
                 self.signal_stats[symbol]["final_sell"] += 1
             return "SELL"
-        
+
         if symbol in self.signal_stats:
             self.signal_stats[symbol]["final_hold"] += 1
         return "HOLD"
@@ -444,7 +449,11 @@ class MLTradingBacktester:
             )
 
             # Get major trend for logging
-            major_trend = self._get_major_trend(historical_slice) if len(historical_slice) >= 100 else 0
+            major_trend = (
+                self._get_major_trend(historical_slice)
+                if len(historical_slice) >= 100
+                else 0
+            )
 
             # Determine raw signal with confirmation
             raw_signal = self._determine_signal(
@@ -465,9 +474,11 @@ class MLTradingBacktester:
 
             # DEBUG LOGGING: Log when raw_signal differs from final signal or when BUY signals happen
             if raw_signal != signal or raw_signal == "BUY":
-                print(f"  [DEBUG] {symbol}: pred_change={predicted_change:+.2f}%, conf={confidence:.2f}, "
-                      f"rsi={rsi:.1f}, trend={trend}, major_trend={major_trend}, "
-                      f"raw={raw_signal} -> final={signal}")
+                print(
+                    f"  [DEBUG] {symbol}: pred_change={predicted_change:+.2f}%, conf={confidence:.2f}, "
+                    f"rsi={rsi:.1f}, trend={trend}, major_trend={major_trend}, "
+                    f"raw={raw_signal} -> final={signal}"
+                )
 
             return {
                 "signal": signal,
@@ -508,7 +519,7 @@ class MLTradingBacktester:
         pred_strength = min(abs(predicted_change) / 2.0, 1.0)  # Cap at 2%
         score += pred_strength * 0.25
         max_score += 0.25
-        
+
         # 1b. Bonus for having ANY directional prediction (0-0.10)
         # This ensures even small predictions contribute to confidence
         if abs(predicted_change) > 0.5:  # At least 0.5% prediction
@@ -592,8 +603,10 @@ class MLTradingBacktester:
             # In strong downtrends, require higher predicted change (not complete block)
             effective_threshold = self.signal_threshold
             if major_trend == -1:
-                effective_threshold = self.signal_threshold * 1.5  # 50% higher threshold
-            
+                effective_threshold = (
+                    self.signal_threshold * 1.5
+                )  # 50% higher threshold
+
             if predicted_change <= effective_threshold:
                 if symbol and symbol in self.signal_stats:
                     self.signal_stats[symbol]["blocked_by_downtrend"] += 1
@@ -661,11 +674,7 @@ class MLTradingBacktester:
 
         # Check for RSI extremes (mean reversion opportunities)
         # Allow oversold bounce even in downtrends if RSI is very low (extreme oversold)
-        if (
-            rsi < 25
-            and predicted_change > 0
-            and current_position == 0
-        ):
+        if rsi < 25 and predicted_change > 0 and current_position == 0:
             # Extra caution in downtrends - require very strong oversold
             if major_trend == -1 and rsi > 20:
                 return "HOLD"
@@ -1134,7 +1143,11 @@ class MLTradingBacktester:
         print(f"{'='*60}")
         for symbol in self.symbols:
             stats = self.signal_stats[symbol]
-            avg_pred = sum(stats["avg_pred_change"]) / len(stats["avg_pred_change"]) if stats["avg_pred_change"] else 0
+            avg_pred = (
+                sum(stats["avg_pred_change"]) / len(stats["avg_pred_change"])
+                if stats["avg_pred_change"]
+                else 0
+            )
             print(f"\n🔹 {symbol}:")
             print(f"   Total signal evaluations: {stats['total_signals']}")
             print(f"   Avg predicted change: {avg_pred:+.2f}%")
@@ -1143,7 +1156,9 @@ class MLTradingBacktester:
             print(f"   Final BUY signals (confirmed): {stats['final_buy']}")
             print(f"   Final SELL signals (confirmed): {stats['final_sell']}")
             print(f"   --- Blocked by ---")
-            print(f"   Low confidence (<{self.min_confidence}): {stats['blocked_by_confidence']}")
+            print(
+                f"   Low confidence (<{self.min_confidence}): {stats['blocked_by_confidence']}"
+            )
             print(f"   Downtrend filter: {stats['blocked_by_downtrend']}")
             print(f"   Failed confirmations: {stats['blocked_by_confirmation']}")
         print(f"\n{'='*60}")
@@ -1172,31 +1187,36 @@ class MLTradingBacktester:
             else 0
         )
 
-        volatility = portfolio_df["returns"].std() * np.sqrt(252) * 100
-        sharpe_ratio = (annualized_return - 2) / volatility if volatility > 0 else 0
+        # Handle NaN values in volatility calculation
+        volatility_raw = portfolio_df["returns"].std() * np.sqrt(252) * 100
+        volatility = float(volatility_raw) if not np.isnan(volatility_raw) else 0.0
+        sharpe_ratio = (annualized_return - 2) / volatility if volatility > 0 else 0.0
 
         cumulative_returns = (1 + portfolio_df["returns"]).cumprod()
         running_max = cumulative_returns.expanding().max()
         drawdown = ((cumulative_returns - running_max) / running_max) * 100
-        max_drawdown = drawdown.min()
+        max_drawdown_raw = drawdown.min()
+        max_drawdown = (
+            float(max_drawdown_raw) if not np.isnan(max_drawdown_raw) else 0.0
+        )
 
         # Actual win rate from realized P&L
         num_trades = len(self.trade_history)
         sell_trades = [t for t in self.trade_history if t["action"] == "SELL"]
         winning_sells = [t for t in sell_trades if t.get("pnl", 0) > 0]
-        win_rate = (len(winning_sells) / len(sell_trades) * 100) if sell_trades else 0
+        win_rate = (len(winning_sells) / len(sell_trades) * 100) if sell_trades else 0.0
 
         total_pnl = sum(p["pnl"] for p in self.realized_pnl)
-        avg_win = (
-            np.mean([t.get("pnl", 0) for t in sell_trades if t.get("pnl", 0) > 0])
-            if winning_sells
-            else 0
-        )
-        avg_loss = (
-            np.mean([t.get("pnl", 0) for t in sell_trades if t.get("pnl", 0) <= 0])
-            if sell_trades
-            else 0
-        )
+
+        # Calculate avg_win with NaN handling
+        wins = [t.get("pnl", 0) for t in sell_trades if t.get("pnl", 0) > 0]
+        avg_win_raw = np.mean(wins) if wins else 0
+        avg_win = float(avg_win_raw) if not np.isnan(avg_win_raw) else 0.0
+
+        # Calculate avg_loss with NaN handling
+        losses = [t.get("pnl", 0) for t in sell_trades if t.get("pnl", 0) <= 0]
+        avg_loss_raw = np.mean(losses) if losses else 0
+        avg_loss = float(avg_loss_raw) if not np.isnan(avg_loss_raw) else 0.0
 
         buy_trades = [t for t in self.trade_history if t["action"] == "BUY"]
 
@@ -1214,30 +1234,30 @@ class MLTradingBacktester:
         return {
             "success": True,
             "summary": {
-                "initial_capital": self.initial_capital,
-                "final_value": final_value,
-                "total_return": total_return,
-                "annualized_return": annualized_return,
-                "volatility": volatility,
-                "sharpe_ratio": sharpe_ratio,
-                "max_drawdown": max_drawdown,
+                "initial_capital": float(self.initial_capital),
+                "final_value": float(final_value),
+                "total_return": float(total_return),
+                "annualized_return": float(annualized_return),
+                "volatility": float(volatility),
+                "sharpe_ratio": float(sharpe_ratio),
+                "max_drawdown": float(max_drawdown),
             },
             "trading_stats": {
-                "total_trades": num_trades,
-                "buy_trades": len(buy_trades),
-                "sell_trades": len(sell_trades),
-                "win_rate": win_rate,
-                "avg_trade_size": (
+                "total_trades": int(num_trades),
+                "buy_trades": int(len(buy_trades)),
+                "sell_trades": int(len(sell_trades)),
+                "win_rate": float(win_rate),
+                "avg_trade_size": float(
                     np.mean([t["value"] for t in self.trade_history])
                     if num_trades > 0
                     else 0
                 ),
-                "total_realized_pnl": total_pnl,
-                "avg_win": avg_win,
-                "avg_loss": avg_loss,
-                "take_profit_trades": len(take_profit_trades),
-                "stop_loss_trades": len(stop_loss_trades),
-                "trailing_stop_trades": len(trailing_stop_trades),
+                "total_realized_pnl": float(total_pnl),
+                "avg_win": float(avg_win),
+                "avg_loss": float(avg_loss),
+                "take_profit_trades": int(len(take_profit_trades)),
+                "stop_loss_trades": int(len(stop_loss_trades)),
+                "trailing_stop_trades": int(len(trailing_stop_trades)),
             },
             "final_positions": {
                 symbol: {
