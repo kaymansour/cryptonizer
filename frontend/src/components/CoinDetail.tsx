@@ -257,7 +257,7 @@ export default function CoinDetail({ coin, currency }: CoinDetailProps) {
           <div className="text-right">
             <div className="text-2xl md:text-3xl font-bold text-foreground">
               {currencySymbol}
-              {convertPrice(currentPrice, currency).toLocaleString(undefined, {
+              {currentPrice.toLocaleString(undefined, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: currentPrice < 1 ? 6 : 2,
               })}
@@ -310,14 +310,14 @@ export default function CoinDetail({ coin, currency }: CoinDetailProps) {
                 <span className="text-muted-foreground">Market Cap</span>
                 <span className="font-semibold text-foreground">
                   {currencySymbol}
-                  {formatNumber(convertPrice(marketCap, currency))}
+                  {formatNumber(marketCap)}
                 </span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-border">
                 <span className="text-muted-foreground">24h Volume</span>
                 <span className="font-semibold text-foreground">
                   {currencySymbol}
-                  {formatNumber(convertPrice(volume, currency))}
+                  {formatNumber(volume)}
                 </span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-border">
