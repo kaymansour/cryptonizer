@@ -107,9 +107,27 @@ export default function StrategyComparison({ portfolioData }: StrategyComparison
   const [timeperiod, setTimeperiod] = useState("1y");
   const [mounted, setMounted] = useState(false);
   const [barRef, barSize] = useElementSize<HTMLDivElement>();
-  const [selectedStrategies, setSelectedStrategies] = useState<string[]>([
-    "optimized", "equal_weight", "btc_only", "eth_only", "btc_eth_60_40"
-  ]);
+
+  // Determine available benchmarks based on portfolio symbols
+  const hasBTC = portfolioData.symbols.some(s => s.toUpperCase().includes('BTC'));
+  const hasETH = portfolioData.symbols.some(s => s.toUpperCase().includes('ETH'));
+
+  // Get top 2 assets by weight for dynamic benchmarks
+  const topAssets = useMemo(() => {
+    return Object.entries(portfolioData.weights)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 2)
+      .map(([symbol]) => symbol);
+  }, [portfolioData.weights]);
+
+  const [selectedStrategies, setSelectedStrategies] = useState<string[]>(() => {
+    const defaults = ["optimized", "equal_weight", "market_cap_weighted"];
+    // Only add BTC/ETH strategies if those assets are in the portfolio
+    if (hasBTC) defaults.push("btc_only");
+    if (hasETH) defaults.push("eth_only");
+    if (hasBTC && hasETH) defaults.push("btc_eth_60_40");
+    return defaults;
+  });
 
   const timeperiods = useMemo(() => [
     { value: "3m", label: "3 Months", days: 90 },
@@ -118,56 +136,94 @@ export default function StrategyComparison({ portfolioData }: StrategyComparison
     { value: "2y", label: "2 Years", days: 730 },
   ], []);
 
-  const strategyOptions = useMemo(() => [
-    {
-      value: "optimized",
-      label: "Optimized Portfolio",
-      description:
-        "Portfolio weights computed by the optimizer to balance expected return and risk (e.g., maximize Sharpe or meet constraints). " +
-        "May incorporate historical returns, covariance, and model-driven forecasts when enabled. Best when you want a risk-aware, data-driven allocation rather than a simple heuristic.",
-      short: "Risk-adjusted, data-driven allocation (optimizer-driven)."
-    },
-    {
-      value: "equal_weight",
-      label: "Equal Weight",
-      description:
-        "Simple and robust baseline: allocates the same percentage to every asset in the portfolio. " +
-        "Reduces concentration risk and is easy to rebalance. It ignores market cap and forecasts, so it can overweight smaller assets relative to their size.",
-      short: "Uniform allocation across assets; low complexity, good baseline."
-    },
-    {
-      value: "btc_only",
-      label: "Bitcoin Only",
-      description:
-        "Concentrated exposure to Bitcoin (100% allocation). " +
-        "Suitable if you believe Bitcoin will outperform the rest of the market. High potential return but also high single-asset risk and volatility; no diversification benefits.",
-      short: "100% BTC; high conviction, high volatility."
-    },
-    {
-      value: "eth_only",
-      label: "Ethereum Only",
-      description:
-        "Concentrated exposure to Ethereum (100% allocation). " +
-        "Captures ETH-specific upside (smart contract/platform adoption) but sacrifices diversification. Expect different volatility and drivers versus Bitcoin.",
-      short: "100% ETH; focused exposure to Ethereum's fundamentals."
-    },
-    {
-      value: "btc_eth_60_40",
-      label: "60/40 BTC/ETH",
-      description:
-        "A balanced, two-asset allocation: 60% Bitcoin and 40% Ethereum. " +
-        "Reduces single-asset concentration compared to 'BTC Only' while keeping meaningful exposure to Bitcoin's market leadership. Good for users who want tilt toward BTC but still benefit from ETH's performance.",
-      short: "60% BTC / 40% ETH; diversified between the two largest assets."
-    },
-    {
-      value: "market_cap_weighted",
-      label: "Market Cap Weighted",
-      description:
-        "Passive market-capitalization weighting: larger-cap coins receive larger allocations. " +
-        "This mirrors many index-style strategies and tends to be low turnover. It passively reflects market structure but can overweight overvalued assets and underweight emerging opportunities.",
-      short: "Passive market-cap weighting; low turnover, mirrors market structure."
-    },
-  ], []);
+  const strategyOptions = useMemo(() => {
+    const baseStrategies = [
+      {
+        value: "optimized",
+        label: "Optimized Portfolio",
+        description:
+          "Portfolio weights computed by the optimizer to balance expected return and risk (e.g., maximize Sharpe or meet constraints). " +
+          "May incorporate historical returns, covariance, and model-driven forecasts when enabled. Best when you want a risk-aware, data-driven allocation rather than a simple heuristic.",
+        short: "Risk-adjusted, data-driven allocation (optimizer-driven).",
+        available: true,
+      },
+      {
+        value: "equal_weight",
+        label: "Equal Weight",
+        description:
+          "Simple and robust baseline: allocates the same percentage to every asset in the portfolio. " +
+          "Reduces concentration risk and is easy to rebalance. It ignores market cap and forecasts, so it can overweight smaller assets relative to their size.",
+        short: "Uniform allocation across assets; low complexity, good baseline.",
+        available: true,
+      },
+      {
+        value: "market_cap_weighted",
+        label: "Market Cap Weighted",
+        description:
+          "Passive market-capitalization weighting: larger-cap coins receive larger allocations. " +
+          "This mirrors many index-style strategies and tends to be low turnover. It passively reflects market structure but can overweight overvalued assets and underweight emerging opportunities.",
+        short: "Passive market-cap weighting; low turnover, mirrors market structure.",
+        available: true,
+      },
+    ];
+
+    // Conditionally add BTC/ETH strategies only if those assets are in the portfolio
+    if (hasBTC) {
+      baseStrategies.push({
+        value: "btc_only",
+        label: "Bitcoin Only",
+        description:
+          "Concentrated exposure to Bitcoin (100% allocation). " +
+          "Suitable if you believe Bitcoin will outperform the rest of the market. High potential return but also high single-asset risk and volatility; no diversification benefits.",
+        short: "100% BTC; high conviction, high volatility.",
+        available: true,
+      });
+    }
+
+    if (hasETH) {
+      baseStrategies.push({
+        value: "eth_only",
+        label: "Ethereum Only",
+        description:
+          "Concentrated exposure to Ethereum (100% allocation). " +
+          "Captures ETH-specific upside (smart contract/platform adoption) but sacrifices diversification. Expect different volatility and drivers versus Bitcoin.",
+        short: "100% ETH; focused exposure to Ethereum's fundamentals.",
+        available: true,
+      });
+    }
+
+    if (hasBTC && hasETH) {
+      baseStrategies.push({
+        value: "btc_eth_60_40",
+        label: "60/40 BTC/ETH",
+        description:
+          "A balanced, two-asset allocation: 60% Bitcoin and 40% Ethereum. " +
+          "Reduces single-asset concentration compared to 'BTC Only' while keeping meaningful exposure to Bitcoin's market leadership. Good for users who want tilt toward BTC but still benefit from ETH's performance.",
+        short: "60% BTC / 40% ETH; diversified between the two largest assets.",
+        available: true,
+      });
+    }
+
+    // Add dynamic top-2 strategy if we have at least 2 assets and they're not BTC/ETH 60/40
+    if (topAssets.length >= 2 && !(hasBTC && hasETH)) {
+      const [asset1, asset2] = topAssets;
+      // Strip -USD suffix and convert to lowercase for strategy name
+      const asset1Clean = asset1.replace('-USD', '').toLowerCase();
+      const asset2Clean = asset2.replace('-USD', '').toLowerCase();
+
+      baseStrategies.push({
+        value: `${asset1Clean}_${asset2Clean}_60_40`,
+        label: `60/40 ${asset1.replace('-USD', '')}/${asset2.replace('-USD', '')}`,
+        description:
+          `A balanced, two-asset allocation: 60% ${asset1.replace('-USD', '')} and 40% ${asset2.replace('-USD', '')}. ` +
+          "This strategy focuses on your two largest holdings to provide concentration with some diversification.",
+        short: `60% ${asset1.replace('-USD', '')} / 40% ${asset2.replace('-USD', '')}; focused on top 2 assets.`,
+        available: true,
+      });
+    }
+
+    return baseStrategies;
+  }, [hasBTC, hasETH, topAssets]);
 
   const runComparison = useCallback(async () => {
     setLoading(true);
@@ -348,6 +404,15 @@ export default function StrategyComparison({ portfolioData }: StrategyComparison
             <label className="block text-sm font-medium text-muted-foreground mb-2">
               Benchmark Strategies
             </label>
+            {(!hasBTC || !hasETH) && (
+              <p className="text-xs text-muted-foreground mb-2">
+                {!hasBTC && !hasETH
+                  ? "BTC/ETH benchmarks unavailable (not in your portfolio)"
+                  : !hasBTC
+                    ? "BTC benchmarks unavailable (not in your portfolio)"
+                    : "ETH benchmarks unavailable (not in your portfolio)"}
+              </p>
+            )}
             <TooltipProvider>
               <div className="grid grid-cols-2 gap-2">
                 {strategyOptions.map((strategy) => (

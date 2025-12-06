@@ -133,6 +133,41 @@ class StrategyComparator:
                     market_cap_weights, "Market Cap Weighted", rebalance_frequency
                 )
 
+        # 7. Dynamic 60/40 strategies (e.g., bnb_sol_60_40, ada_dot_60_40)
+        # Parse any benchmark that matches the pattern: {symbol1}_{symbol2}_60_40
+        for benchmark in include_benchmarks:
+            if benchmark.endswith("_60_40") and benchmark != "btc_eth_60_40":
+                # Extract symbol names (remove _60_40 suffix)
+                symbol_part = benchmark[:-6]  # Remove _60_40
+
+                # Try to split into two symbols
+                # We'll check all possible splits
+                parts = symbol_part.split("_")
+
+                for split_idx in range(1, len(parts)):
+                    symbol1_name = "_".join(parts[:split_idx]).upper()
+                    symbol2_name = "_".join(parts[split_idx:]).upper()
+
+                    symbol1 = f"{symbol1_name}-USD"
+                    symbol2 = f"{symbol2_name}-USD"
+
+                    if symbol1 in self.symbols and symbol2 in self.symbols:
+                        print(f"Running dynamic 60/40 {symbol1}/{symbol2} backtest...")
+                        dynamic_weights = {
+                            symbol: (
+                                0.6
+                                if symbol == symbol1
+                                else 0.4 if symbol == symbol2 else 0.0
+                            )
+                            for symbol in self.symbols
+                        }
+                        strategies[benchmark] = self._backtest_strategy(
+                            dynamic_weights,
+                            f"60% {symbol1_name} / 40% {symbol2_name}",
+                            rebalance_frequency,
+                        )
+                        break  # Found valid split, stop trying other splits
+
         self.results = strategies
         return self._generate_comparison_report()
 

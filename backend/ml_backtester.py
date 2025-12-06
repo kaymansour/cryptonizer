@@ -139,24 +139,33 @@ class MLTradingBacktester:
     def _initialize_predictors(self):
         """Load or initialize ML predictors for each symbol"""
         print(f"Initializing ML predictors for {len(self.symbols)} assets...")
+        print(f"Interval: {self.interval}")
 
         for symbol in self.symbols:
             try:
-                # Use 60 lookback periods for daily data, 168 for hourly
+                # Use 60 lookback periods for daily data, 168 for hourly, 42 for 4h
                 lookback = (
                     60
                     if self.interval == "1d"
                     else (168 if self.interval == "1h" else 42)
                 )
-                predictor = IntradayPredictor(
+
+                # Import HybridPredictor to automatically select best model architecture
+                from models.hybrid_predictor import HybridPredictor
+
+                # Use HybridPredictor which will load the correct model type automatically
+                # (optimized attention for BTC/ETH/SOL/AVAX/LINK, vanilla LSTM for others)
+                predictor = HybridPredictor(
                     symbol=symbol,
                     interval=self.interval,
                     lookback_periods=lookback,
-                    use_csv=self.use_csv,
+                    auto_select=False,  # Use pre-configured model selection
+                    use_csv=self.use_csv
+                    and self.interval == "1d",  # Only use CSV for 1d
                 )
                 predictor.load_model()
                 self.predictors[symbol] = predictor
-                print(f"✅ Loaded model for {symbol}")
+                print(f"✅ Loaded {predictor.selected_model} model for {symbol}")
             except FileNotFoundError:
                 print(f"⚠️  No pre-trained model for {symbol}, will train on-the-fly")
                 self.predictors[symbol] = None
@@ -202,6 +211,11 @@ class MLTradingBacktester:
                 # Flatten MultiIndex columns if present (happens with single ticker download)
                 if isinstance(data.columns, pd.MultiIndex):
                     data.columns = data.columns.get_level_values(0)
+
+                # CRITICAL: Normalize timezone to avoid comparison errors
+                # yfinance returns timezone-aware data, CSV returns timezone-naive
+                if data.index.tz is not None:
+                    data.index = data.index.tz_localize(None)
 
                 print(f"  Retrieved {len(data)} raw candles")
                 data = self._add_features(data)
@@ -1063,7 +1077,13 @@ class MLTradingBacktester:
         for symbol in self.symbols[1:]:
             all_timestamps &= set(historical_data[symbol].index)
 
-        timestamps = sorted([ts for ts in all_timestamps if ts >= self.start_date])
+        # Ensure start_date is timezone-naive for comparison
+        start_date_naive = (
+            self.start_date.tz_localize(None)
+            if self.start_date.tz is not None
+            else self.start_date
+        )
+        timestamps = sorted([ts for ts in all_timestamps if ts >= start_date_naive])
 
         print(f"\nBacktesting {len(timestamps)} periods...")
         print(f"Signal threshold: {self.signal_threshold}%")
