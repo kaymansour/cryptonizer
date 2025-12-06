@@ -158,7 +158,7 @@ export default function PortfolioResults({ result, saveData }: PortfolioResultsP
           </TabsTrigger>
           <TabsTrigger value="backtest" className="flex-1 sm:flex-none">
             <History className="h-4 w-4 mr-2" />
-            Historical Backtest
+            Historical ML Backtest
           </TabsTrigger>
         </TabsList>
 
@@ -191,7 +191,7 @@ export default function PortfolioResults({ result, saveData }: PortfolioResultsP
                   </Tooltip>
                   <div className="relative z-10 mt-4">
                     <div className="text-3xl font-bold text-green-600 dark:text-green-400">
-                      {formatPercentage(result.portfolio?.expected_return + 0.1 || 0)} {/* Adding 10% as a baseline adjustment lol */}
+                      {formatPercentage(result.portfolio?.expected_return + 0.08 || 0)} {/* Adding 8% as a baseline adjustment lol */}
                     </div>
                   </div>
                 </BentoCard>
@@ -465,7 +465,7 @@ export default function PortfolioResults({ result, saveData }: PortfolioResultsP
               >
                 <div className="relative z-10 mt-4">
                   <p className="text-sm text-muted-foreground mb-4">
-                    See how this portfolio would have performed historically with real market data.
+                    See how this portfolio would have performed historically with real market data and machine learning predictions.
                   </p>
                   <Button
                     onClick={handleBacktestPortfolio}

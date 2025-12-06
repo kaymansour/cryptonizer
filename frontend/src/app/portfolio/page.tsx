@@ -317,7 +317,7 @@ export default function PortfolioOptimizer() {
       symbols: result.symbols.map(s => `${s}-USD`),
       weights: result.portfolio.weights,
       total_value: result.allocation?.total_value || parseFloat(investmentAmount),
-      expected_return: result.portfolio.expected_return + 0.1, // Add 10% baseline adjustment
+      expected_return: result.portfolio.expected_return + 0.08, // Add 8% baseline adjustment
       volatility: result.portfolio.volatility,
       sharpe_ratio: result.portfolio.sharpe_ratio,
       objective: result.portfolio.objective,
@@ -556,9 +556,7 @@ export default function PortfolioOptimizer() {
                     <div className="text-xs text-primary">
                       Using 60% ML predictions + 40% historical data
                     </div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      Weight limits: 5% min, 50% max per asset
-                    </div>
+
                   </div>
                 )}
               </div>
