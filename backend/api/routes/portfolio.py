@@ -23,7 +23,7 @@ router = APIRouter(prefix="/api")
 
 class PredictionRequest(BaseModel):
     symbols: List[str]
-    interval: str = "4h"
+    interval: str = "1d"  # Daily candles for better accuracy
     steps: int = 1
 
 
@@ -32,6 +32,16 @@ async def optimize_portfolio(request: PortfolioOptimizationRequest):
     """
     Optimize a cryptocurrency portfolio using Modern Portfolio Theory
     """
+    print("\n" + "=" * 60)
+    print("MPT PORTFOLIO OPTIMIZATION REQUEST")
+    print("=" * 60)
+    print(f"Request received:")
+    print(f"  Symbols: {request.symbols}")
+    print(f"  Total Value: ${request.total_value:,.2f}")
+    print(f"  Objective: {request.objective}")
+    print(f"  Period: {request.period}")
+    print(f"  ML Config: {request.ml_config}")
+
     try:
         # Convert symbols to Yahoo Finance format (add -USD suffix if not present)
         yf_symbols = []
@@ -41,7 +51,16 @@ async def optimize_portfolio(request: PortfolioOptimizationRequest):
             else:
                 yf_symbols.append(symbol.upper())
 
+        print(f"\nConverted symbols to Yahoo Finance format:")
+        print(f"  {yf_symbols}")
+
         # Perform portfolio optimization
+        print(f"\nCalling optimize_crypto_portfolio...")
+        print(f"  Symbols: {yf_symbols}")
+        print(f"  Total Value: {request.total_value}")
+        print(f"  Objective: {request.objective}")
+        print(f"  Period: {request.period}")
+
         result = optimize_crypto_portfolio(
             symbols=yf_symbols,
             total_value=request.total_value,
@@ -51,8 +70,19 @@ async def optimize_portfolio(request: PortfolioOptimizationRequest):
             max_weight=0.60,  # 60% maximum per asset
         )
 
+        print(f"\n✓ Optimization completed successfully")
+        print(f"  Expected Return: {result['optimization']['expected_return']:.2%}")
+        print(f"  Volatility: {result['optimization']['volatility']:.2%}")
+        print(f"  Sharpe Ratio: {result['optimization']['sharpe_ratio']:.2f}")
+
+        print(f"\n✓ Optimization completed successfully")
+        print(f"  Expected Return: {result['optimization']['expected_return']:.2%}")
+        print(f"  Volatility: {result['optimization']['volatility']:.2%}")
+        print(f"  Sharpe Ratio: {result['optimization']['sharpe_ratio']:.2f}")
+
         # Format response for frontend
-        return {
+        print(f"\nFormatting response for frontend...")
+        response_data = {
             "success": True,
             "portfolio": {
                 "expected_return": result["optimization"]["expected_return"],
@@ -75,7 +105,19 @@ async def optimize_portfolio(request: PortfolioOptimizationRequest):
             "period": request.period,
         }
 
+        print(f"✓ Response formatted successfully")
+        print("=" * 60 + "\n")
+        return response_data
+
     except Exception as e:
+        print(f"\n✗ ERROR in optimize_portfolio:")
+        print(f"  Error Type: {type(e).__name__}")
+        print(f"  Error Message: {str(e)}")
+        import traceback
+
+        print(f"  Traceback:")
+        traceback.print_exc()
+        print("=" * 60 + "\n")
         raise HTTPException(
             status_code=500, detail=f"Portfolio optimization failed: {str(e)}"
         )
@@ -268,10 +310,10 @@ async def predict_next_candles(request: PredictionRequest):
                 print(f"   Model loaded successfully")
 
                 # Fetch MORE data to account for feature engineering dropna
-                # Feature engineering drops ~60 rows, so we need 168 + 60 = ~230+ days
+                # Feature engineering drops ~60 rows, so we need 60 + 120 = ~180+ days for daily data
                 days_to_fetch = (
-                    365 if request.interval == "4h" else 730
-                )  # Fetch more data
+                    730 if request.interval == "1d" else 365
+                )  # Fetch more data for daily candles
                 print(f"   Fetching {days_to_fetch} days of data...")
 
                 recent_data = predictor.predictor.fetch_intraday_data(
@@ -312,7 +354,11 @@ async def predict_next_candles(request: PredictionRequest):
                                 "predicted_change_percent"
                             ],
                             "signal": pred["signal"],
-                            "candle_time": f"+{(step + 1) * (4 if request.interval == '4h' else 1)}h",
+                            "candle_time": (
+                                f"+{step + 1}d"
+                                if request.interval == "1d"
+                                else f"+{(step + 1) * (4 if request.interval == '4h' else 1)}h"
+                            ),
                         }
                     )
 
@@ -401,10 +447,11 @@ async def predict_next_candles(request: PredictionRequest):
 
 
 @router.get("/predict/{symbol}")
-async def predict_price(symbol: str, interval: str = "4h"):
+async def predict_price(symbol: str, interval: str = "1d"):
     """
     Predict next candle price using optimal model for this cryptocurrency
     Automatically selects between Vanilla LSTM and Optimized Attention-LSTM
+    Default: Daily (1d) candles for better accuracy
     """
     try:
         import yfinance as yf

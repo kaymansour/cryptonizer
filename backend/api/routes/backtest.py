@@ -82,7 +82,6 @@ async def compare_strategies_endpoint(request: StrategyComparisonRequest):
     try:
         print(f"Comparing strategies for {len(request.symbols)} symbols")
         print(f"Period: {request.start_date} to {request.end_date}")
-        print(f"Optimized weights: {request.optimized_weights}")
 
         # Validate optimized weights
         total_weight = sum(request.optimized_weights.values())
@@ -117,7 +116,6 @@ async def compare_strategies_endpoint(request: StrategyComparisonRequest):
         )
 
         print(f"Strategy comparison completed successfully")
-        print(f"Compared {len(comparison_results['comparison_summary'])} strategies")
 
         # Find best performing strategy
         best_strategy = max(
@@ -207,9 +205,9 @@ async def ml_backtest_endpoint(request: MLBacktestRequest):
                 required_confirmations=ml_config.required_confirmations,
             )
             # Set take profit levels if backtester supports these attributes
-            if hasattr(backtester, 'take_profit_levels'):
+            if hasattr(backtester, "take_profit_levels"):
                 backtester.take_profit_levels = ml_config.take_profit_levels
-            if hasattr(backtester, 'take_profit_portions'):
+            if hasattr(backtester, "take_profit_portions"):
                 backtester.take_profit_portions = ml_config.take_profit_portions
         else:
             backtester = MLTradingBacktester(
@@ -371,7 +369,7 @@ async def predict_next_candle_endpoint(request: dict):
     """
     try:
         symbols = request.get("symbols", [])
-        interval = request.get("interval", "4h")
+        interval = request.get("interval", "1d")  # Daily candles for better accuracy
         signal_threshold = request.get("signal_threshold", 2.0)
         max_position_size = request.get("max_position_size", 0.6)
         rsi_oversold = request.get("rsi_oversold", 25)
@@ -410,17 +408,20 @@ async def predict_next_candle_endpoint(request: dict):
 
                 # Initialize predictor
                 predictor = IntradayPredictor(
-                    symbol=symbol, interval=interval, lookback_periods=168
+                    symbol=symbol,
+                    interval=interval,
+                    lookback_periods=60 if interval == "1d" else 168,
                 )
 
                 # Load trained model
                 predictor.load_model()
 
                 # Get recent data - need enough for lookback + feature engineering
-                # For 4h candles: 168 periods = 28 days, but feature engineering drops ~60 rows
-                # So we need ~50-60 days to be safe
+                # For daily candles: 60 periods + 60 for features = 120 days needed
                 end_date = datetime.now()
-                days_needed = 60 if interval == "4h" else 30
+                days_needed = (
+                    180 if interval == "1d" else (60 if interval == "4h" else 30)
+                )
                 start_date = end_date - timedelta(days=days_needed)
 
                 data = yf.download(

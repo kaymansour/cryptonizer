@@ -9,7 +9,6 @@ import { Badge } from "@/components/ui/badge";
 import StrategyComparison from "@/components/StrategyComparison";
 import MLTradingDashboard from "@/components/MLTradingDashboard";
 import SavePortfolioDialog from "@/components/SavePortfolioDialog";
-import { SavePortfolioData } from "@/lib/api";
 
 interface PortfolioData {
   symbols: string[];

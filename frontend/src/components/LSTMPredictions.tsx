@@ -45,7 +45,7 @@ export default function LSTMPredictions({ portfolioData }: LSTMPredictionsProps)
     const [predictions, setPredictions] = useState<PredictionsResult | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string>("");
-    const [interval, setInterval] = useState("4h");
+    const [interval, setInterval] = useState("1d");  // Daily candles for better accuracy
 
     const fetchPredictions = async () => {
         setLoading(true);
@@ -126,8 +126,9 @@ export default function LSTMPredictions({ portfolioData }: LSTMPredictionsProps)
                             onChange={(e) => setInterval(e.target.value)}
                             className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                         >
+                            <option value="1d" className="bg-gray-800">1 Day (Recommended)</option>
+                            <option value="4h" className="bg-gray-800">4 Hours</option>
                             <option value="1h" className="bg-gray-800">1 Hour</option>
-                            <option value="4h" className="bg-gray-800">4 Hours (Recommended)</option>
                         </select>
                     </div>
                     <div className="pt-6">

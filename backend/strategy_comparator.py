@@ -243,13 +243,13 @@ class StrategyComparator:
 
             comparison_data[strategy_key] = {
                 "strategy_name": result.get("strategy_name", strategy_key),
-                "final_value": summary.get("final_value", 0),
-                "total_return": summary.get("total_return", 0),
-                "annualized_return": summary.get("annualized_return", 0),
-                "volatility": summary.get("volatility", 0),
-                "sharpe_ratio": summary.get("sharpe_ratio", 0),
-                "max_drawdown": summary.get("max_drawdown", 0),
-                "win_rate": performance.get("risk", {}).get("win_rate", 0),
+                "final_value": float(summary.get("final_value", 0)),
+                "total_return": float(summary.get("total_return", 0)),
+                "annualized_return": float(summary.get("annualized_return", 0)),
+                "volatility": float(summary.get("volatility", 0)),
+                "sharpe_ratio": float(summary.get("sharpe_ratio", 0)),
+                "max_drawdown": float(summary.get("max_drawdown", 0)),
+                "win_rate": float(performance.get("risk", {}).get("win_rate", 0)),
                 "rebalance_frequency": result.get("rebalance_frequency", "unknown"),
             }
 
@@ -298,10 +298,8 @@ class StrategyComparator:
 
             rankings[metric] = [
                 {
-                    "rank": i + 1,
                     "strategy": strategy_key,
-                    "strategy_name": data["strategy_name"],
-                    "value": data.get(metric, 0),
+                    "value": float(data.get(metric, 0)),
                 }
                 for i, (strategy_key, data) in enumerate(sorted_strategies)
             ]

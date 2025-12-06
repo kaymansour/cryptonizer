@@ -65,14 +65,40 @@ export default function MLPredictionChart({ predictions, symbol }: MLPredictionC
         predicted: pred.predicted_price,
     }));
 
-    // Calculate prediction accuracy
-    const accuracy = predictions.length > 0
-        ? predictions.reduce((acc, pred) => {
-            const error = Math.abs(pred.actual_price - pred.predicted_price);
-            const percentError = (error / pred.actual_price) * 100;
-            return acc + (100 - percentError);
-        }, 0) / predictions.length
-        : 0;
+    // Calculate both directional accuracy and price accuracy
+    const metrics = predictions.length > 1
+        ? (() => {
+            let correctDirections = 0;
+            let totalError = 0;
+            
+            for (let i = 1; i < predictions.length; i++) {
+                const currentActual = predictions[i].actual_price;
+                const prevActual = predictions[i - 1].actual_price;
+                const actualChange = currentActual - prevActual;
+                
+                // The prediction was made at i-1 for timestamp i
+                const predictedPrice = predictions[i - 1].predicted_price;
+                const currentPrice = predictions[i - 1].actual_price;
+                const predictedChange = predictedPrice - currentPrice;
+                
+                // Directional accuracy: Both should have same sign (both up or both down)
+                if ((actualChange > 0 && predictedChange > 0) || 
+                    (actualChange < 0 && predictedChange < 0)) {
+                    correctDirections++;
+                }
+                
+                // Price accuracy: Calculate MAPE (Mean Absolute Percentage Error)
+                const percentError = Math.abs((currentActual - predictedPrice) / currentActual) * 100;
+                totalError += percentError;
+            }
+            
+            const directionalAccuracy = (correctDirections / (predictions.length - 1)) * 100;
+            const avgError = totalError / (predictions.length - 1);
+            const priceAccuracy = Math.max(0, 100 - avgError); // Convert error to accuracy
+            
+            return { directionalAccuracy, priceAccuracy };
+        })()
+        : { directionalAccuracy: 0, priceAccuracy: 0 };
 
     return (
         <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
@@ -80,9 +106,15 @@ export default function MLPredictionChart({ predictions, symbol }: MLPredictionC
                 <h3 className="text-xl font-semibold text-white">
                     {symbol} - ML Predictions vs Actual Prices
                 </h3>
-                <div className="text-right">
-                    <p className="text-sm text-gray-300">Prediction Accuracy</p>
-                    <p className="text-2xl font-bold text-emerald-400">{accuracy.toFixed(2)}%</p>
+                <div className="flex gap-6">
+                    <div className="text-right">
+                        <p className="text-xs text-gray-400">Direction Accuracy</p>
+                        <p className="text-xl font-bold text-emerald-400">{metrics.directionalAccuracy.toFixed(1)}%</p>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-xs text-gray-400">Price Accuracy</p>
+                        <p className="text-xl font-bold text-blue-400">{metrics.priceAccuracy.toFixed(1)}%</p>
+                    </div>
                 </div>
             </div>
 
