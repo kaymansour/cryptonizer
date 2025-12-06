@@ -157,8 +157,8 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
     const [predictionLoading, setPredictionLoading] = useState(false);
 
     const timeperiods = useMemo(() => [
-        { value: "1m", label: "1 Month", days: 30 },
-        { value: "3m", label: "3 Months", days: 90 },
+        // { value: "1m", label: "1 Month", days: 30 },
+        // { value: "3m", label: "3 Months", days: 90 },
         { value: "6m", label: "6 Months", days: 180 },
         { value: "1y", label: "1 Year", days: 365 },
         { value: "2y", label: "2 Years (Max)", days: 730 },
@@ -167,7 +167,7 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
     const intervalOptions = [
         { value: "1d", label: "1 Day (Recommended)" },
         { value: "4h", label: "4 Hours" },
-        { value: "1h", label: "1 Hour" },
+        // { value: "1h", label: "1 Hour" },
     ];
 
     const resetToDefaults = () => {
@@ -633,10 +633,10 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
                                         onClick={saveBacktestResults}
                                         disabled={!backtestResult || loading || saving || !isSignedIn}
                                         className={`px-6 py-3 rounded-xl font-semibold transition-all h-fit self-end flex items-center gap-2 ${saveSuccess
-                                                ? 'bg-emerald-500 text-white'
-                                                : backtestResult && isSignedIn
-                                                    ? 'bg-purple-500/80 hover:bg-purple-500 text-white'
-                                                    : 'bg-gray-500/50 text-gray-400 cursor-not-allowed'
+                                            ? 'bg-emerald-500 text-white'
+                                            : backtestResult && isSignedIn
+                                                ? 'bg-purple-500/80 hover:bg-purple-500 text-white'
+                                                : 'bg-gray-500/50 text-gray-400 cursor-not-allowed'
                                             } disabled:opacity-50 disabled:cursor-not-allowed`}
                                     >
                                         {saving ? (

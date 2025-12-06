@@ -3,13 +3,13 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
-import { 
-  Briefcase, 
-  Brain, 
-  Trash2, 
-  Calendar, 
-  TrendingUp, 
-  TrendingDown, 
+import {
+  Briefcase,
+  Brain,
+  Trash2,
+  Calendar,
+  TrendingUp,
+  TrendingDown,
   ArrowLeft,
   Loader2,
   FolderOpen,
@@ -21,6 +21,17 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { getUserPortfolios, deletePortfolio, getUserMLBacktestResults, deleteMLBacktestResult } from "@/lib/api";
 
 interface SavedPortfolio {
@@ -76,7 +87,7 @@ export default function SavedPage() {
 
   const fetchData = async () => {
     if (!user) return;
-    
+
     setLoading(true);
     setError("");
 
@@ -97,7 +108,7 @@ export default function SavedPage() {
   };
 
   const handleDeletePortfolio = async (portfolioId: number) => {
-    if (!user || !confirm("Are you sure you want to delete this portfolio?")) return;
+    if (!user) return;
 
     setDeleting(portfolioId);
     try {
@@ -112,7 +123,7 @@ export default function SavedPage() {
   };
 
   const handleDeleteBacktest = async (backtestId: number) => {
-    if (!user || !confirm("Are you sure you want to delete this backtest result?")) return;
+    if (!user) return;
 
     setDeleting(backtestId);
     try {
@@ -146,10 +157,11 @@ export default function SavedPage() {
     }).format(value);
   };
 
-  const formatPercentage = (value: number | undefined | null) => {
+  const formatPercentage = (value: number | undefined | null, isAlreadyPercentage: boolean = false) => {
     if (value === undefined || value === null) return 'N/A';
-    const sign = value >= 0 ? '+' : '';
-    return `${sign}${value.toFixed(2)}%`;
+    const percentValue = isAlreadyPercentage ? value : value * 100;
+    const sign = percentValue >= 0 ? '+' : '';
+    return `${sign}${percentValue.toFixed(2)}%`;
   };
 
   // Not signed in state
@@ -262,7 +274,7 @@ export default function SavedPage() {
                             </Badge>
                           )}
                         </div>
-                        
+
                         {/* Assets */}
                         <div className="flex flex-wrap gap-2 mb-3">
                           {portfolio.symbols.map((symbol) => (
@@ -304,19 +316,39 @@ export default function SavedPage() {
 
                       {/* Right side - Actions */}
                       <div className="flex items-center gap-2">
-                        <Button
-                          onClick={() => handleDeletePortfolio(portfolio.id)}
-                          variant="outline"
-                          size="sm"
-                          className="rounded-xl text-destructive hover:bg-destructive/10"
-                          disabled={deleting === portfolio.id}
-                        >
-                          {deleting === portfolio.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-4 w-4" />
-                          )}
-                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="rounded-xl text-destructive hover:bg-destructive/10"
+                              disabled={deleting === portfolio.id}
+                            >
+                              {deleting === portfolio.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Portfolio</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to delete &quot;{portfolio.name}&quot;? This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDeletePortfolio(portfolio.id)}
+                                className="bg-destructive hover:bg-destructive/90"
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </div>
                   </div>
@@ -364,7 +396,7 @@ export default function SavedPage() {
                             </Badge>
                           )}
                         </div>
-                        
+
                         {/* Assets */}
                         <div className="flex flex-wrap gap-2 mb-3">
                           {backtest.symbols.map((symbol) => (
@@ -389,7 +421,7 @@ export default function SavedPage() {
                             )}
                             <span className="text-muted-foreground">Return:</span>
                             <span className={`font-medium ${(backtest.total_return || 0) >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                              {formatPercentage(backtest.total_return)}
+                              {formatPercentage(backtest.total_return, true)}
                             </span>
                           </div>
                           {backtest.total_trades !== undefined && (
@@ -437,19 +469,39 @@ export default function SavedPage() {
 
                       {/* Right side - Actions */}
                       <div className="flex items-center gap-2">
-                        <Button
-                          onClick={() => handleDeleteBacktest(backtest.id)}
-                          variant="outline"
-                          size="sm"
-                          className="rounded-xl text-destructive hover:bg-destructive/10"
-                          disabled={deleting === backtest.id}
-                        >
-                          {deleting === backtest.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-4 w-4" />
-                          )}
-                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="rounded-xl text-destructive hover:bg-destructive/10"
+                              disabled={deleting === backtest.id}
+                            >
+                              {deleting === backtest.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Backtest Result</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to delete &quot;{backtest.name}&quot;? This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDeleteBacktest(backtest.id)}
+                                className="bg-destructive hover:bg-destructive/90"
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </div>
                   </div>
