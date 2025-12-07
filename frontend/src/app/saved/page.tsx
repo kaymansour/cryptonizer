@@ -17,7 +17,9 @@ import {
   Percent,
   DollarSign,
   Activity,
-  Clock
+  Clock,
+  ChevronDown,
+  Settings
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +48,23 @@ interface SavedPortfolio {
   objective?: string;
   period?: string;
   created_at: string;
+  preferences?: {
+    trading_frequency?: string;
+    loss_tolerance?: string;
+    profit_taking?: string;
+    investment_horizon?: string;
+    signal_threshold?: number;
+    max_position_size?: number;
+    rsi_oversold?: number;
+    rsi_overbought?: number;
+    stop_loss_pct?: number;
+    trailing_stop_pct?: number;
+    trade_cooldown_periods?: number;
+    interval?: string;
+    use_trend_filter?: number;
+    use_rsi_filter?: number;
+    use_volume_filter?: number;
+  } | null;
 }
 
 interface SavedMLBacktest {
@@ -63,6 +82,16 @@ interface SavedMLBacktest {
   win_rate?: number;
   interval?: string;
   signal_threshold?: number;
+  max_position_size?: number;
+  min_confidence?: number;
+  rsi_oversold?: number;
+  rsi_overbought?: number;
+  stop_loss_pct?: number;
+  trailing_stop_pct?: number;
+  trade_cooldown_periods?: number;
+  use_trend_filter?: number;
+  use_rsi_filter?: number;
+  use_volume_filter?: number;
   backtest_period?: string;
   created_at: string;
 }
@@ -76,6 +105,8 @@ export default function SavedPage() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [error, setError] = useState<string>("");
+  const [expandedPortfolios, setExpandedPortfolios] = useState<Set<number>>(new Set());
+  const [expandedBacktests, setExpandedBacktests] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     if (isLoaded && isSignedIn && user) {
@@ -162,6 +193,30 @@ export default function SavedPage() {
     const percentValue = isAlreadyPercentage ? value : value * 100;
     const sign = percentValue >= 0 ? '+' : '';
     return `${sign}${percentValue.toFixed(2)}%`;
+  };
+
+  const togglePortfolioExpanded = (id: number) => {
+    setExpandedPortfolios(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleBacktestExpanded = (id: number) => {
+    setExpandedBacktests(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
   };
 
   // Not signed in state
@@ -312,6 +367,117 @@ export default function SavedPage() {
                             <span className="text-muted-foreground">{formatDate(portfolio.created_at)}</span>
                           </div>
                         </div>
+
+                        {/* Preferences Toggle */}
+                        {portfolio.preferences && (
+                          <div className="mt-4">
+                            <button
+                              onClick={() => togglePortfolioExpanded(portfolio.id)}
+                              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              <Settings className="h-4 w-4" />
+                              <span>Investment Preferences</span>
+                              <ChevronDown className={`h-4 w-4 transition-transform ${expandedPortfolios.has(portfolio.id) ? 'rotate-180' : ''}`} />
+                            </button>
+
+                            {expandedPortfolios.has(portfolio.id) && (
+                              <div className="mt-3 p-4 bg-muted/30 rounded-xl border border-border/50">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+                                  {portfolio.preferences.trading_frequency && (
+                                    <div>
+                                      <span className="text-muted-foreground">Trading Frequency:</span>
+                                      <p className="font-medium text-foreground capitalize">{portfolio.preferences.trading_frequency}</p>
+                                    </div>
+                                  )}
+                                  {portfolio.preferences.loss_tolerance && (
+                                    <div>
+                                      <span className="text-muted-foreground">Loss Tolerance:</span>
+                                      <p className="font-medium text-foreground capitalize">{portfolio.preferences.loss_tolerance}</p>
+                                    </div>
+                                  )}
+                                  {portfolio.preferences.profit_taking && (
+                                    <div>
+                                      <span className="text-muted-foreground">Profit Taking:</span>
+                                      <p className="font-medium text-foreground capitalize">{portfolio.preferences.profit_taking}</p>
+                                    </div>
+                                  )}
+                                  {portfolio.preferences.investment_horizon && (
+                                    <div>
+                                      <span className="text-muted-foreground">Horizon:</span>
+                                      <p className="font-medium text-foreground capitalize">{portfolio.preferences.investment_horizon}</p>
+                                    </div>
+                                  )}
+                                  {portfolio.preferences.interval && (
+                                    <div>
+                                      <span className="text-muted-foreground">Interval:</span>
+                                      <p className="font-medium text-foreground">{portfolio.preferences.interval}</p>
+                                    </div>
+                                  )}
+                                  {portfolio.preferences.signal_threshold !== undefined && (
+                                    <div>
+                                      <span className="text-muted-foreground">Signal Threshold:</span>
+                                      <p className="font-medium text-foreground">{portfolio.preferences.signal_threshold.toFixed(2)}</p>
+                                    </div>
+                                  )}
+                                  {portfolio.preferences.max_position_size !== undefined && (
+                                    <div>
+                                      <span className="text-muted-foreground">Max Position:</span>
+                                      <p className="font-medium text-foreground">{(portfolio.preferences.max_position_size * 100).toFixed(0)}%</p>
+                                    </div>
+                                  )}
+                                  {portfolio.preferences.stop_loss_pct !== undefined && (
+                                    <div>
+                                      <span className="text-muted-foreground">Stop Loss:</span>
+                                      <p className="font-medium text-foreground">{(portfolio.preferences.stop_loss_pct * 100).toFixed(1)}%</p>
+                                    </div>
+                                  )}
+                                  {portfolio.preferences.trailing_stop_pct !== undefined && (
+                                    <div>
+                                      <span className="text-muted-foreground">Trailing Stop:</span>
+                                      <p className="font-medium text-foreground">{(portfolio.preferences.trailing_stop_pct * 100).toFixed(1)}%</p>
+                                    </div>
+                                  )}
+                                  {portfolio.preferences.rsi_oversold !== undefined && (
+                                    <div>
+                                      <span className="text-muted-foreground">RSI Oversold:</span>
+                                      <p className="font-medium text-foreground">{portfolio.preferences.rsi_oversold}</p>
+                                    </div>
+                                  )}
+                                  {portfolio.preferences.rsi_overbought !== undefined && (
+                                    <div>
+                                      <span className="text-muted-foreground">RSI Overbought:</span>
+                                      <p className="font-medium text-foreground">{portfolio.preferences.rsi_overbought}</p>
+                                    </div>
+                                  )}
+                                  {portfolio.preferences.trade_cooldown_periods !== undefined && (
+                                    <div>
+                                      <span className="text-muted-foreground">Cooldown:</span>
+                                      <p className="font-medium text-foreground">{portfolio.preferences.trade_cooldown_periods} periods</p>
+                                    </div>
+                                  )}
+                                </div>
+                                {/* <div className="mt-3 pt-3 border-t border-border/50 flex gap-4 text-xs">
+                                  <span className="text-muted-foreground">Filters:</span>
+                                  {portfolio.preferences.use_trend_filter ? (
+                                    <span className="text-emerald-500">✓ Trend</span>
+                                  ) : (
+                                    <span className="text-muted-foreground">✗ Trend</span>
+                                  )}
+                                  {portfolio.preferences.use_rsi_filter ? (
+                                    <span className="text-emerald-500">✓ RSI</span>
+                                  ) : (
+                                    <span className="text-muted-foreground">✗ RSI</span>
+                                  )}
+                                  {portfolio.preferences.use_volume_filter ? (
+                                    <span className="text-emerald-500">✓ Volume</span>
+                                  ) : (
+                                    <span className="text-muted-foreground">✗ Volume</span>
+                                  )}
+                                </div> */}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       {/* Right side - Actions */}
@@ -465,6 +631,97 @@ export default function SavedPage() {
                             )}
                           </div>
                         )}
+
+                        {/* ML Configuration Toggle */}
+                        <div className="mt-4">
+                          <button
+                            onClick={() => toggleBacktestExpanded(backtest.id)}
+                            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            <Settings className="h-4 w-4" />
+                            <span>ML Configuration</span>
+                            <ChevronDown className={`h-4 w-4 transition-transform ${expandedBacktests.has(backtest.id) ? 'rotate-180' : ''}`} />
+                          </button>
+
+                          {expandedBacktests.has(backtest.id) && (
+                            <div className="mt-3 p-4 bg-muted/30 rounded-xl border border-border/50">
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+                                {backtest.signal_threshold !== undefined && (
+                                  <div>
+                                    <span className="text-muted-foreground">Signal Threshold:</span>
+                                    <p className="font-medium text-foreground">{backtest.signal_threshold.toFixed(2)}</p>
+                                  </div>
+                                )}
+                                {backtest.max_position_size !== undefined && (
+                                  <div>
+                                    <span className="text-muted-foreground">Max Position:</span>
+                                    <p className="font-medium text-foreground">{(backtest.max_position_size * 100).toFixed(0)}%</p>
+                                  </div>
+                                )}
+                                {/* {backtest.min_confidence !== undefined && (
+                                  <div>
+                                    <span className="text-muted-foreground">Min Confidence:</span>
+                                    <p className="font-medium text-foreground">{(backtest.min_confidence * 100).toFixed(1)}%</p>
+                                  </div>
+                                )} */}
+                                {backtest.stop_loss_pct !== undefined && (
+                                  <div>
+                                    <span className="text-muted-foreground">Stop Loss:</span>
+                                    <p className="font-medium text-foreground">{(backtest.stop_loss_pct * 100).toFixed(1)}%</p>
+                                  </div>
+                                )}
+                                {backtest.trailing_stop_pct !== undefined && (
+                                  <div>
+                                    <span className="text-muted-foreground">Trailing Stop:</span>
+                                    <p className="font-medium text-foreground">{(backtest.trailing_stop_pct * 100).toFixed(1)}%</p>
+                                  </div>
+                                )}
+                                {backtest.rsi_oversold !== undefined && (
+                                  <div>
+                                    <span className="text-muted-foreground">RSI Oversold:</span>
+                                    <p className="font-medium text-foreground">{backtest.rsi_oversold}</p>
+                                  </div>
+                                )}
+                                {backtest.rsi_overbought !== undefined && (
+                                  <div>
+                                    <span className="text-muted-foreground">RSI Overbought:</span>
+                                    <p className="font-medium text-foreground">{backtest.rsi_overbought}</p>
+                                  </div>
+                                )}
+                                {backtest.trade_cooldown_periods !== undefined && (
+                                  <div>
+                                    <span className="text-muted-foreground">Cooldown:</span>
+                                    <p className="font-medium text-foreground">{backtest.trade_cooldown_periods} periods</p>
+                                  </div>
+                                )}
+                                {backtest.interval && (
+                                  <div>
+                                    <span className="text-muted-foreground">Interval:</span>
+                                    <p className="font-medium text-foreground">{backtest.interval}</p>
+                                  </div>
+                                )}
+                              </div>
+                              {/* <div className="mt-3 pt-3 border-t border-border/50 flex gap-4 text-xs">
+                                <span className="text-muted-foreground">Filters:</span>
+                                {backtest.use_trend_filter ? (
+                                  <span className="text-emerald-500">✓ Trend</span>
+                                ) : (
+                                  <span className="text-muted-foreground">✗ Trend</span>
+                                )}
+                                {backtest.use_rsi_filter ? (
+                                  <span className="text-emerald-500">✓ RSI</span>
+                                ) : (
+                                  <span className="text-muted-foreground">✗ RSI</span>
+                                )}
+                                {backtest.use_volume_filter ? (
+                                  <span className="text-emerald-500">✓ Volume</span>
+                                ) : (
+                                  <span className="text-muted-foreground">✗ Volume</span>
+                                )}
+                              </div> */}
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       {/* Right side - Actions */}
