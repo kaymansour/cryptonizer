@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Loader2, TrendingUp, Shield, Target, Sparkles, DollarSign, Clock, Activity, TrendingDown, Gauge, Calendar, FolderOpen } from "lucide-react";
+import { Loader2, TrendingUp, Shield, Target, Sparkles, DollarSign, Clock, Activity, TrendingDown, Gauge, Calendar } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import Select from 'react-select';
@@ -94,7 +93,6 @@ const investmentHorizonOptions = [
 ];
 
 export default function PortfolioOptimizer() {
-  const router = useRouter();
   const [selectedSymbols, setSelectedSymbols] = useState<string[]>(["BTC", "ETH"]);
   const [investmentAmount, setInvestmentAmount] = useState<string>("100000");
   const [riskTolerance, setRiskTolerance] = useState<string>("medium");
@@ -144,7 +142,7 @@ export default function PortfolioOptimizer() {
 
     // Start with baseline values optimized for moderate risk/return profile
     const config = {
-      signal_threshold: 2.0,
+      signal_threshold: 1.5,
       min_confidence: 0.5,
       max_position_size: 0.6,
       stop_loss_pct: 0.03,
@@ -153,7 +151,7 @@ export default function PortfolioOptimizer() {
       required_confirmations: 2,
       take_profit_levels: [0.03, 0.05, 0.08],
       take_profit_portions: [0.3, 0.3, 0.4],
-      interval: "1d",  // Daily candles for better accuracy
+      interval: "4h",
       use_trend_filter: true,
       use_rsi_filter: true,
       use_volume_filter: true,
@@ -232,10 +230,6 @@ export default function PortfolioOptimizer() {
     }
     if (!riskTolerance || !investmentGoal) {
       setError("Please answer all questions before optimizing");
-      return;
-    }
-    if (parseFloat(investmentAmount) < 1000) {
-      setError("Minimum investment amount is $1,000");
       return;
     }
 
@@ -317,7 +311,7 @@ export default function PortfolioOptimizer() {
       symbols: result.symbols.map(s => `${s}-USD`),
       weights: result.portfolio.weights,
       total_value: result.allocation?.total_value || parseFloat(investmentAmount),
-      expected_return: result.portfolio.expected_return + 0.08, // Add 8% baseline adjustment
+      expected_return: result.portfolio.expected_return,
       volatility: result.portfolio.volatility,
       sharpe_ratio: result.portfolio.sharpe_ratio,
       objective: result.portfolio.objective,
@@ -336,7 +330,7 @@ export default function PortfolioOptimizer() {
         trailing_stop_pct: 0.05,
         trade_cooldown_periods: 6,
         take_profit_levels: [0.03, 0.05, 0.08],
-        interval: '1d',  // Daily candles for better accuracy
+        interval: '4h',
         use_trend_filter: true,
         use_rsi_filter: true,
         use_volume_filter: true,
@@ -385,18 +379,9 @@ export default function PortfolioOptimizer() {
             </h1>
             <Sparkles className="h-8 w-8 text-primary" />
           </div>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-6">
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             Build an optimized cryptocurrency portfolio tailored to your goals and risk tolerance
           </p>
-          {/* View Saved Button */}
-          <Button
-            onClick={() => router.push("/saved")}
-            variant="outline"
-            className="rounded-xl border-primary/40 hover:bg-primary/10 hover:border-primary transition-all"
-          >
-            <FolderOpen className="mr-2 h-5 w-5 text-primary" />
-            View Saved Portfolios & Backtests
-          </Button>
         </div>
 
         {/* Bento Grid Layout */}
@@ -556,7 +541,9 @@ export default function PortfolioOptimizer() {
                     <div className="text-xs text-primary">
                       Using 60% ML predictions + 40% historical data
                     </div>
-
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Weight limits: 5% min, 50% max per asset
+                    </div>
                   </div>
                 )}
               </div>
@@ -623,7 +610,7 @@ export default function PortfolioOptimizer() {
                 className="text-lg w-full rounded-xl h-12"
               />
               <div className="grid grid-cols-3 gap-2">
-                {[10000, 50000, 100000].map((amount) => (
+                {[50000, 100000, 250000].map((amount) => (
                   <Button
                     key={amount}
                     onClick={() => setInvestmentAmount(amount.toString())}
@@ -635,9 +622,6 @@ export default function PortfolioOptimizer() {
                   </Button>
                 ))}
               </div>
-              <p className="text-xs text-muted-foreground text-center">
-                Minimum: $1,000
-              </p>
             </div>
           </BentoCard>
 

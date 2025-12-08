@@ -1001,7 +1001,7 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
                                             <th className="text-right py-3 px-4 text-gray-300 font-medium">Price</th>
                                             <th className="text-right py-3 px-4 text-gray-300 font-medium">Coins</th>
                                             <th className="text-right py-3 px-4 text-gray-300 font-medium">Value</th>
-                                            <th className="text-right py-3 px-4 text-gray-300 font-medium">Predicted Change</th>
+                                            <th className="text-right py-3 px-4 text-gray-300 font-medium">Confidence</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -1048,10 +1048,10 @@ export default function MLTradingDashboard({ portfolioData }: MLTradingDashboard
                                                             {formatCurrency(trade.value)}
                                                         </td>
                                                         <td className="py-3 px-4 text-right">
-                                                            <span className={`font-medium ${trade.predicted_change > 0 ? 'text-emerald-400' :
-                                                                trade.predicted_change < 0 ? 'text-red-400' : 'text-gray-400'
+                                                            <span className={`font-medium ${trade.confidence >= 0.7 ? 'text-emerald-400' :
+                                                                    trade.confidence >= 0.5 ? 'text-yellow-400' : 'text-gray-400'
                                                                 }`}>
-                                                                {trade.predicted_change > 0 ? '+' : ''}{trade.predicted_change.toFixed(2)}%
+                                                                {(trade.confidence * 100).toFixed(1)}%
                                                             </span>
                                                         </td>
                                                     </tr>
