@@ -73,3 +73,9 @@ frontend/.clerk/.tmp/
 
 # Postman shortcut (local file link)
 Postman.lnk
+backend/venv/
+backend/models/*.h5
+backend/models/*.keras
+backend/models/old/
+cryptocurrency-historical-prices-top-100-2025/
+*.ipynb_checkpoints/
